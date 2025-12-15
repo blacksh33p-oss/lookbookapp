@@ -125,22 +125,68 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // --- SUPABASE INITIALIZATION ---
+  // --- SUPABASE INITIALIZATION & AUTH ---
   useEffect(() => {
+    // 1. Check active session on load
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session) fetchProfile(session.user.id);
-      else setIsAuthLoading(false);
+      if (session) {
+          handlePostLogin(session.user.id);
+      } else {
+          setIsAuthLoading(false);
+      }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // 2. Listen for auth changes (Magic Link login, Sign out, etc)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
-      if (session) fetchProfile(session.user.id);
-      else setUserProfile(null);
+      
+      if (event === 'SIGNED_IN' && session) {
+         await handlePostLogin(session.user.id);
+      } else if (event === 'SIGNED_OUT') {
+         setUserProfile(null);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Handle post-login logic: Update Tier from selection and Fetch Profile
+  const handlePostLogin = async (userId: string) => {
+    try {
+        // Check if user selected a plan during sign up (stored in LoginModal)
+        const pendingPlan = localStorage.getItem('pending_plan');
+        
+        if (pendingPlan && pendingPlan !== SubscriptionTier.Free) {
+            // Update the user's tier in the database
+            console.log("Applying pending plan:", pendingPlan);
+            
+            // Note: In a real Stripe app, you would redirect to Checkout here.
+            // For now, we update the DB directly to simulate the upgrade.
+            let startingCredits = 5;
+            if(pendingPlan === SubscriptionTier.Creator) startingCredits = 40;
+            if(pendingPlan === SubscriptionTier.Studio) startingCredits = 200;
+
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update({ 
+                    tier: pendingPlan,
+                    credits: startingCredits // Give them the credits for that plan
+                })
+                .eq('id', userId);
+            
+            if (updateError) console.error("Failed to apply pending plan", updateError);
+            
+            // Clear the pending plan
+            localStorage.removeItem('pending_plan');
+        }
+
+        // Fetch final profile
+        await fetchProfile(userId);
+    } catch (e) {
+        console.error("Post-login handler error:", e);
+    }
+  };
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -173,7 +219,7 @@ const App: React.FC = () => {
           }
       });
       if (error) throw error;
-      alert(`Login link sent to ${email}! Check your inbox.`);
+      alert(`Login link sent to ${email}! \n\nIMPORTANT: If running locally, ensure your Supabase redirect URLs include ${window.location.origin}`);
   };
 
   const handleLogout = async () => {
@@ -189,27 +235,26 @@ const App: React.FC = () => {
      }
 
      try {
-         // This assumes you set up the /api/create-checkout serverless function
-         const response = await fetch('/api/create-checkout', {
-             method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({
-                 priceId: 'price_1Q...', // Replace with your actual Stripe Price ID
-                 userId: session.user.id,
-                 email: session.user.email
-             })
-         });
-         
-         const { sessionId } = await response.json();
-         // Redirect to Stripe checkout
-         // For a real implementation, you'd use loadStripe from @stripe/stripe-js
-         // const stripe = await loadStripe(process.env.VITE_STRIPE_PUBLIC_KEY);
-         // stripe?.redirectToCheckout({ sessionId });
-         alert("Redirecting to Stripe... (Configure Stripe public key to complete)");
-         console.log("Stripe Session:", sessionId);
+         // Mock Upgrade for demo purposes (replace with Stripe logic later)
+         const confirmed = window.confirm(`Upgrade to ${tier} plan? (Mock Payment)`);
+         if (confirmed) {
+             let newCredits = 40;
+             if (tier === SubscriptionTier.Studio) newCredits = 200;
+
+             const { error } = await supabase
+                 .from('profiles')
+                 .update({ tier: tier, credits: newCredits })
+                 .eq('id', session.user.id);
+             
+             if (!error) {
+                 setUserProfile({ tier, credits: newCredits });
+                 setShowUpgradeModal(false);
+                 alert(`Upgraded to ${tier}!`);
+             }
+         }
      } catch (e) {
          console.error(e);
-         alert("Failed to initiate checkout. Check console for details.");
+         alert("Failed to initiate checkout.");
      }
   };
 
@@ -324,7 +369,9 @@ const App: React.FC = () => {
                  {session ? (
                      <>
                         <div className="hidden sm:flex flex-col items-end px-2 border-r border-white/10">
-                            <span className="text-[10px] text-zinc-500 font-mono">CREDITS</span>
+                            <span className="text-[10px] text-zinc-500 font-mono">
+                                {userProfile?.tier || 'FREE'} PLAN
+                            </span>
                             <div className="text-xs font-mono font-bold text-white tabular-nums flex items-center gap-1">
                                 {userProfile?.credits || 0} <Zap size={10} className="text-brand-400 fill-brand-400" />
                             </div>
