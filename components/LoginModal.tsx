@@ -1,18 +1,20 @@
-
 import React, { useState } from 'react';
-import { X, Mail, ArrowRight, Loader2, Check, User, Building2 } from 'lucide-react';
+import { X, Mail, ArrowRight, Loader2, Check, User, Building2, Lock } from 'lucide-react';
 import { SubscriptionTier } from '../types';
 
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLogin: (email: string) => Promise<void>;
+  onAuth: (email: string, password?: string, isSignUp?: boolean) => Promise<void>;
 }
 
-export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin }) => {
-  const [step, setStep] = useState<'selection' | 'email'>('selection');
+export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onAuth }) => {
+  const [step, setStep] = useState<'selection' | 'credentials'>('selection');
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>(SubscriptionTier.Free);
+  
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,7 +22,22 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
 
   const handleTierSelect = (tier: SubscriptionTier) => {
     setSelectedTier(tier);
-    setStep('email');
+    setAuthMode('signup'); // Tier selection implies sign up
+    setStep('credentials');
+    setError(null);
+  };
+
+  const switchToSignIn = () => {
+      setStep('credentials');
+      setAuthMode('signin');
+      setError(null);
+  };
+
+  const switchToSignUp = () => {
+      // If switching to signup from login screen, go back to tier selection
+      setStep('selection'); 
+      setAuthMode('signup');
+      setError(null);
   };
 
   const handleSubmit = async () => {
@@ -28,19 +45,23 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
         setError("Please enter a valid email address.");
         return;
     }
+    if (!password || password.length < 6) {
+        setError("Password must be at least 6 characters.");
+        return;
+    }
     
     setIsLoading(true);
     setError(null);
     try {
-        await onLogin(email);
-        // Note: In a real app, you would pass the selectedTier to the backend 
-        // or store it in localStorage to initiate Checkout after login redirect.
-        if (selectedTier !== SubscriptionTier.Free) {
+        await onAuth(email, password, authMode === 'signup');
+        
+        // Handle post-signup logic (tier selection persistence)
+        if (authMode === 'signup' && selectedTier !== SubscriptionTier.Free) {
             localStorage.setItem('pending_plan', selectedTier);
         }
         onClose();
     } catch (err: any) {
-        setError(err.message || "Failed to login. Please try again.");
+        setError(err.message || "Authentication failed. Please check your credentials.");
     } finally {
         setIsLoading(false);
     }
@@ -60,7 +81,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
              <div className="p-8 lg:p-12">
                 <div className="text-center mb-10">
                     <h2 className="text-3xl font-bold text-white mb-3">Join FashionStudio</h2>
-                    <p className="text-zinc-400">Select a plan to create your account or <button onClick={() => setStep('email')} className="text-brand-400 hover:underline font-bold">Sign In</button></p>
+                    <p className="text-zinc-400">Select a plan to create your account or <button onClick={switchToSignIn} className="text-brand-400 hover:underline font-bold">Sign In</button></p>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -110,14 +131,17 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
         ) : (
              <div className="p-8">
                 <div className="mb-6">
-                    <button onClick={() => setStep('selection')} className="text-xs text-zinc-500 hover:text-white mb-4 flex items-center gap-1">← Back to plans</button>
+                    <button onClick={switchToSignUp} className="text-xs text-zinc-500 hover:text-white mb-4 flex items-center gap-1">← Back to plans</button>
                     <h2 className="text-2xl font-bold text-white mb-2">
-                        {selectedTier === SubscriptionTier.Free ? 'Sign in' : `Join ${selectedTier}`}
+                        {authMode === 'signin' ? 'Welcome Back' : (selectedTier === SubscriptionTier.Free ? 'Create Account' : `Join ${selectedTier}`)}
                     </h2>
-                    <p className="text-zinc-400 text-sm">Enter your email to receive a secure login link.</p>
+                    <p className="text-zinc-400 text-sm">
+                        {authMode === 'signin' ? 'Enter your credentials to access your studio.' : 'Create your account to start generating.'}
+                    </p>
                 </div>
                 
                 <div className="space-y-4">
+                    {/* Email Input */}
                     <div className="space-y-2">
                         <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Email Address</label>
                         <div className="relative group">
@@ -126,13 +150,29 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
                                 type="email" 
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
                                 placeholder="you@example.com"
                                 className="w-full bg-black border border-zinc-800 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-brand-500 transition-colors"
                             />
                         </div>
-                        {error && <p className="text-red-400 text-xs">{error}</p>}
                     </div>
+
+                    {/* Password Input */}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Password</label>
+                        <div className="relative group">
+                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-brand-400 transition-colors" size={18} />
+                            <input 
+                                type="password" 
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+                                placeholder="••••••••"
+                                className="w-full bg-black border border-zinc-800 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-brand-500 transition-colors"
+                            />
+                        </div>
+                    </div>
+
+                    {error && <p className="text-red-400 text-xs bg-red-950/20 border border-red-900/50 p-2 rounded">{error}</p>}
 
                     <button 
                         onClick={handleSubmit}
@@ -142,13 +182,21 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
                         {isLoading ? (
                             <Loader2 size={18} className="animate-spin" />
                         ) : (
-                            <>Continue <ArrowRight size={18} /></>
+                            <>{authMode === 'signin' ? 'Sign In' : 'Create Account'} <ArrowRight size={18} /></>
                         )}
                     </button>
                     
-                    <p className="text-center text-[10px] text-zinc-600 mt-4 leading-relaxed">
-                        By continuing, you agree to our Terms of Service.
-                    </p>
+                    <div className="pt-4 text-center">
+                        {authMode === 'signin' ? (
+                            <p className="text-xs text-zinc-500">
+                                Don't have an account? <button onClick={switchToSignUp} className="text-brand-400 hover:text-brand-300 font-bold ml-1">Sign Up</button>
+                            </p>
+                        ) : (
+                            <p className="text-xs text-zinc-500">
+                                Already have an account? <button onClick={switchToSignIn} className="text-brand-400 hover:text-brand-300 font-bold ml-1">Log In</button>
+                            </p>
+                        )}
+                    </div>
                 </div>
             </div>
         )}

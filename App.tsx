@@ -164,8 +164,6 @@ const App: React.FC = () => {
         
         if (pendingPlan && pendingPlan !== SubscriptionTier.Free) {
             // Update the user's tier in the database
-            console.log("Applying pending plan:", pendingPlan);
-            
             // Note: In a real Stripe app, you would redirect to Checkout here.
             // For now, we update the DB directly to simulate the upgrade.
             let startingCredits = 5;
@@ -215,21 +213,33 @@ const App: React.FC = () => {
   };
 
   // --- Handlers ---
-  const handleLogin = async (email: string) => {
+  const handleAuth = async (email: string, password?: string, isSignUp?: boolean) => {
       if (!isConfigured) {
           alert("Database not connected.\n\nPlease go to Vercel > Settings > Environment Variables and add:\n- VITE_SUPABASE_URL\n- VITE_SUPABASE_ANON_KEY");
           return;
       }
+      
+      if (!password) throw new Error("Password is required.");
 
-      // Magic Link Login
-      const { error } = await supabase.auth.signInWithOtp({ 
-          email,
-          options: {
-              emailRedirectTo: window.location.origin
+      if (isSignUp) {
+          // Sign Up
+          const { data, error } = await supabase.auth.signUp({
+              email,
+              password,
+          });
+          if (error) throw error;
+          
+          if (data.user && !data.session) {
+              alert("Registration successful! Please check your email to confirm your account.");
           }
-      });
-      if (error) throw error;
-      alert(`Login link sent to ${email}! \n\nIMPORTANT: If running locally, ensure your Supabase redirect URLs include ${window.location.origin}`);
+      } else {
+          // Sign In
+          const { error } = await supabase.auth.signInWithPassword({
+              email,
+              password,
+          });
+          if (error) throw error;
+      }
   };
 
   const handleLogout = async () => {
@@ -362,7 +372,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen text-zinc-200 font-sans selection:bg-brand-500/99 selection:text-white">
       
-      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onLogin={handleLogin} />
+      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onAuth={handleAuth} />
       <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} onUpgrade={handleUpgrade} />
 
       <header className="fixed top-0 left-0 right-0 z-40 px-6 py-4 pointer-events-none">
