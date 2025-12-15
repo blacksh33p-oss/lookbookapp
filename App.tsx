@@ -335,7 +335,7 @@ const App: React.FC = () => {
                      </>
                  ) : (
                     <div className="flex items-center gap-2 px-2">
-                        <button onClick={() => setShowLoginModal(true)} className="text-xs font-bold text-white hover:text-brand-400">LOGIN</button>
+                        <button onClick={() => setShowLoginModal(true)} className="text-xs font-bold text-white hover:text-brand-400">LOGIN / JOIN</button>
                     </div>
                  )}
               </div>
