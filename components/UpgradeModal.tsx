@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { X, Check, Zap, Crown, Sparkles, Building2, User } from 'lucide-react';
 import { SubscriptionTier } from '../types';
@@ -165,7 +164,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
             </div>
             
             <p className="text-center text-xs text-slate-500 mt-8">
-                Enterprise Batch API available for volume >1000/mo. Contact sales.
+                Enterprise Batch API available for volume &gt;1000/mo. Contact sales.
             </p>
         </div>
       </div>
