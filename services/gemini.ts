@@ -21,25 +21,39 @@ const getModelName = (version: ModelVersion): string => {
   }
 };
 
-// Safe environment variable accessor for Vite/Browser/Node environments
+// Robust API Key Accessor with Debugging
 const getApiKey = (): string | undefined => {
-  // Use "as any" to bypass TypeScript errors for Vite's import.meta.env
+  let key: string | undefined = undefined;
+
+  // 1. Try Vite's import.meta.env (Standard for this project)
   const meta = import.meta as any;
   if (typeof meta !== 'undefined' && meta.env) {
-    if (meta.env.VITE_API_KEY) return meta.env.VITE_API_KEY;
-    if (meta.env.VITE_GEMINI_API_KEY) return meta.env.VITE_GEMINI_API_KEY;
+    key = meta.env.VITE_API_KEY || 
+          meta.env.VITE_GEMINI_API_KEY || 
+          meta.env.VITE_GOOGLE_API_KEY;
   }
   
-  try {
-    // @ts-ignore
-    if (typeof process !== 'undefined' && process.env) {
+  // 2. Fallback to process.env (Node/Webpack compatibility)
+  if (!key) {
+    try {
       // @ts-ignore
-      return process.env.API_KEY || process.env.VITE_API_KEY;
+      if (typeof process !== 'undefined' && process.env) {
+        // @ts-ignore
+        key = process.env.VITE_API_KEY || process.env.API_KEY;
+      }
+    } catch (e) {
+      // ignore process access errors
     }
-  } catch (e) {
-    // ignore
   }
-  return undefined;
+
+  // Debugging log (Safe: prints status, not the full key)
+  if (key) {
+    console.log(`[Gemini Service] API Key found (Length: ${key.length})`);
+  } else {
+    console.warn("[Gemini Service] API Key is MISSING in environment variables.");
+  }
+
+  return key;
 };
 
 export const generatePhotoshootImage = async (
@@ -48,9 +62,9 @@ export const generatePhotoshootImage = async (
   
   const API_KEY = getApiKey();
 
-  if (!API_KEY) {
+  if (!API_KEY || API_KEY.includes('PASTE_YOUR')) {
     throw new Error(
-      "Configuration Error: API_KEY is missing. If you are the site owner, please set the 'VITE_API_KEY' environment variable in your hosting dashboard."
+      "Configuration Error: API Key is missing. \n\n1. Go to Vercel Dashboard > Settings > Environment Variables.\n2. Add 'VITE_API_KEY' with your Google AI Studio key.\n3. Important: REDEPLOY your project for changes to take effect."
     );
   }
 
@@ -220,7 +234,7 @@ export const generatePhotoshootImage = async (
     const textOutput = response.text;
     if (textOutput) {
        console.warn("Model returned text instead of image:", textOutput);
-       throw new Error(`Generation failed (Model returned text): ${textOutput.substring(0, 100)}...`);
+       throw new Error(`Generation failed (Model returned text). Try again or adjust prompt.`);
     }
     
     throw new Error("No image generated.");
