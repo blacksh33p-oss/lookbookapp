@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 // Helper to safely access environment variables in any environment (Vite, Node, etc.)
@@ -21,11 +20,14 @@ const getEnvVar = (key: string) => {
   return '';
 };
 
-const supabaseUrl = getEnvVar('VITE_SUPABASE_URL');
-const supabaseAnonKey = getEnvVar('VITE_SUPABASE_ANON_KEY');
+// Trim to avoid copy-paste whitespace issues
+const supabaseUrl = getEnvVar('VITE_SUPABASE_URL')?.trim();
+const supabaseAnonKey = getEnvVar('VITE_SUPABASE_ANON_KEY')?.trim();
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('FashionStudio: Missing Supabase Environment Variables. Authentication features will be disabled.');
+export const isConfigured = !!supabaseUrl && !!supabaseAnonKey && supabaseUrl !== 'https://placeholder.supabase.co';
+
+if (!isConfigured) {
+  console.warn('FashionStudio: Missing or invalid Supabase Environment Variables. Authentication features will be disabled.');
 }
 
 // Initialize with safe fallbacks to prevent runtime crash on load

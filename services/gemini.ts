@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { PhotoshootOptions, ModelVersion } from "../types";
+import { PhotoshootOptions, ModelVersion, OutfitItem } from "../types";
 
 // Helper to strip data:image/xyz;base64, prefix
 const extractBase64 = (dataUrl: string): string => {
@@ -76,7 +76,7 @@ export const generatePhotoshootImage = async (
   const imageInputs: { type: string; data: string }[] = [];
 
   // Helper to process each outfit slot
-  const processSlot = (role: string, item: any) => {
+  const processSlot = (role: string, item: OutfitItem) => {
     // Check if we have images (array) or manual description
     const hasImages = item.images && item.images.length > 0;
     

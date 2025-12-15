@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
@@ -10,7 +9,7 @@ import { LoginModal } from './components/LoginModal';
 import { UpgradeModal } from './components/UpgradeModal';
 import { BatchMode } from './components/BatchMode';
 import { generatePhotoshootImage } from './services/gemini';
-import { supabase } from './lib/supabase';
+import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, GeneratedImage, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
@@ -211,6 +210,11 @@ const App: React.FC = () => {
 
   // --- Handlers ---
   const handleLogin = async (email: string) => {
+      if (!isConfigured) {
+          alert("Database not connected.\n\nPlease go to Vercel > Settings > Environment Variables and add:\n- VITE_SUPABASE_URL\n- VITE_SUPABASE_ANON_KEY");
+          return;
+      }
+
       // Magic Link Login
       const { error } = await supabase.auth.signInWithOtp({ 
           email,
@@ -259,6 +263,11 @@ const App: React.FC = () => {
   };
 
   const executeGeneration = async (currentOptions: PhotoshootOptions) => {
+      if (!isConfigured) {
+          alert("Database not connected. Please set up your Supabase credentials.");
+          return;
+      }
+      
       if (!session) {
           setShowLoginModal(true);
           return;
