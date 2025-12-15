@@ -85,6 +85,12 @@ const App: React.FC = () => {
   const [userProfile, setUserProfile] = useState<{tier: SubscriptionTier, credits: number} | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
 
+  // Guest State (LocalStorage)
+  const [guestCredits, setGuestCredits] = useState<number>(() => {
+    const saved = localStorage.getItem('fashion_guest_credits');
+    return saved !== null ? parseInt(saved, 10) : 5;
+  });
+
   // UI State
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -263,22 +269,25 @@ const App: React.FC = () => {
   };
 
   const executeGeneration = async (currentOptions: PhotoshootOptions) => {
-      if (!isConfigured) {
-          alert("Database not connected. Please set up your Supabase credentials.");
-          return;
-      }
-      
-      if (!session) {
-          setShowLoginModal(true);
-          return;
-      }
-      
-      // Safety check for profile load
-      if (!userProfile) return;
+      // 1. Determine Usage Mode (Guest vs User)
+      const isGuest = !session;
 
-      if (userProfile.credits < 1) {
-          setShowUpgradeModal(true);
-          return;
+      if (isGuest) {
+          if (guestCredits < 1) {
+              setShowLoginModal(true);
+              return;
+          }
+      } else {
+          // Logged in user checks
+          if (!userProfile) return;
+          if (userProfile.credits < 1) {
+              setShowUpgradeModal(true);
+              return;
+          }
+          if (!isConfigured) {
+            alert("Database not connected. Please set up your Supabase credentials.");
+            return;
+          }
       }
 
       setIsLoading(true);
@@ -286,19 +295,26 @@ const App: React.FC = () => {
       setGeneratedImage(null);
 
       try {
+        // Call Gemini API
         const result = await generatePhotoshootImage(currentOptions);
         setGeneratedImage(result);
 
-        // Deduct Credit in DB
-        const { error } = await supabase
-            .from('profiles')
-            .update({ credits: userProfile.credits - 1 })
-            .eq('id', session.user.id);
-        
-        if (!error) {
-             setUserProfile(prev => prev ? ({ ...prev, credits: prev.credits - 1 }) : null);
+        // Deduct Credits
+        if (isGuest) {
+            const newGuestCredits = guestCredits - 1;
+            setGuestCredits(newGuestCredits);
+            localStorage.setItem('fashion_guest_credits', newGuestCredits.toString());
         } else {
-            console.error("Failed to deduct credit", error);
+            const { error } = await supabase
+                .from('profiles')
+                .update({ credits: userProfile!.credits - 1 })
+                .eq('id', session.user.id);
+            
+            if (!error) {
+                 setUserProfile(prev => prev ? ({ ...prev, credits: prev.credits - 1 }) : null);
+            } else {
+                console.error("Failed to deduct credit from DB", error);
+            }
         }
 
       } catch (err: any) {
@@ -339,8 +355,9 @@ const App: React.FC = () => {
     item.images.length > 0 || (item.description && item.description.trim().length > 0) || (item.garmentType && item.garmentType.trim().length > 0)
   );
 
-  const isPremium = userProfile?.tier !== SubscriptionTier.Free;
-  const isStudio = userProfile?.tier === SubscriptionTier.Studio;
+  // Allow premium features if session exists AND not free tier, OR just visually lock them
+  const isPremium = session ? userProfile?.tier !== SubscriptionTier.Free : false;
+  const isStudio = session ? userProfile?.tier === SubscriptionTier.Studio : false;
 
   return (
     <div className="min-h-screen text-zinc-200 font-sans selection:bg-brand-500/99 selection:text-white">
@@ -391,7 +408,13 @@ const App: React.FC = () => {
                      </>
                  ) : (
                     <div className="flex items-center gap-2 px-2">
-                        <button onClick={() => setShowLoginModal(true)} className="text-xs font-bold text-white hover:text-brand-400">LOGIN / JOIN</button>
+                        <div className="hidden sm:flex flex-col items-end mr-2">
+                            <span className="text-[10px] text-zinc-500 font-mono">GUEST MODE</span>
+                            <div className="text-xs font-mono font-bold text-white tabular-nums flex items-center gap-1">
+                                {guestCredits} <Zap size={10} className={guestCredits > 0 ? "text-brand-400 fill-brand-400" : "text-zinc-600"} />
+                            </div>
+                        </div>
+                        <button onClick={() => setShowLoginModal(true)} className="bg-white text-black hover:bg-zinc-200 px-3 py-1.5 rounded-full text-xs font-bold transition-colors">LOGIN</button>
                     </div>
                  )}
               </div>
