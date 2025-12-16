@@ -2,18 +2,20 @@ import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { buffer } from 'micro';
 
+// Check for Service Role Key (Critical for RLS bypass)
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.warn('[Webhook Warning] SUPABASE_SERVICE_ROLE_KEY is missing. Database updates may fail if Row Level Security is enabled.');
+}
+
 // Initialize Supabase (Service Role)
-// We need the SERVICE_ROLE_KEY to bypass Row Level Security and write credits
-// Fallback to ANON key for development/local testing if service key is missing, 
-// though this will fail RLS if not handled correctly.
 const supabase = createClient(
-  process.env.VITE_SUPABASE_URL,
+  process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
 );
 
 export const config = {
   api: {
-    bodyParser: false, // We need raw body for processing
+    bodyParser: false, 
   },
 };
 
@@ -26,37 +28,35 @@ export default async function handler(req, res) {
     const rawBody = await buffer(req);
     const payload = JSON.parse(rawBody.toString());
     
-    console.log('[Webhook] Received payload:', JSON.stringify(payload));
+    console.log('[Webhook] Processing payload ID:', payload.id);
     
-    // FastSpring sends an object with an 'events' array
     const events = payload.events || [];
 
     if (events.length === 0) {
-        console.log('[Webhook] No events found in payload.');
+        console.log('[Webhook] No events found.');
         return res.status(200).send("No events");
     }
 
     for (const event of events) {
-        // We care about 'order.completed' or 'subscription.activated'
         if (event.type === 'order.completed' || event.type === 'subscription.activated') {
             const data = event.data;
-            
-            // Extract the User ID we passed via URL tags
-            // FastSpring returns tags as a key-value object in data.tags, 
-            // BUT sometimes as a string if configured via Popup Storefront URL parameters incorrectly.
             let userId = null;
 
-            if (data.tags) {
-                if (typeof data.tags === 'object' && data.tags.userId) {
-                    userId = data.tags.userId;
-                } else if (typeof data.tags === 'string') {
-                     // Try to parse string like "userId:123,email:abc"
-                     console.log('[Webhook] Tags received as string, parsing:', data.tags);
-                     const parts = data.tags.split(',');
+            // Robust Tag Parsing
+            // Tags can be in event.data.tags OR event.data.order.tags depending on webhook type
+            const tagsSource = data.tags || (data.order && data.order.tags);
+
+            if (tagsSource) {
+                if (typeof tagsSource === 'object' && tagsSource.userId) {
+                    userId = tagsSource.userId;
+                } else if (typeof tagsSource === 'string') {
+                     // Parse string format: "userId:123, email:abc"
+                     console.log('[Webhook] Parsing string tags:', tagsSource);
+                     const parts = tagsSource.split(',');
                      for (const part of parts) {
                          const [key, value] = part.split(':');
                          if (key && key.trim() === 'userId') {
-                             userId = value.trim();
+                             userId = value.trim().replace(/['"]+/g, ''); // Remove potential quotes
                              break;
                          }
                      }
@@ -64,12 +64,12 @@ export default async function handler(req, res) {
             }
             
             if (!userId) {
-                console.error('[Webhook] Skipped: No userId tag found in order.', data.tags);
+                console.error('[Webhook] Skipped: No userId tag found.', tagsSource);
                 continue;
             }
 
-            // Determine Plan & Credits based on Product Path/Name
-            const items = data.items || [];
+            // Determine Credits
+            const items = data.items || (data.original && data.original.items) || [];
             let newCredits = 0;
             let newTier = 'Free';
             let foundPlan = false;
@@ -78,9 +78,7 @@ export default async function handler(req, res) {
                 const productPath = (item.product || '').toLowerCase();
                 const productName = (item.display || '').toLowerCase();
                 
-                console.log(`[Webhook] Processing item: ${productName} (${productPath})`);
-
-                // Match your FastSpring Product Paths or Names here
+                // Match Logic
                 if (productPath.includes('creator') || productName.includes('creator')) {
                     newCredits += 500;
                     newTier = 'Creator';
@@ -91,9 +89,17 @@ export default async function handler(req, res) {
                     foundPlan = true;
                 }
             }
+            
+            // Fallback for generic test orders if no product name match
+            if (!foundPlan && data.live === false) {
+                 console.log('[Webhook] Test Mode Fallback: Defaulting to Creator tier for test order.');
+                 newCredits += 500;
+                 newTier = 'Creator';
+                 foundPlan = true;
+            }
 
             if (foundPlan) {
-                // 3. Update Supabase
+                // Fetch current credits
                 const { data: profile, error: fetchError } = await supabase
                     .from('profiles')
                     .select('credits')
@@ -101,12 +107,16 @@ export default async function handler(req, res) {
                     .single();
                 
                 if (fetchError) {
-                    console.error('[Webhook] Failed to fetch user profile:', fetchError);
-                    continue;
+                    console.error('[Webhook] Profile fetch failed:', fetchError);
+                    // Try creating profile if missing
+                    if (fetchError.code === 'PGRST116') {
+                        await supabase.from('profiles').insert([{ id: userId, tier: 'Free', credits: 0 }]);
+                    }
                 }
                 
                 const currentCredits = profile?.credits || 0;
                 
+                // Update DB
                 const { error: updateError } = await supabase
                     .from('profiles')
                     .update({ 
@@ -116,20 +126,19 @@ export default async function handler(req, res) {
                     .eq('id', userId);
 
                 if (updateError) {
-                    console.error(`[Webhook] Supabase Update Error for user ${userId}:`, updateError);
+                    console.error(`[Webhook] Update Failed for user ${userId}:`, updateError);
                 } else {
-                    console.log(`[Webhook] Success! Credited user ${userId} with ${newCredits} credits. New Tier: ${newTier}`);
+                    console.log(`[Webhook] Success! User ${userId} updated to ${newTier} with +${newCredits} credits.`);
                 }
             } else {
-                console.warn('[Webhook] No matching plan found in order items.');
+                console.warn('[Webhook] No matching plan found in items:', items);
             }
         }
     }
 
-    // Always return 200 to FastSpring to confirm receipt
-    res.status(200).send("Webhook processed");
+    res.status(200).send("Processed");
   } catch (err) {
-    console.error(`[Webhook] Fatal Error: ${err.message}`);
-    res.status(500).send(`Webhook Error: ${err.message}`);
+    console.error(`[Webhook] Error: ${err.message}`);
+    res.status(500).send(`Error: ${err.message}`);
   }
 }

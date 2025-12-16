@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, GeneratedImage, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.3-Stable"; 
+const APP_VERSION = "v1.4.1-Stable"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -119,7 +119,7 @@ const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
     const Icon = type === 'success' ? CheckCircle : type === 'error' ? XCircle : Info;
 
     return (
-        <div className={`fixed bottom-6 right-6 z-[100] flex items-center gap-3 px-4 py-3 rounded-lg border shadow-2xl backdrop-blur-md animate-slide-up ${bgColors[type]}`}>
+        <div className={`fixed bottom-6 right-6 z-[200] flex items-center gap-3 px-4 py-3 rounded-lg border shadow-2xl backdrop-blur-md animate-slide-up ${bgColors[type]}`}>
             <Icon size={18} className={iconColors[type]} />
             <span className="text-sm font-medium text-white">{message}</span>
             <button onClick={onClose} className="ml-2 text-zinc-500 hover:text-white"><XCircle size={14} /></button>
@@ -233,10 +233,25 @@ const App: React.FC = () => {
     // 1. Check for SUCCESSFUL return from FastSpring
     const params = new URLSearchParams(window.location.search);
     if (params.get('success') === 'true') {
-        showToast('Payment successful! Syncing credits...', 'success');
+        showToast('Payment verification in progress...', 'info');
         window.history.replaceState({}, '', window.location.pathname);
         localStorage.removeItem('pending_plan');
+        
+        // Immediate fetch
         await fetchProfile(userSession.user.id);
+
+        // Polling to catch webhook delay (5 times over 10 seconds)
+        let attempts = 0;
+        const interval = setInterval(async () => {
+            attempts++;
+            console.log(`Polling profile attempt ${attempts}...`);
+            await fetchProfile(userSession.user.id);
+            if (attempts >= 5) {
+                clearInterval(interval);
+                showToast('Sync complete. If credits are missing, please wait 1 min and refresh.', 'success');
+            }
+        }, 2000);
+        
         return;
     }
 
@@ -244,15 +259,7 @@ const App: React.FC = () => {
     const pendingPlan = localStorage.getItem('pending_plan');
     if (pendingPlan && pendingPlan !== SubscriptionTier.Free && !isRedirecting) {
         console.log("Found pending plan, initiating checkout sequence...", pendingPlan);
-        setIsRedirecting(true);
-        
-        // Delay slighty to let UI settle, then redirect
-        setTimeout(() => {
-             handleUpgrade(pendingPlan as SubscriptionTier, userSession);
-             // We do NOT clear pending_plan here, we clear it on success return
-             // But to prevent infinite loops if the user comes back without paying,
-             // the UI provides a "Cancel" button.
-        }, 1500);
+        handleUpgrade(pendingPlan as SubscriptionTier, userSession);
     }
   };
 
@@ -275,20 +282,14 @@ const App: React.FC = () => {
       setSession(session);
       
       if (event === 'SIGNED_IN' && session) {
-         // Clear any login modal
          setShowLoginModal(false);
-         
-         // Fetch profile first
          await fetchProfile(session.user.id);
-         
-         // Then check if they need to pay
          await checkPendingPlan(session);
-         
          showToast(`Welcome back!`, 'success');
       } else if (event === 'SIGNED_OUT') {
          setUserProfile(null);
          setSession(null);
-         localStorage.removeItem('pending_plan'); // Clear intention on logout
+         localStorage.removeItem('pending_plan');
          showToast('Signed out successfully', 'info');
       }
     });
@@ -395,40 +396,56 @@ const App: React.FC = () => {
       }
   };
 
-  // FastSpring Payment Integration
+  // FastSpring Payment Integration (ROBUST)
   const handleUpgrade = async (tier: SubscriptionTier, explicitSession?: any) => {
-     const activeSession = explicitSession || session;
+     setIsRedirecting(true);
 
-     // If not logged in, save intent and force login/signup
-     if (!activeSession) {
-         localStorage.setItem('pending_plan', tier);
-         setLoginModalView('pricing');
-         setShowLoginModal(true);
-         return;
+     try {
+         let activeSession = explicitSession || session;
+         if (!activeSession) {
+             const { data } = await supabase.auth.getSession();
+             activeSession = data.session;
+         }
+
+         if (!activeSession) {
+             localStorage.setItem('pending_plan', tier);
+             setIsRedirecting(false);
+             setLoginModalView('pricing');
+             setShowLoginModal(true);
+             setShowUpgradeModal(false);
+             return;
+         }
+
+         if (tier === SubscriptionTier.Free) {
+             localStorage.removeItem('pending_plan');
+             setIsRedirecting(false);
+             setShowUpgradeModal(false);
+             showToast("You are on the Free plan.", "info");
+             return;
+         }
+
+         const checkoutUrl = tier === SubscriptionTier.Creator 
+            ? import.meta.env.VITE_FASTSPRING_CREATOR_URL 
+            : import.meta.env.VITE_FASTSPRING_STUDIO_URL;
+
+         if (!checkoutUrl) {
+             console.error("Missing FastSpring URL for tier:", tier);
+             showToast("Checkout configuration error. Please contact support.", "error");
+             setIsRedirecting(false);
+             return;
+         }
+
+         const tags = `userId:${activeSession.user.id},userEmail:${activeSession.user.email}`;
+         const separator = checkoutUrl.includes('?') ? '&' : '?';
+         const finalUrl = `${checkoutUrl}${separator}tags=${tags}`;
+
+         window.location.href = finalUrl;
+         
+     } catch (err) {
+         console.error("Upgrade sequence failed:", err);
+         setIsRedirecting(false);
+         showToast("Failed to initiate checkout.", "error");
      }
-
-     if (tier === SubscriptionTier.Free) {
-         localStorage.removeItem('pending_plan');
-         return;
-     }
-
-     // Get FastSpring Checkout URL from Environment Variables
-     const checkoutUrl = tier === SubscriptionTier.Creator 
-        ? import.meta.env.VITE_FASTSPRING_CREATOR_URL 
-        : import.meta.env.VITE_FASTSPRING_STUDIO_URL;
-
-     if (!checkoutUrl) {
-         showToast("Checkout configuration missing. Contact support.", "error");
-         setIsRedirecting(false); // Cancel redirect loop if config is missing
-         return;
-     }
-
-     const tags = `userId:${activeSession.user.id},userEmail:${activeSession.user.email}`;
-     const separator = checkoutUrl.includes('?') ? '&' : '?';
-     const finalUrl = `${checkoutUrl}${separator}tags=${tags}`;
-
-     // Perform Redirect
-     window.location.href = finalUrl;
   };
 
   const handleLogin = () => {
@@ -442,14 +459,10 @@ const App: React.FC = () => {
   };
 
   const executeGeneration = async (currentOptions: PhotoshootOptions) => {
-      // 1. Calculate Cost
       const cost = getGenerationCost(currentOptions);
-      
-      // 2. Determine Usage Mode (Guest vs User)
       const isGuest = !session;
       const isFreeTier = session && userProfile?.tier === SubscriptionTier.Free;
 
-      // 3. Enforce Free/Guest Restrictions strictly
       if (isGuest || isFreeTier) {
           if (currentOptions.modelVersion === ModelVersion.Pro) {
               showToast("Gemini 3 Pro is available on Creator plans.", "info");
@@ -458,16 +471,14 @@ const App: React.FC = () => {
           }
       }
 
-      // 4. Check Credits based on Cost
       if (isGuest) {
           if (guestCredits < cost) {
               showToast(guestCredits < 1 ? "Daily limit reached! Credits refill tomorrow." : "Not enough guest credits for this operation.", "info");
-              setLoginModalView('pricing'); // Encourage sign up
+              setLoginModalView('pricing'); 
               setShowLoginModal(true);
               return;
           }
       } else {
-          // Logged in user checks - recheck latest state
           if (!userProfile) return;
           if (userProfile.credits < cost) {
               showToast(`Insufficient credits. This job requires ${cost} credits.`, "info");
@@ -485,13 +496,11 @@ const App: React.FC = () => {
         const result = await generatePhotoshootImage(currentOptions);
         setGeneratedImage(result);
 
-        // Deduct Credits
         if (isGuest) {
             const newGuestCredits = guestCredits - cost;
             setGuestCredits(newGuestCredits);
             localStorage.setItem('fashion_guest_credits', newGuestCredits.toString());
         } else {
-            // Fetch fresh credits first to ensure accuracy
             const { data: freshProfile } = await supabase
                 .from('profiles')
                 .select('credits')
@@ -564,7 +573,6 @@ const App: React.FC = () => {
   };
 
   const handleStyleSelect = (newStyle: string) => {
-      // Check if style is PRO
       const isProStyle = PRO_STYLES.includes(newStyle as PhotoStyle);
       if (isProStyle && !isPremium) {
           setShowUpgradeModal(true);
@@ -575,10 +583,9 @@ const App: React.FC = () => {
 
   const currentCost = getGenerationCost(options);
 
-  // --- REDIRECT OVERLAY (Blocking UI) ---
   if (isRedirecting) {
       return (
-        <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-6">
+        <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center p-6">
             <div className="flex flex-col items-center gap-6 animate-fade-in text-center max-w-md">
                 <div className="w-12 h-12 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
                 <div>
@@ -586,7 +593,6 @@ const App: React.FC = () => {
                     <p className="text-zinc-500 font-mono text-xs">Please wait while we transfer you to our secure payment provider...</p>
                 </div>
                 
-                {/* Manual Cancel Button to prevent infinite loops */}
                 <button 
                     onClick={() => {
                         setIsRedirecting(false);
@@ -644,7 +650,6 @@ const App: React.FC = () => {
               <div className="glass-panel rounded-full px-2 py-2 flex items-center gap-3">
                  {session ? (
                      <>
-                        {/* Explicit Upgrade Button for Free Users */}
                         {userProfile?.tier === SubscriptionTier.Free && (
                            <button
                              onClick={() => setShowUpgradeModal(true)}
