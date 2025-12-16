@@ -6,8 +6,8 @@ interface ImportMetaEnv {
   readonly VITE_GOOGLE_API_KEY: string
   readonly VITE_SUPABASE_URL: string
   readonly VITE_SUPABASE_ANON_KEY: string
-  readonly VITE_LEMON_SQUEEZY_CREATOR_URL: string
-  readonly VITE_LEMON_SQUEEZY_STUDIO_URL: string
+  readonly VITE_FASTSPRING_CREATOR_URL: string
+  readonly VITE_FASTSPRING_STUDIO_URL: string
 }
 
 interface ImportMeta {

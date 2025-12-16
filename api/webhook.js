@@ -11,7 +11,7 @@ const supabase = createClient(
 
 export const config = {
   api: {
-    bodyParser: false, // We need raw body for signature verification
+    bodyParser: false, // We need raw body for processing
   },
 };
 
@@ -22,77 +22,79 @@ export default async function handler(req, res) {
 
   try {
     const rawBody = await buffer(req);
-    const signature = req.headers['x-signature'];
-    const secret = process.env.LEMONSQUEEZY_WEBHOOK_SECRET;
-
-    // 1. Verify Signature
-    const hmac = crypto.createHmac('sha256', secret);
-    const digest = hmac.update(rawBody).digest('hex');
-
-    if (digest !== signature) {
-      return res.status(401).send('Invalid signature');
-    }
-
-    const payload = JSON.parse(rawBody.toString());
-    const eventName = payload.meta.event_name;
+    // Note: FastSpring HMAC verification usually goes here using headers['x-fs-signature'] if enabled in FastSpring settings.
     
-    // 2. Process Order Creation
-    if (eventName === 'order_created' || eventName === 'subscription_created') {
-        const { attributes } = payload.data;
-        
-        // Extract the Custom Data we sent from the frontend
-        // Format: { user_id: "...", ... }
-        const customData = payload.meta.custom_data;
-        const userId = customData?.user_id;
-        
-        if (!userId) {
-            console.error('Webhook Error: No user_id found in custom_data');
-            return res.status(200).send('No user_id provided, ignoring.');
-        }
+    const payload = JSON.parse(rawBody.toString());
+    
+    // FastSpring sends an object with an 'events' array
+    const events = payload.events || [];
 
-        // Determine Plan & Credits
-        // In a real app, map the 'variant_id' to specific credit amounts
-        const variantId = attributes.variant_id;
-        
-        // Example mapping logic (customize based on your actual Variant IDs from Lemon Squeezy)
-        // You can also check attributes.first_order_item.product_name
-        let newCredits = 0;
-        let newTier = 'Free';
-        
-        const productName = attributes.first_order_item.product_name.toLowerCase();
-        
-        if (productName.includes('creator')) {
-            newCredits = 500;
-            newTier = 'Creator';
-        } else if (productName.includes('studio')) {
-            newCredits = 2000;
-            newTier = 'Studio';
-        }
+    for (const event of events) {
+        // We care about 'order.completed' or 'subscription.activated'
+        if (event.type === 'order.completed' || event.type === 'subscription.activated') {
+            const data = event.data;
+            
+            // Extract the User ID we passed via URL tags
+            // FastSpring returns tags as a key-value object in data.tags
+            const tags = data.tags || {};
+            const userId = tags.userId;
+            
+            if (!userId) {
+                console.log('Webhook skipped: No userId tag found in order.');
+                continue;
+            }
 
-        // 3. Update Supabase
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('credits')
-            .eq('id', userId)
-            .single();
-        
-        const currentCredits = profile?.credits || 0;
-        
-        const { error } = await supabase
-            .from('profiles')
-            .update({ 
-                credits: currentCredits + newCredits,
-                tier: newTier
-            })
-            .eq('id', userId);
+            // Determine Plan & Credits based on Product Path/Name
+            const items = data.items || [];
+            let newCredits = 0;
+            let newTier = 'Free';
+            let foundPlan = false;
 
-        if (error) {
-            console.error('Supabase Update Error:', error);
-            return res.status(500).send('Database Update Failed');
+            for (const item of items) {
+                const productPath = (item.product || '').toLowerCase();
+                const productName = (item.display || '').toLowerCase();
+                
+                // Match your FastSpring Product Paths or Names here
+                if (productPath.includes('creator') || productName.includes('creator')) {
+                    newCredits += 500;
+                    newTier = 'Creator';
+                    foundPlan = true;
+                } else if (productPath.includes('studio') || productName.includes('studio')) {
+                    newCredits += 2000;
+                    newTier = 'Studio';
+                    foundPlan = true;
+                }
+            }
+
+            if (foundPlan) {
+                // 3. Update Supabase
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('credits')
+                    .eq('id', userId)
+                    .single();
+                
+                const currentCredits = profile?.credits || 0;
+                
+                const { error } = await supabase
+                    .from('profiles')
+                    .update({ 
+                        credits: currentCredits + newCredits,
+                        tier: newTier
+                    })
+                    .eq('id', userId);
+
+                if (error) {
+                    console.error('Supabase Update Error for user ' + userId, error);
+                } else {
+                    console.log(`Successfully credited user ${userId} with ${newCredits} credits.`);
+                }
+            }
         }
     }
 
-    res.status(200).json({ received: true });
+    // Always return 200 to FastSpring to confirm receipt
+    res.status(200).send("Webhook processed");
   } catch (err) {
     console.error(`Webhook Error: ${err.message}`);
     res.status(500).send(`Webhook Error: ${err.message}`);

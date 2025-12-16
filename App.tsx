@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, GeneratedImage, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.1"; 
+const APP_VERSION = "v1.2-FS"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -357,7 +357,7 @@ const App: React.FC = () => {
       }
   };
 
-  // Lemon Squeezy Integration
+  // FastSpring Payment Integration
   const handleUpgrade = async (tier: SubscriptionTier, explicitSession?: any) => {
      const activeSession = explicitSession || session;
 
@@ -370,25 +370,34 @@ const App: React.FC = () => {
 
      if (tier === SubscriptionTier.Free) return;
 
-     // Get Checkout URL from Environment Variables
+     // Get FastSpring Checkout URL from Environment Variables
      const checkoutUrl = tier === SubscriptionTier.Creator 
-        ? import.meta.env.VITE_LEMON_SQUEEZY_CREATOR_URL 
-        : import.meta.env.VITE_LEMON_SQUEEZY_STUDIO_URL;
+        ? import.meta.env.VITE_FASTSPRING_CREATOR_URL 
+        : import.meta.env.VITE_FASTSPRING_STUDIO_URL;
 
      if (!checkoutUrl) {
          showToast("Checkout configuration missing. Contact support.", "error");
-         console.error("Missing VITE_LEMON_SQUEEZY URL for tier:", tier);
+         console.error("Missing VITE_FASTSPRING URL for tier:", tier);
          return;
      }
 
-     const redirectUrl = `${window.location.origin}/?success=true`;
-     const finalUrl = `${checkoutUrl}?checkout[email]=${activeSession.user.email}&checkout[custom][user_id]=${activeSession.user.id}&checkout[redirect_url]=${redirectUrl}`;
+     // Construct FastSpring URL with User ID tag
+     // We pass 'tags' so the webhook knows which user to credit
+     // We also pre-fill email if possible depending on FastSpring configuration, 
+     // but 'tags' is the most critical for the webhook logic.
+     const tags = `userId:${activeSession.user.id},userEmail:${activeSession.user.email}`;
+     const finalUrl = `${checkoutUrl}?tags=${tags}`;
 
      window.location.href = finalUrl;
   };
 
-  const openLogin = () => {
+  const handleLogin = () => {
       setLoginModalView('login');
+      setShowLoginModal(true);
+  };
+
+  const handleSignup = () => {
+      setLoginModalView('pricing');
       setShowLoginModal(true);
   };
 
@@ -598,13 +607,18 @@ const App: React.FC = () => {
                      </>
                  ) : (
                     <div className="flex items-center gap-2 px-2">
-                        <div className="hidden sm:flex flex-col items-end mr-2">
-                            <span className="text-[10px] text-zinc-500 font-mono">GUEST MODE</span>
-                            <div className="text-xs font-mono font-bold text-white tabular-nums flex items-center gap-1">
+                        <div className="hidden sm:flex flex-col items-end mr-3">
+                            <span className="text-[10px] text-zinc-500 font-mono text-right">GUEST MODE</span>
+                            <div className="text-xs font-mono font-bold text-white tabular-nums flex items-center justify-end gap-1">
                                 {guestCredits} <Zap size={10} className={guestCredits > 0 ? "text-brand-400 fill-brand-400" : "text-zinc-600"} />
                             </div>
                         </div>
-                        <button onClick={openLogin} className="bg-white text-black hover:bg-zinc-200 px-3 py-1.5 rounded-full text-xs font-bold transition-colors">LOGIN</button>
+                        <button onClick={handleLogin} className="text-zinc-400 hover:text-white px-3 py-1.5 text-xs font-bold transition-colors">
+                            Log in
+                        </button>
+                        <button onClick={handleSignup} className="bg-white text-black hover:bg-zinc-200 px-4 py-1.5 rounded-full text-xs font-bold transition-colors">
+                            Start Creating
+                        </button>
                     </div>
                  )}
               </div>

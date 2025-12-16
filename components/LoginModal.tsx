@@ -81,9 +81,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   };
 
   const switchToSignUp = () => {
-      // If we are already in credentials, toggle auth mode but stay in credentials unless we want them to pick a plan
-      // Actually, if coming from 'login' view, 'Back to plans' might be what they want.
-      // But standard 'Don't have an account? Sign Up' usually just toggles form.
+      // Go back to plan selection to ensure they choose a plan
+      setStep('selection');
       setAuthMode('signup');
       setError(null);
   };

@@ -31,7 +31,8 @@ if (!isConfigured) {
 }
 
 // Initialize with safe fallbacks to prevent runtime crash on load
-export const supabase = createClient(
+// Cast to any to avoid TypeScript errors if Supabase types are mismatched
+export const supabase: any = createClient(
   supabaseUrl || 'https://placeholder.supabase.co', 
   supabaseAnonKey || 'placeholder'
 );
