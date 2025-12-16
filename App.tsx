@@ -386,7 +386,10 @@ const App: React.FC = () => {
      // We also pre-fill email if possible depending on FastSpring configuration, 
      // but 'tags' is the most critical for the webhook logic.
      const tags = `userId:${activeSession.user.id},userEmail:${activeSession.user.email}`;
-     const finalUrl = `${checkoutUrl}?tags=${tags}`;
+     
+     // Robustly append tags to the URL (handling potential existing query params)
+     const separator = checkoutUrl.includes('?') ? '&' : '?';
+     const finalUrl = `${checkoutUrl}${separator}tags=${tags}`;
 
      window.location.href = finalUrl;
   };
