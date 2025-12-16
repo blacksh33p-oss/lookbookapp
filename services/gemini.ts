@@ -21,48 +21,33 @@ const getModelName = (version: ModelVersion): string => {
   }
 };
 
-// Robust API Key Accessor with Debugging
+// Robust API Key Accessor
 const getApiKey = (): string | undefined => {
-  let key: string | undefined = undefined;
-
-  // 1. Try Vite's import.meta.env (Standard for this project)
-  const meta = import.meta as any;
+  // CRITICAL: Access these DIRECTLY. 
+  // Vite statically replaces 'import.meta.env.VITE_API_KEY' with the actual string at build time.
+  // Do not use intermediate variables like 'const env = import.meta.env'.
   
-  // Debug: Log available keys (names only) to console
-  if (meta && meta.env) {
-      const availableKeys = Object.keys(meta.env).filter(k => k.startsWith('VITE_'));
-      console.log("[Gemini Debug] Available VITE_ keys in environment:", availableKeys);
-  } else {
-      console.warn("[Gemini Debug] import.meta.env is empty or undefined");
-  }
+  // FIX: Cast import.meta to any to avoid TS errors.
+  const k1 = (import.meta as any).env?.VITE_API_KEY;
+  const k2 = (import.meta as any).env?.VITE_GEMINI_API_KEY;
+  const k3 = (import.meta as any).env?.VITE_GOOGLE_API_KEY;
 
-  if (typeof meta !== 'undefined' && meta.env) {
-    key = meta.env.VITE_API_KEY || 
-          meta.env.VITE_GEMINI_API_KEY || 
-          meta.env.VITE_GOOGLE_API_KEY;
-  }
+  if (k1 && k1.length > 0) return k1;
+  if (k2 && k2.length > 0) return k2;
+  if (k3 && k3.length > 0) return k3;
   
-  // 2. Fallback to process.env (Node/Webpack compatibility)
-  if (!key) {
-    try {
+  // Fallback for non-Vite environments
+  try {
+    // @ts-ignore
+    if (typeof process !== 'undefined' && process.env) {
       // @ts-ignore
-      if (typeof process !== 'undefined' && process.env) {
-        // @ts-ignore
-        key = process.env.VITE_API_KEY || process.env.API_KEY;
-      }
-    } catch (e) {
-      // ignore process access errors
+      return process.env.VITE_API_KEY || process.env.API_KEY;
     }
+  } catch (e) {
+    // ignore
   }
 
-  // Debugging log (Safe: prints status, not the full key)
-  if (key) {
-    console.log(`[Gemini Service] API Key found (Length: ${key.length})`);
-  } else {
-    console.warn("[Gemini Service] API Key is MISSING in environment variables.");
-  }
-
-  return key;
+  return undefined;
 };
 
 export const generatePhotoshootImage = async (
@@ -72,6 +57,7 @@ export const generatePhotoshootImage = async (
   const API_KEY = getApiKey();
 
   if (!API_KEY || API_KEY.includes('PASTE_YOUR')) {
+    console.error("API Key Check Failed. Values checked: VITE_API_KEY, VITE_GEMINI_API_KEY, VITE_GOOGLE_API_KEY");
     throw new Error(
       "Configuration Error: API Key is missing.\n\n1. Go to Vercel Dashboard > Deployments.\n2. Click the three dots (...) next to the latest deployment.\n3. Click 'Redeploy'.\n\n(Environment variables are only applied during build time)."
     );
