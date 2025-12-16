@@ -15,7 +15,7 @@ const readStream = async (req) => {
 };
 
 export default async function handler(req, res) {
-  const LOG_PREFIX = '[FastSpring Webhook v6]'; 
+  const LOG_PREFIX = '[FastSpring V7-Verifier]'; 
   const trace = []; 
 
   const log = (msg) => {
@@ -39,11 +39,10 @@ export default async function handler(req, res) {
       const { check_email } = req.query;
       const status = {
           status: 'Active',
-          version: 'v6-Production',
+          version: 'v7-Verifier',
           config: {
               hasUrl: !!supabaseUrl,
               hasKey: !!serviceRoleKey,
-              keyLength: serviceRoleKey ? serviceRoleKey.length : 0
           }
       };
 
@@ -56,6 +55,12 @@ export default async function handler(req, res) {
                   const match = data.users.find(u => u.email?.toLowerCase() === check_email.toLowerCase());
                   status.userFound = !!match;
                   status.userId = match ? match.id : null;
+                  
+                  // V7 Check: Also check profile
+                  if (match) {
+                      const { data: profile } = await supabase.from('profiles').select('credits').eq('id', match.id).single();
+                      status.currentCredits = profile ? profile.credits : 'No Profile Row';
+                  }
               }
           } catch(e) { status.exception = e.message; }
       }
@@ -106,11 +111,10 @@ export default async function handler(req, res) {
           let userId = null;
           let emailFound = null;
 
-          // STEP A: Look for Tags (Primary)
+          // STEP A: Look for Tags
           const tags = data.tags || (data.order && data.order.tags) || (data.subscription && data.subscription.tags);
           if (tags) {
               log(`Tags found: ${JSON.stringify(tags)}`);
-              // Handle URL encoded tags
               let decodedTags = tags;
               if (typeof tags === 'string' && tags.includes('%')) {
                    try { decodedTags = decodeURIComponent(tags); } catch(e) {}
@@ -125,7 +129,6 @@ export default async function handler(req, res) {
 
           // STEP B: Look for Email (Fallback)
           if (!userId) {
-              // Deep extraction of email candidates
               const candidates = [
                   data.email, 
                   data.customer?.email, 
@@ -133,7 +136,6 @@ export default async function handler(req, res) {
                   data.contact?.email, 
                   data.recipient?.email
               ];
-
               if (Array.isArray(data.recipients)) {
                   data.recipients.forEach(r => {
                       if (r.recipient?.email) candidates.push(r.recipient.email);
@@ -142,27 +144,16 @@ export default async function handler(req, res) {
               }
 
               const uniqueEmails = [...new Set(candidates.filter(Boolean))];
-              log(`Email Candidates: ${JSON.stringify(uniqueEmails)}`);
-
               if (uniqueEmails.length > 0) {
                   emailFound = uniqueEmails[0]; 
-                  log(`Looking up email: ${emailFound}`);
+                  log(`Email Lookup: ${emailFound}`);
 
-                  const { data: userResult, error: userError } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+                  const { data: userResult } = await supabase.auth.admin.listUsers({ perPage: 1000 });
                   
-                  if (userError) {
-                      log(`Auth Lookup ERROR: ${userError.message}`);
-                  } else {
-                      const users = userResult.users || [];
+                  if (userResult && userResult.users) {
                       const cleanEmail = emailFound.toLowerCase().trim();
-                      const match = users.find(u => u.email?.toLowerCase().trim() === cleanEmail);
-                      
-                      if (match) {
-                          userId = match.id;
-                          log(`User Found: ${userId}`);
-                      } else {
-                          log(`No user found for ${cleanEmail}`);
-                      }
+                      const match = userResult.users.find(u => u.email?.toLowerCase().trim() === cleanEmail);
+                      if (match) userId = match.id;
                   }
               }
           }
@@ -172,51 +163,69 @@ export default async function handler(req, res) {
               continue;
           }
 
+          log(`Target User ID: ${userId}`);
+
           // STEP C: Determine Plan
           const itemsJSON = JSON.stringify(data.items || []).toLowerCase();
           let tier = 'Creator';
-          let creditsToAdd = 500; // Default
+          let creditsToAdd = 500;
           
           if (itemsJSON.includes('studio') || itemsJSON.includes('agency')) {
               tier = 'Studio';
               creditsToAdd = 2000;
           }
-          log(`Plan identified: ${tier} (+${creditsToAdd} credits)`);
+          log(`Tier: ${tier} | Adding: ${creditsToAdd} credits`);
 
-          // STEP D: Update DB (Robust Upsert)
-          
-          // 1. Fetch existing profile first to preserve other fields (like username)
-          const { data: currentProfile, error: fetchErr } = await supabase
+          // STEP D: PRE-FLIGHT CHECK
+          const { data: preProfile, error: preError } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', userId)
             .single();
           
-          const currentCredits = currentProfile?.credits || 0;
+          let currentCredits = 0;
+          let username = emailFound?.split('@')[0] || 'Studio User';
+
+          if (preError) {
+              log(`Profile Missing (New User): ${preError.message}`);
+          } else {
+              currentCredits = preProfile.credits || 0;
+              username = preProfile.username || username;
+              log(`PRE-UPDATE DB VALUE: ${currentCredits}`);
+          }
+
           const newCredits = currentCredits + creditsToAdd;
-          
-          // 2. Prepare Payload
-          // If profile doesn't exist, we MUST provide a username if the DB requires it
-          const username = currentProfile?.username || emailFound?.split('@')[0] || 'Studio User';
-          
+          log(`CALCULATION: ${currentCredits} + ${creditsToAdd} = ${newCredits}`);
+
+          // STEP E: FORCE UPDATE
+          // We use upsert with select() to verify the return
           const payload = {
               id: userId,
               tier: tier,
               credits: newCredits,
               updated_at: new Date().toISOString(),
-              username: username // Ensure username is present for new rows
+              username: username
           };
 
-          log(`Upserting Profile: ${userId} -> ${newCredits} credits`);
-
-          const { error: upsertErr } = await supabase
+          const { data: updatedRow, error: upsertErr } = await supabase
             .from('profiles')
-            .upsert(payload);
+            .upsert(payload)
+            .select(); // IMPORTANT: Request the written row back
 
           if (upsertErr) {
-              log(`DB Update FAILED: ${upsertErr.message}`);
+              log(`CRITICAL DB ERROR: ${upsertErr.message}`);
           } else {
-              log(`DB Update SUCCESS`);
+              // Verify what actually happened in the DB
+              if (updatedRow && updatedRow.length > 0) {
+                  log(`POST-UPDATE DB VALUE: ${updatedRow[0].credits}`);
+                  if (updatedRow[0].credits === newCredits) {
+                       log("VERIFICATION: SUCCESS - Database updated correctly.");
+                  } else {
+                       log("VERIFICATION: FAILED - Database returned different value.");
+                  }
+              } else {
+                  log("WARNING: Operation successful but no data returned.");
+              }
               processedCount++;
           }
       }
