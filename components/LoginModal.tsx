@@ -84,10 +84,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onAuth 
         let msg = err.message || "Authentication failed.";
         
         // Handle Duplicate Email
-        if (msg.includes("already registered") || msg.includes("unique constraint") || msg.includes("User already exists")) {
+        if (msg.includes("already registered") || msg.includes("unique constraint") || msg.includes("User already exists") || msg.includes("already taken")) {
             msg = "This email is already registered. Please Sign In instead.";
-            // Optional: Auto-switch to sign in for better UX?
-            // setAuthMode('signin'); 
+            // Optional: Auto-switch to sign in for better UX
+             setTimeout(() => {
+                 setAuthMode('signin');
+                 setError(null);
+             }, 2000);
         }
         
         // Handle Wrong Password

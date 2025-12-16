@@ -222,6 +222,12 @@ const App: React.FC = () => {
               }
           });
           if (error) throw error;
+          
+          // Check for existing user identity if Supabase didn't throw error but returned empty user
+          if (data.user && data.user.identities && data.user.identities.length === 0) {
+              throw new Error("User already exists. Please sign in.");
+          }
+
           // Note: The UI for success is handled in LoginModal
       } else {
           // Sign In
@@ -233,10 +239,18 @@ const App: React.FC = () => {
       }
   };
 
-  const handleLogout = async () => {
-      await supabase.auth.signOut();
-      setUserProfile(null);
-      setSession(null);
+  const handleLogout = async (e?: React.MouseEvent) => {
+      if (e) e.preventDefault();
+      try {
+          await supabase.auth.signOut();
+      } catch (err) {
+          console.error("Supabase signout error:", err);
+      } finally {
+          // Force state clear regardless of network result
+          setUserProfile(null);
+          setSession(null);
+          localStorage.removeItem('pending_plan');
+      }
   };
 
   const createCheckoutSession = async (priceId: string, currentSession: any) => {
@@ -302,7 +316,7 @@ const App: React.FC = () => {
               return;
           }
       } else {
-          // Logged in user checks
+          // Logged in user checks - recheck latest state
           if (!userProfile) return;
           if (userProfile.credits < 1) {
               setShowUpgradeModal(true);
@@ -316,6 +330,7 @@ const App: React.FC = () => {
 
       try {
         // Call Gemini API
+        console.log("Generating with model:", currentOptions.modelVersion);
         const result = await generatePhotoshootImage(currentOptions);
         setGeneratedImage(result);
 
@@ -325,14 +340,26 @@ const App: React.FC = () => {
             setGuestCredits(newGuestCredits);
             localStorage.setItem('fashion_guest_credits', newGuestCredits.toString());
         } else {
-            // In a real app, use a Postgres function (RPC) to decrement safely
-            const { error } = await supabase
+            // Fetch fresh credits first to ensure atomic-like decrement
+            const { data: freshProfile } = await supabase
                 .from('profiles')
-                .update({ credits: userProfile!.credits - 1 })
-                .eq('id', session.user.id);
+                .select('credits')
+                .eq('id', session.user.id)
+                .single();
             
-            if (!error) {
-                 setUserProfile(prev => prev ? ({ ...prev, credits: prev.credits - 1 }) : null);
+            const currentDbCredits = freshProfile?.credits || 0;
+            
+            if (currentDbCredits > 0) {
+                 const { error } = await supabase
+                    .from('profiles')
+                    .update({ credits: currentDbCredits - 1 })
+                    .eq('id', session.user.id);
+                
+                if (!error) {
+                     setUserProfile(prev => prev ? ({ ...prev, credits: currentDbCredits - 1 }) : null);
+                } else {
+                    console.error("Failed to update credits in DB", error);
+                }
             }
         }
 
@@ -434,7 +461,7 @@ const App: React.FC = () => {
                                 {userProfile?.credits || 0} <Zap size={10} className="text-brand-400 fill-brand-400" />
                             </div>
                         </div>
-                        <div className="h-8 w-8 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700 cursor-pointer hover:bg-zinc-700 transition-colors" onClick={handleLogout} title="Logout">
+                        <div className="h-8 w-8 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700 hover:bg-zinc-700 transition-colors cursor-pointer z-50 pointer-events-auto" onClick={(e) => handleLogout(e)} title="Logout">
                              <LogOut size={12} />
                         </div>
                      </>

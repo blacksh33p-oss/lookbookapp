@@ -134,6 +134,8 @@ export const generatePhotoshootImage = async (
 
   // 4. Execution Helper with Fallback
   const executeGeneration = async (modelName: string, config: any) => {
+      console.log(`[Gemini Service] Sending request to model: ${modelName}`);
+      
       const parts: any[] = [{ text: prompt }];
       imageInputs.forEach(img => {
         parts.push({
