@@ -27,6 +27,15 @@ const getApiKey = (): string | undefined => {
 
   // 1. Try Vite's import.meta.env (Standard for this project)
   const meta = import.meta as any;
+  
+  // Debug: Log available keys (names only) to console
+  if (meta && meta.env) {
+      const availableKeys = Object.keys(meta.env).filter(k => k.startsWith('VITE_'));
+      console.log("[Gemini Debug] Available VITE_ keys in environment:", availableKeys);
+  } else {
+      console.warn("[Gemini Debug] import.meta.env is empty or undefined");
+  }
+
   if (typeof meta !== 'undefined' && meta.env) {
     key = meta.env.VITE_API_KEY || 
           meta.env.VITE_GEMINI_API_KEY || 
@@ -64,7 +73,7 @@ export const generatePhotoshootImage = async (
 
   if (!API_KEY || API_KEY.includes('PASTE_YOUR')) {
     throw new Error(
-      "Configuration Error: API Key is missing. \n\n1. Go to Vercel Dashboard > Settings > Environment Variables.\n2. Add 'VITE_API_KEY' with your Google AI Studio key.\n3. Important: REDEPLOY your project for changes to take effect."
+      "Configuration Error: API Key is missing.\n\n1. Go to Vercel Dashboard > Deployments.\n2. Click the three dots (...) next to the latest deployment.\n3. Click 'Redeploy'.\n\n(Environment variables are only applied during build time)."
     );
   }
 

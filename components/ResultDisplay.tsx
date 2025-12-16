@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Download, RefreshCw, Sparkles, Loader2, User, Users, ChevronDown, Camera, Lock, Maximize2 } from 'lucide-react';
 
@@ -66,9 +65,9 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
   if (error) {
     return (
       <div className="h-full w-full bg-red-950/10 border border-red-900/50 flex flex-col items-center justify-center p-8 text-center backdrop-blur-sm relative">
-        <div className="border border-red-500/50 p-6">
-            <h3 className="text-2xl md:text-4xl font-black text-red-500 mb-2 uppercase tracking-tighter">System Failure</h3>
-            <p className="text-red-400 font-mono text-xs max-w-md">{error}</p>
+        <div className="border border-red-500/50 p-6 bg-black/50">
+            <h3 className="text-2xl md:text-3xl font-black text-red-500 mb-4 uppercase tracking-tighter">System Failure</h3>
+            <p className="text-red-300 font-mono text-xs text-left whitespace-pre-wrap max-w-lg leading-relaxed">{error}</p>
         </div>
       </div>
     );
