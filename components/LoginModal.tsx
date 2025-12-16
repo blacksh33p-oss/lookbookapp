@@ -7,9 +7,16 @@ interface LoginModalProps {
   onClose: () => void;
   onAuth: (email: string, password?: string, isSignUp?: boolean, username?: string) => Promise<void>;
   showToast?: (message: string, type: 'success' | 'error' | 'info') => void;
+  initialView?: 'pricing' | 'login';
 }
 
-export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onAuth, showToast }) => {
+export const LoginModal: React.FC<LoginModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onAuth, 
+  showToast,
+  initialView = 'pricing' 
+}) => {
   const [step, setStep] = useState<'selection' | 'credentials'>('selection');
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>(SubscriptionTier.Free);
@@ -33,6 +40,25 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onAuth,
       return () => clearInterval(interval);
   }, [resendTimer]);
 
+  // Reset state when modal opens based on initialView
+  useEffect(() => {
+    if (isOpen) {
+        if (initialView === 'login') {
+            setStep('credentials');
+            setAuthMode('signin');
+        } else {
+            setStep('selection');
+            setAuthMode('signup');
+        }
+        // Clear previous inputs/errors
+        setError(null);
+        setEmail('');
+        setPassword('');
+        setUsername('');
+        setIsSuccess(false);
+    }
+  }, [isOpen, initialView]);
+
   if (!isOpen) return null;
 
   const handleTierSelect = (tier: SubscriptionTier) => {
@@ -55,7 +81,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onAuth,
   };
 
   const switchToSignUp = () => {
-      setStep('selection'); 
+      // If we are already in credentials, toggle auth mode but stay in credentials unless we want them to pick a plan
+      // Actually, if coming from 'login' view, 'Back to plans' might be what they want.
+      // But standard 'Don't have an account? Sign Up' usually just toggles form.
+      setAuthMode('signup');
+      setError(null);
+  };
+  
+  const backToPlans = () => {
+      setStep('selection');
       setAuthMode('signup');
       setError(null);
   };
@@ -257,7 +291,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onAuth,
         ) : (
              <div className="p-8">
                 <div className="mb-6">
-                    <button onClick={switchToSignUp} className="text-xs text-zinc-500 hover:text-white mb-4 flex items-center gap-1">← Back to plans</button>
+                    <button onClick={backToPlans} className="text-xs text-zinc-500 hover:text-white mb-4 flex items-center gap-1">← Back to plans</button>
                     <h2 className="text-2xl font-bold text-white mb-2">
                         {authMode === 'signin' ? 'Welcome Back' : (selectedTier === SubscriptionTier.Free ? 'Create Account' : `Join ${selectedTier}`)}
                     </h2>

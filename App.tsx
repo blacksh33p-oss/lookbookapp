@@ -143,6 +143,7 @@ const App: React.FC = () => {
 
   // UI State
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginModalView, setLoginModalView] = useState<'pricing' | 'login'>('pricing'); // Default to pricing
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [appMode, setAppMode] = useState<'single' | 'batch'>('single');
   const [autoPose, setAutoPose] = useState(true);
@@ -362,6 +363,7 @@ const App: React.FC = () => {
 
      if (!activeSession) {
          localStorage.setItem('pending_plan', tier);
+         setLoginModalView('pricing');
          setShowLoginModal(true);
          return;
      }
@@ -385,6 +387,11 @@ const App: React.FC = () => {
      window.location.href = finalUrl;
   };
 
+  const openLogin = () => {
+      setLoginModalView('login');
+      setShowLoginModal(true);
+  };
+
   const executeGeneration = async (currentOptions: PhotoshootOptions) => {
       // 1. Calculate Cost
       const cost = getGenerationCost(currentOptions);
@@ -406,6 +413,7 @@ const App: React.FC = () => {
       if (isGuest) {
           if (guestCredits < cost) {
               showToast(guestCredits < 1 ? "Daily limit reached! Credits refill tomorrow." : "Not enough guest credits for this operation.", "info");
+              setLoginModalView('pricing'); // Encourage sign up
               setShowLoginModal(true);
               return;
           }
@@ -542,6 +550,7 @@ const App: React.FC = () => {
         isOpen={showLoginModal} 
         onClose={() => setShowLoginModal(false)} 
         onAuth={handleAuth} 
+        initialView={loginModalView}
         showToast={showToast}
       />
       <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} onUpgrade={(tier) => handleUpgrade(tier)} />
@@ -595,7 +604,7 @@ const App: React.FC = () => {
                                 {guestCredits} <Zap size={10} className={guestCredits > 0 ? "text-brand-400 fill-brand-400" : "text-zinc-600"} />
                             </div>
                         </div>
-                        <button onClick={() => setShowLoginModal(true)} className="bg-white text-black hover:bg-zinc-200 px-3 py-1.5 rounded-full text-xs font-bold transition-colors">LOGIN</button>
+                        <button onClick={openLogin} className="bg-white text-black hover:bg-zinc-200 px-3 py-1.5 rounded-full text-xs font-bold transition-colors">LOGIN</button>
                     </div>
                  )}
               </div>
