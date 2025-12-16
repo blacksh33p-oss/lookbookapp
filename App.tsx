@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, GeneratedImage, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.4.10-Stable"; 
+const APP_VERSION = "v1.4.11-Live"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -353,7 +353,7 @@ const App: React.FC = () => {
               } else {
                   // Timed out.
                   setIsSyncingPayment(false);
-                  showToast("Sync timed out. Click 'Restore Purchase' in menu to retry.", "info");
+                  showToast("Sync timed out. Server might be slow. Check back later.", "info");
               }
           }
       }, 2000); // Check every 2 seconds
@@ -758,6 +758,11 @@ const App: React.FC = () => {
                         <span>{Math.min(syncAttempts * 2, 120)}s elapsed</span>
                      </div>
                 </div>
+                {syncAttempts > 5 && (
+                     <div className="text-[10px] text-amber-500 font-bold bg-amber-900/20 p-2 rounded mt-2 border border-amber-500/30">
+                        Webhook delaying... Please wait.
+                     </div>
+                )}
                 {syncAttempts > 10 && (
                      <button 
                         onClick={() => pollForCredits(session?.user?.id)}
