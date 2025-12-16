@@ -15,7 +15,7 @@ const readStream = async (req) => {
 };
 
 export default async function handler(req, res) {
-  const LOG_PREFIX = '[FastSpring V11-SafeUpdate]'; 
+  const LOG_PREFIX = '[FastSpring V12-Adaptive]'; 
   const trace = []; 
 
   const log = (msg) => {
@@ -35,7 +35,7 @@ export default async function handler(req, res) {
   const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '').trim();
   
   if (req.method === 'GET') {
-      return res.status(200).json({ status: 'Active', version: 'v11' });
+      return res.status(200).json({ status: 'Active', version: 'v12-Adaptive' });
   }
   
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -145,7 +145,7 @@ export default async function handler(req, res) {
           }
           log(`Tier: ${tier} | Adding: ${creditsToAdd} credits`);
 
-          // STEP E: DB UPDATE (SAFE MODE)
+          // STEP E: DB UPDATE (ADAPTIVE MODE)
           
           // 1. Fetch current credits
           const { data: preProfile, error: preError } = await supabase
@@ -154,12 +154,12 @@ export default async function handler(req, res) {
             .eq('id', userId)
             .single();
           
-          const currentCredits = preProfile ? preProfile.credits : 0;
+          const currentCredits = (preProfile && typeof preProfile.credits === 'number') ? preProfile.credits : 0;
           const newCredits = currentCredits + creditsToAdd;
 
           log(`Attempting UPDATE: ${currentCredits} -> ${newCredits}`);
 
-          // 2. Try UPDATE first (This is safer than Upsert if row exists but constraints are strict)
+          // 2. Try UPDATE first
           const { data: updateData, error: updateError } = await supabase
               .from('profiles')
               .update({ 
@@ -176,8 +176,8 @@ export default async function handler(req, res) {
               log("UPDATE Successful.");
               success = true;
           } else {
-              // 3. If UPDATE failed (row doesn't exist), try INSERT
-              log("UPDATE failed/empty. Attempting INSERT.");
+              // 3. If UPDATE failed, Try INSERT (Minimal)
+              log("UPDATE failed/empty. Attempting Minimal INSERT.");
               const { error: insertError } = await supabase
                   .from('profiles')
                   .insert({
@@ -188,10 +188,32 @@ export default async function handler(req, res) {
                   });
               
               if (!insertError) {
-                  log("INSERT Successful.");
+                  log("Minimal INSERT Successful.");
                   success = true;
               } else {
-                  log(`INSERT Error: ${insertError.message}`);
+                  // 4. If Minimal Insert Failed (likely due to NOT NULL email), Try Full Insert
+                  log(`Minimal INSERT Failed: ${insertError.message}. Retrying with Email/Username.`);
+                  
+                  const username = emailFound ? emailFound.split('@')[0] : 'Studio User';
+                  
+                  const { error: fullInsertError } = await supabase
+                    .from('profiles')
+                    .insert({
+                        id: userId,
+                        tier: tier,
+                        credits: newCredits,
+                        email: emailFound,     // Explicitly add these back
+                        username: username,    // Explicitly add these back
+                        full_name: username,   // Some schemas use full_name
+                        updated_at: new Date().toISOString()
+                    });
+
+                  if (!fullInsertError) {
+                      log("Full INSERT Successful.");
+                      success = true;
+                  } else {
+                      log(`Full INSERT also failed: ${fullInsertError.message}`);
+                  }
               }
           }
 

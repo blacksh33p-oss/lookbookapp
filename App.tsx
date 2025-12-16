@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.4.18-SafeSync"; 
+const APP_VERSION = "v1.4.19-Adaptive"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -344,7 +344,7 @@ const App: React.FC = () => {
                   setUserProfile((prev) => ({
                       tier: data.tier as SubscriptionTier,
                       credits: data.credits,
-                      // STRICT Username Logic: Arg -> Session -> Previous State -> Fallback
+                      // STRICT Username Logic
                       username: bestEmail ? bestEmail.split('@')[0] : (prev?.username || 'Studio User')
                   }));
               }
@@ -399,8 +399,8 @@ const App: React.FC = () => {
 
   const fetchProfile = async (userId: string, email?: string) => {
     try {
-        // V10: Completely decoupled. We do NOT ask for 'email' or 'username' from the DB table.
-        // We only get credits and tier.
+        // V12: Adaptive Selection
+        // Try to fetch credits/tier first
         let { data, error } = await supabase
             .from('profiles')
             .select('tier, credits')
@@ -409,7 +409,8 @@ const App: React.FC = () => {
         
         // Handle "Row not found"
         if (error && error.code === 'PGRST116') {
-             const { data: newProfile, error: createError } = await supabase
+             // 1. Attempt Minimal Insert
+             const { data: minimalProfile, error: minimalError } = await supabase
                 .from('profiles')
                 .insert([{
                     id: userId,
@@ -419,9 +420,31 @@ const App: React.FC = () => {
                 .select()
                 .single();
 
-             if (!createError && newProfile) {
-                 data = newProfile;
+             if (!minimalError && minimalProfile) {
+                 data = minimalProfile;
                  error = null;
+             } else {
+                 // 2. Fallback: Attempt Insert with Email/Username (if DB requires it)
+                 const username = email ? email.split('@')[0] : 'user';
+                 const { data: fullProfile, error: fullError } = await supabase
+                    .from('profiles')
+                    .insert([{
+                        id: userId,
+                        tier: SubscriptionTier.Free,
+                        credits: 5,
+                        email: email,
+                        username: username,
+                        full_name: username
+                    }])
+                    .select()
+                    .single();
+                
+                 if (!fullError && fullProfile) {
+                     data = fullProfile;
+                     error = null;
+                 } else {
+                     console.error("Failed to create profile (Adaptive strategy failed)", minimalError, fullError);
+                 }
              }
         }
 
@@ -429,7 +452,7 @@ const App: React.FC = () => {
             setUserProfile({
                 tier: data.tier as SubscriptionTier || SubscriptionTier.Free,
                 credits: typeof data.credits === 'number' ? data.credits : 0,
-                // Username derived strictly from session email
+                // Username derived strictly from session email if available
                 username: email ? email.split('@')[0] : 'Studio User'
             });
             return data;
@@ -837,7 +860,7 @@ const App: React.FC = () => {
                            className="hidden sm:flex flex-col items-end px-2 border-r border-white/10 cursor-pointer group select-none"
                         >
                             <span className="text-[10px] text-zinc-400 font-bold uppercase group-hover:text-white transition-colors">
-                                {userProfile?.username || 'Studio User'}
+                                {userProfile?.username || (session.user.email ? session.user.email.split('@')[0] : 'Studio User')}
                             </span>
                             <div className="text-xs font-mono font-bold text-white tabular-nums flex items-center gap-1 group-hover:text-brand-300 transition-colors">
                                 {userProfile?.credits !== undefined ? userProfile.credits : 0} <Zap size={10} className="text-brand-400 fill-brand-400" />
