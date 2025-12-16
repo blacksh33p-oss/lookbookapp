@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.4.20-Bulletproof"; 
+const APP_VERSION = "v1.4.21-SchemaFix"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -320,7 +320,7 @@ const App: React.FC = () => {
           attempts++;
           setSyncAttempts(attempts);
           
-          // V11: Only fetch tier/credits.
+          // V14: Only fetch tier/credits.
           const { data } = await supabase
               .from('profiles')
               .select('tier, credits')
@@ -407,42 +407,24 @@ const App: React.FC = () => {
         
         // Handle "Row not found" - Auto Create
         if (error && error.code === 'PGRST116') {
-             // 1. Attempt Minimal Insert
-             const { data: minimalProfile, error: minimalError } = await supabase
+             // Attempt Insert with STRICTLY VALID columns from screenshot
+             // id, email, credits, tier. NOTHING ELSE.
+             const { data: newProfile, error: createError } = await supabase
                 .from('profiles')
                 .insert([{
                     id: userId,
+                    email: email || 'unknown',
                     tier: SubscriptionTier.Free,
                     credits: 5
                 }])
                 .select()
                 .single();
 
-             if (!minimalError && minimalProfile) {
-                 data = minimalProfile;
+             if (!createError && newProfile) {
+                 data = newProfile;
                  error = null;
              } else {
-                 // 2. Fallback: Attempt Insert with Email/Username (if DB requires it)
-                 const username = email ? email.split('@')[0] : 'user';
-                 const { data: fullProfile, error: fullError } = await supabase
-                    .from('profiles')
-                    .insert([{
-                        id: userId,
-                        tier: SubscriptionTier.Free,
-                        credits: 5,
-                        email: email,
-                        username: username,
-                        full_name: username
-                    }])
-                    .select()
-                    .single();
-                
-                 if (!fullError && fullProfile) {
-                     data = fullProfile;
-                     error = null;
-                 } else {
-                     console.error("Failed to create profile (Adaptive strategy failed)", minimalError, fullError);
-                 }
+                 console.error("Profile creation failed. Check DB schema matches code.", createError);
              }
         }
 
@@ -503,13 +485,14 @@ const App: React.FC = () => {
       if (!password) throw new Error("Password is required.");
 
       if (isSignUp) {
+          // Note: we pass username in metadata, but our profile table won't store it 
+          // because the column doesn't exist. That's fine, we derive it from email.
           const { data, error } = await supabase.auth.signUp({
               email,
               password,
               options: {
                 emailRedirectTo: window.location.origin, 
                 data: {
-                    // We keep metadata but don't assume DB column exists
                     full_name: username
                 }
               }

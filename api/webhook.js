@@ -15,7 +15,7 @@ const readStream = async (req) => {
 };
 
 export default async function handler(req, res) {
-  const LOG_PREFIX = '[FastSpring V13-Bulletproof]'; 
+  const LOG_PREFIX = '[FastSpring V14-SchemaFix]'; 
   const trace = []; 
 
   const log = (msg) => {
@@ -33,7 +33,7 @@ export default async function handler(req, res) {
   const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '').trim();
   
   if (req.method === 'GET') {
-      return res.status(200).json({ status: 'Active', version: 'v13-Bulletproof' });
+      return res.status(200).json({ status: 'Active', version: 'v14-SchemaFix' });
   }
   
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -75,7 +75,7 @@ export default async function handler(req, res) {
           let targetUserId = null;
           let emailFound = data.email || data.customer?.email || data.account?.contact?.email;
 
-          // STRATEGY: Trust the 'tags' UserID first. It is the most reliable link to the session.
+          // 1. Identify User ID (Prefer Tags)
           const tags = data.tags || (data.order && data.order.tags) || (data.subscription && data.subscription.tags);
           if (tags) {
               let decodedTags = tags;
@@ -90,7 +90,7 @@ export default async function handler(req, res) {
               }
           }
 
-          // Fallback: If no UserID tag, look up by Email
+          // 2. Identify User ID (Fallback to Email)
           if (!targetUserId && emailFound) {
               log(`No UserID tag. Looking up email: ${emailFound}`);
               const { data: userResult } = await supabase.auth.admin.listUsers({ perPage: 1000 });
@@ -106,7 +106,7 @@ export default async function handler(req, res) {
               continue;
           }
 
-          // Determine Plan
+          // 3. Determine Plan
           const itemsJSON = JSON.stringify(data.items || []).toLowerCase();
           let tier = 'Creator';
           let creditsToAdd = 500;
@@ -117,43 +117,65 @@ export default async function handler(req, res) {
           }
           log(`User: ${targetUserId} | Tier: ${tier} | Adding: ${creditsToAdd}`);
 
-          // EXECUTE UPDATE
-          // 1. Get current state to ensure we add, not overwrite
+          // 4. DB Operation - Strictly use existing columns: id, email, credits, tier
+          
+          // A. Fetch current credits
           const { data: currentProfile } = await supabase
             .from('profiles')
             .select('credits')
             .eq('id', targetUserId)
             .single();
           
-          // Default to 0 if missing/null, but if it exists, use it.
           const existingCredits = (currentProfile && typeof currentProfile.credits === 'number') ? currentProfile.credits : 0;
           const finalCredits = existingCredits + creditsToAdd;
 
-          // 2. Perform Upsert
-          // We include 'email' and 'username' if we have them, to satisfy potential NOT NULL constraints on new rows
-          const upsertPayload = {
-              id: targetUserId,
-              tier: tier,
-              credits: finalCredits,
-              updated_at: new Date().toISOString()
-          };
-
-          if (emailFound) {
-              upsertPayload.email = emailFound;
-              upsertPayload.username = emailFound.split('@')[0];
-              upsertPayload.full_name = emailFound.split('@')[0];
-          }
-
-          const { error: upsertError } = await supabase
+          // B. Attempt UPDATE first (Safest)
+          // We DO NOT update 'email' here to avoid unique constraint issues if it's correct.
+          // We DO NOT update 'updated_at' because the column does not exist.
+          const { data: updateData, error: updateError } = await supabase
               .from('profiles')
-              .upsert(upsertPayload, { onConflict: 'id' });
+              .update({ 
+                  credits: finalCredits, 
+                  tier: tier 
+              })
+              .eq('id', targetUserId)
+              .select();
 
-          if (!upsertError) {
-              log(`SUCCESS: Set credits to ${finalCredits}`);
-              processedCount++;
+          let success = false;
+
+          if (!updateError && updateData && updateData.length > 0) {
+              log(`UPDATE Success. Credits: ${finalCredits}`);
+              success = true;
           } else {
-              log(`ERROR: ${upsertError.message}`);
+              // C. If UPDATE failed (row missing), attempt INSERT
+              log(`UPDATE failed or empty. Attempting INSERT.`);
+              
+              // If we don't have the email from payload, try to fetch it from Auth
+              let finalEmail = emailFound;
+              if (!finalEmail) {
+                  const { data: authUser } = await supabase.auth.admin.getUserById(targetUserId);
+                  if (authUser && authUser.user) finalEmail = authUser.user.email;
+              }
+
+              const { error: insertError } = await supabase
+                  .from('profiles')
+                  .insert({
+                      id: targetUserId,
+                      email: finalEmail || 'unknown@user.com', // Required by schema
+                      credits: finalCredits,
+                      tier: tier
+                      // No updated_at, no username, no full_name
+                  });
+              
+              if (!insertError) {
+                  log(`INSERT Success. Credits: ${finalCredits}`);
+                  success = true;
+              } else {
+                  log(`INSERT Error: ${insertError.message}`);
+              }
           }
+
+          if (success) processedCount++;
       }
 
       return res.status(200).json({ success: true, processed: processedCount, trace });
