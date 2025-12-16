@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.4.23-SyncFix"; 
+const APP_VERSION = "v1.4.24-StableCredits"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -454,9 +454,16 @@ const App: React.FC = () => {
         }
 
         if (data) {
+            // SAFETY CHECK: If credits comes back as null/undefined, DO NOT overwrite with 0.
+            // This prevents UI flicker during transient DB issues.
+            if (data.credits === null || data.credits === undefined) {
+                console.warn("Fetched profile has NULL credits. Ignoring update to prevent state corruption.");
+                return null;
+            }
+
             setUserProfile({
                 tier: data.tier as SubscriptionTier || SubscriptionTier.Free,
-                credits: typeof data.credits === 'number' ? data.credits : 0,
+                credits: data.credits, // Trusted value (we filtered nulls above)
                 // Username derived strictly from session email if available
                 username: email ? email.split('@')[0] : 'Studio User'
             });
@@ -624,7 +631,7 @@ const App: React.FC = () => {
           if (!userProfile) return;
           // IMPORTANT: Check DB again before deducting to prevent client-side desync
           const { data: checkData } = await supabase.from('profiles').select('credits').eq('id', session.user.id).single();
-          const actualCredits = checkData?.credits || 0;
+          const actualCredits = checkData ? checkData.credits : userProfile.credits;
 
           if (actualCredits < cost) {
               showToast(`Insufficient credits. You have ${actualCredits}, need ${cost}.`, "info");
@@ -658,8 +665,8 @@ const App: React.FC = () => {
                      const newBalance = updatedRows[0].credits;
                      setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
                 } else {
-                     // Fallback if select failed (rare)
-                     setUserProfile(prev => prev ? ({ ...prev, credits: actualCredits - cost }) : null);
+                     // Fallback if select failed (rare) but be safe
+                     setUserProfile(prev => prev ? ({ ...prev, credits: Math.max(0, actualCredits - cost) }) : null);
                 }
             }
 
