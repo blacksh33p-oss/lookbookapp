@@ -84,6 +84,7 @@ const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<{tier: SubscriptionTier, credits: number, username?: string} | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isRedirecting, setIsRedirecting] = useState(false); // New state for payment redirect UI
 
   // Guest State (LocalStorage)
   const [guestCredits, setGuestCredits] = useState<number>(() => {
@@ -130,13 +131,31 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // --- HELPER: Handle Payment Redirect Logic ---
+  const checkPendingPlan = async (userSession: any) => {
+    if (!userSession) return;
+    
+    const pendingPlan = localStorage.getItem('pending_plan');
+    if (pendingPlan && pendingPlan !== SubscriptionTier.Free) {
+        console.log("Found pending plan, initiating checkout...", pendingPlan);
+        setIsRedirecting(true);
+        // Small delay to ensure UI updates before redirect
+        setTimeout(async () => {
+             await handleUpgrade(pendingPlan as SubscriptionTier, userSession);
+             localStorage.removeItem('pending_plan');
+             setIsRedirecting(false);
+        }, 1000);
+    }
+  };
+
   // --- SUPABASE INITIALIZATION & AUTH ---
   useEffect(() => {
     // 1. Check active session on load
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session) {
-          handlePostLogin(session.user.id);
+          fetchProfile(session.user.id);
+          checkPendingPlan(session);
       } else {
           setIsAuthLoading(false);
       }
@@ -144,10 +163,13 @@ const App: React.FC = () => {
 
     // 2. Listen for auth changes (Magic Link login, Sign out, etc)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth Event:", event);
       setSession(session);
       
       if (event === 'SIGNED_IN' && session) {
-         await handlePostLogin(session.user.id);
+         await fetchProfile(session.user.id);
+         await checkPendingPlan(session);
+         setShowLoginModal(false); // Close modal on success
       } else if (event === 'SIGNED_OUT') {
          setUserProfile(null);
       }
@@ -155,26 +177,6 @@ const App: React.FC = () => {
 
     return () => subscription.unsubscribe();
   }, []);
-
-  // Handle post-login logic: Update Tier from selection and Fetch Profile
-  const handlePostLogin = async (userId: string) => {
-    try {
-        // Check if user selected a plan during sign up (stored in LoginModal)
-        const pendingPlan = localStorage.getItem('pending_plan');
-        
-        if (pendingPlan && pendingPlan !== SubscriptionTier.Free) {
-            // Logic: Redirect to checkout for the pending plan
-            // For now, we clear it and prompt the upgrade modal or checkout flow
-            localStorage.removeItem('pending_plan');
-            handleUpgrade(pendingPlan as SubscriptionTier); 
-        }
-
-        // Fetch final profile
-        await fetchProfile(userId);
-    } catch (e) {
-        console.error("Post-login handler error:", e);
-    }
-  };
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -220,7 +222,7 @@ const App: React.FC = () => {
               }
           });
           if (error) throw error;
-          // Note: LoginModal handles the success message for email verification
+          // Note: The UI for success is handled in LoginModal
       } else {
           // Sign In
           const { error } = await supabase.auth.signInWithPassword({
@@ -237,7 +239,7 @@ const App: React.FC = () => {
       setSession(null);
   };
 
-  const createCheckoutSession = async (priceId: string) => {
+  const createCheckoutSession = async (priceId: string, currentSession: any) => {
       try {
         const response = await fetch('/api/create-checkout', {
             method: 'POST',
@@ -246,8 +248,8 @@ const App: React.FC = () => {
             },
             body: JSON.stringify({
                 priceId,
-                userId: session?.user?.id,
-                email: session?.user?.email,
+                userId: currentSession?.user?.id,
+                email: currentSession?.user?.email,
             }),
         });
 
@@ -267,8 +269,11 @@ const App: React.FC = () => {
       }
   };
 
-  const handleUpgrade = async (tier: SubscriptionTier) => {
-     if (!session) {
+  const handleUpgrade = async (tier: SubscriptionTier, explicitSession?: any) => {
+     // Use passed session or state session
+     const activeSession = explicitSession || session;
+
+     if (!activeSession) {
          // Store intent and show login
          localStorage.setItem('pending_plan', tier);
          setShowLoginModal(true);
@@ -283,7 +288,7 @@ const App: React.FC = () => {
 
      if (tier === SubscriptionTier.Free) return;
 
-     await createCheckoutSession(PRICE_IDS[tier]);
+     await createCheckoutSession(PRICE_IDS[tier], activeSession);
      setShowUpgradeModal(false);
   };
 
@@ -373,11 +378,24 @@ const App: React.FC = () => {
   const isPremium = session ? userProfile?.tier !== SubscriptionTier.Free : false;
   const isStudio = session ? userProfile?.tier === SubscriptionTier.Studio : false;
 
+  // --- Redirect Overlay ---
+  if (isRedirecting) {
+      return (
+        <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center">
+            <div className="flex flex-col items-center gap-6 animate-fade-in">
+                <div className="w-12 h-12 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                <h2 className="text-xl font-bold text-white tracking-widest uppercase">Redirecting to Secure Checkout</h2>
+                <p className="text-zinc-500 font-mono text-xs">Please wait while we transfer you to our payment provider...</p>
+            </div>
+        </div>
+      );
+  }
+
   return (
     <div className="min-h-screen text-zinc-200 font-sans selection:bg-brand-500/99 selection:text-white">
       
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onAuth={handleAuth} />
-      <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} onUpgrade={handleUpgrade} />
+      <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} onUpgrade={(tier) => handleUpgrade(tier)} />
 
       <header className="fixed top-0 left-0 right-0 z-40 px-6 py-4 pointer-events-none">
           <div className="max-w-[1920px] mx-auto flex justify-between items-start pointer-events-auto">

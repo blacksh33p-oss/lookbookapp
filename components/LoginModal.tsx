@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Mail, ArrowRight, Loader2, Check, User, Building2, Lock, Fingerprint } from 'lucide-react';
+import { X, Mail, ArrowRight, Loader2, Check, User, Building2, Lock, Fingerprint, LogIn } from 'lucide-react';
 import { SubscriptionTier } from '../types';
 
 interface LoginModalProps {
@@ -24,7 +24,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onAuth 
 
   const handleTierSelect = (tier: SubscriptionTier) => {
     setSelectedTier(tier);
-    setAuthMode('signup'); // Tier selection implies sign up
+    // Important: Save the plan intent immediately
+    if (tier !== SubscriptionTier.Free) {
+        localStorage.setItem('pending_plan', tier);
+    } else {
+        localStorage.removeItem('pending_plan');
+    }
+    setAuthMode('signup');
     setStep('credentials');
     setError(null);
   };
@@ -36,13 +42,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onAuth 
   };
 
   const switchToSignUp = () => {
-      // If switching to signup from login screen, go back to tier selection
       setStep('selection'); 
       setAuthMode('signup');
       setError(null);
   };
 
   const handleSubmit = async () => {
+    // 1. Basic Validation
     if (!email || !email.includes('@')) {
         setError("Please enter a valid email address.");
         return;
@@ -58,21 +64,38 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onAuth 
     
     setIsLoading(true);
     setError(null);
+
     try {
+        // 2. Attempt Authentication
         await onAuth(email, password, authMode === 'signup', username);
         
-        // Handle post-signup logic
+        // 3. Handle Success Scenarios
         if (authMode === 'signup') {
-             if (selectedTier !== SubscriptionTier.Free) {
-                 localStorage.setItem('pending_plan', selectedTier);
-             }
-             // Show success screen for verification
+             // If signup successful, show verification screen
              setIsSuccess(true);
         } else {
+             // If login successful, close modal (App.tsx handles redirection)
              onClose();
         }
     } catch (err: any) {
-        setError(err.message || "Authentication failed. Please check your credentials.");
+        console.error("Auth Error:", err);
+        
+        // 4. Professional Error Handling
+        let msg = err.message || "Authentication failed.";
+        
+        // Handle Duplicate Email
+        if (msg.includes("already registered") || msg.includes("unique constraint") || msg.includes("User already exists")) {
+            msg = "This email is already registered. Please Sign In instead.";
+            // Optional: Auto-switch to sign in for better UX?
+            // setAuthMode('signin'); 
+        }
+        
+        // Handle Wrong Password
+        if (msg.includes("Invalid login credentials")) {
+            msg = "Incorrect email or password.";
+        }
+
+        setError(msg);
     } finally {
         setIsLoading(false);
     }
@@ -87,13 +110,16 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onAuth 
                 <div className="w-16 h-16 bg-brand-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
                     <Mail className="text-brand-400" size={32} />
                 </div>
-                <h3 className="text-2xl font-bold text-white mb-2">Check your email</h3>
+                <h3 className="text-2xl font-bold text-white mb-2">Verify your account</h3>
                 <p className="text-zinc-400 mb-6">We've sent a verification link to <span className="text-white font-medium">{email}</span>.</p>
-                <div className="bg-zinc-900 p-4 rounded-lg border border-zinc-800 text-sm text-zinc-500 mb-6">
-                    Please click the link in the email to activate your account. You won't be able to log in until you verify.
+                
+                <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-800 text-sm text-zinc-400 mb-6 text-left">
+                    <p className="mb-2"><strong className="text-white">Next Step:</strong> Click the link in your email.</p>
+                    <p>Once verified, you will be automatically redirected to complete your <strong>{selectedTier} Plan</strong> setup.</p>
                 </div>
+
                 <button onClick={onClose} className="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-zinc-200 transition-colors">
-                    Got it
+                    I understand
                 </button>
             </div>
         </div>
@@ -222,7 +248,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onAuth 
                         </div>
                     </div>
 
-                    {error && <p className="text-red-400 text-xs bg-red-950/20 border border-red-900/50 p-2 rounded">{error}</p>}
+                    {error && (
+                        <div className="bg-red-950/20 border border-red-900/50 p-3 rounded-lg flex items-start gap-2">
+                            <div className="p-1 bg-red-500/10 rounded-full mt-0.5"><X size={12} className="text-red-400"/></div>
+                            <div className="text-red-300 text-xs leading-relaxed">{error}</div>
+                        </div>
+                    )}
 
                     <button 
                         onClick={handleSubmit}
