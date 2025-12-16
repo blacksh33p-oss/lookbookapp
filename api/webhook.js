@@ -15,7 +15,7 @@ const readStream = async (req) => {
 };
 
 export default async function handler(req, res) {
-  const LOG_PREFIX = '[FastSpring V10-Decoupled]'; 
+  const LOG_PREFIX = '[FastSpring V11-SafeUpdate]'; 
   const trace = []; 
 
   const log = (msg) => {
@@ -34,39 +34,8 @@ export default async function handler(req, res) {
   const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
   const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '').trim();
   
-  // --- DIAGNOSTIC MODE (GET) ---
   if (req.method === 'GET') {
-      const { check_email } = req.query;
-      const status = {
-          status: 'Active',
-          version: 'v10-Decoupled',
-          config: {
-              hasUrl: !!supabaseUrl,
-              hasKey: !!serviceRoleKey,
-          }
-      };
-
-      if (check_email && serviceRoleKey) {
-          const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
-          try {
-              const { data, error } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-              if (error) status.lookupError = error;
-              else {
-                  const match = data.users.find(u => u.email?.toLowerCase() === check_email.toLowerCase());
-                  status.userFound = !!match;
-                  status.userId = match ? match.id : null;
-                  
-                  if (match) {
-                      // V10: Only check credits/tier, ignore everything else
-                      const { data: profile, error: profileError } = await supabase.from('profiles').select('credits, tier').eq('id', match.id).single();
-                      status.profile = profile || 'No Profile Row';
-                      if (profileError) status.profileError = profileError.message;
-                  }
-              }
-          } catch(e) { status.exception = e.message; }
-      }
-
-      return res.status(200).json(status);
+      return res.status(200).json({ status: 'Active', version: 'v11' });
   }
   
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -176,46 +145,57 @@ export default async function handler(req, res) {
           }
           log(`Tier: ${tier} | Adding: ${creditsToAdd} credits`);
 
-          // STEP E: DB UPDATE
+          // STEP E: DB UPDATE (SAFE MODE)
+          
+          // 1. Fetch current credits
           const { data: preProfile, error: preError } = await supabase
             .from('profiles')
-            .select('*')
+            .select('credits')
             .eq('id', userId)
             .single();
           
-          let currentCredits = 0;
-
-          if (preError) {
-              log(`Profile Missing/New: ${preError.message}`);
-          } else {
-              currentCredits = preProfile.credits || 0;
-          }
-
+          const currentCredits = preProfile ? preProfile.credits : 0;
           const newCredits = currentCredits + creditsToAdd;
-          log(`UPDATE: ${currentCredits} -> ${newCredits} (${tier})`);
 
-          // V10 CRITICAL: WE ONLY UPDATE CREDITS AND TIER.
-          // We DO NOT touch email or username to avoid schema errors.
-          const payload = {
-              id: userId,
-              tier: tier,
-              credits: newCredits,
-              updated_at: new Date().toISOString()
-          };
+          log(`Attempting UPDATE: ${currentCredits} -> ${newCredits}`);
 
-          const { data: updatedRow, error: upsertErr } = await supabase
-            .from('profiles')
-            .upsert(payload)
-            .select();
+          // 2. Try UPDATE first (This is safer than Upsert if row exists but constraints are strict)
+          const { data: updateData, error: updateError } = await supabase
+              .from('profiles')
+              .update({ 
+                  credits: newCredits, 
+                  tier: tier, 
+                  updated_at: new Date().toISOString() 
+              })
+              .eq('id', userId)
+              .select();
 
-          if (upsertErr) {
-              log(`DB ERROR: ${upsertErr.message}`);
+          let success = false;
+          
+          if (!updateError && updateData && updateData.length > 0) {
+              log("UPDATE Successful.");
+              success = true;
           } else {
-              if (updatedRow && updatedRow.length > 0) {
-                  log(`SUCCESS: Credits=${updatedRow[0].credits}`);
+              // 3. If UPDATE failed (row doesn't exist), try INSERT
+              log("UPDATE failed/empty. Attempting INSERT.");
+              const { error: insertError } = await supabase
+                  .from('profiles')
+                  .insert({
+                      id: userId,
+                      tier: tier,
+                      credits: newCredits,
+                      updated_at: new Date().toISOString()
+                  });
+              
+              if (!insertError) {
+                  log("INSERT Successful.");
+                  success = true;
+              } else {
+                  log(`INSERT Error: ${insertError.message}`);
               }
-              processedCount++;
           }
+
+          if (success) processedCount++;
       }
 
       return res.status(200).json({ success: true, processed: processedCount, trace });

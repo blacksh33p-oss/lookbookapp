@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.4.17-FinalFix"; 
+const APP_VERSION = "v1.4.18-SafeSync"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -307,7 +307,7 @@ const App: React.FC = () => {
     }
   };
 
-  const pollForCredits = async (userId: string, email?: string) => {
+  const pollForCredits = async (userId: string, emailArg?: string) => {
       let attempts = 0;
       const pendingPlan = localStorage.getItem('pending_plan');
       
@@ -320,7 +320,7 @@ const App: React.FC = () => {
           attempts++;
           setSyncAttempts(attempts);
           
-          // V10: Only fetch tier/credits. NO email/username query.
+          // V11: Only fetch tier/credits.
           const { data } = await supabase
               .from('profiles')
               .select('tier, credits')
@@ -334,11 +334,18 @@ const App: React.FC = () => {
               clearInterval(syncIntervalRef.current);
               
               if (data) {
+                  // Determine best email source to avoid reverting to 'Studio User'
+                  let bestEmail = emailArg;
+                  if (!bestEmail) {
+                      const { data: sessionData } = await supabase.auth.getSession();
+                      bestEmail = sessionData?.session?.user?.email;
+                  }
+
                   setUserProfile((prev) => ({
                       tier: data.tier as SubscriptionTier,
                       credits: data.credits,
-                      // Username strictly from session email (passed argument)
-                      username: email ? email.split('@')[0] : (prev?.username || 'Studio User')
+                      // STRICT Username Logic: Arg -> Session -> Previous State -> Fallback
+                      username: bestEmail ? bestEmail.split('@')[0] : (prev?.username || 'Studio User')
                   }));
               }
               
