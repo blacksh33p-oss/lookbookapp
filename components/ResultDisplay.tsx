@@ -10,13 +10,13 @@ interface ResultDisplayProps {
   error: string | null;
 }
 
-const LOADING_STATES = [
-    "INITIALIZING_TENSORS",
-    "ANALYZING_GEOMETRY",
-    "CALCULATING_LIGHT",
-    "SYNTHESIZING_TEXTURES",
-    "REFINING_DETAILS",
-    "FINALIZING_OUTPUT"
+const LOADING_LOGS = [
+    { id: 1, text: "INITIALIZING_TENSORS" },
+    { id: 2, text: "ANALYZING_GEOMETRY" },
+    { id: 3, text: "CALCULATING_LIGHT_PATHS" },
+    { id: 4, text: "SYNTHESIZING_TEXTURES" },
+    { id: 5, text: "REFINING_DETAILS" },
+    { id: 6, text: "FINALIZING_OUTPUT" }
 ];
 
 export const ResultDisplay: React.FC<ResultDisplayProps> = ({ 
@@ -28,7 +28,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
     error 
 }) => {
   const [showMenu, setShowMenu] = useState(false);
-  const [loadingIndex, setLoadingIndex] = useState(0);
+  const [currentStep, setCurrentStep] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -43,22 +43,31 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
 
   useEffect(() => {
     if (isLoading) {
-        setLoadingIndex(0);
+        setCurrentStep(0);
         const interval = setInterval(() => {
-            setLoadingIndex((prev) => (prev + 1) % LOADING_STATES.length);
-        }, 1200);
+            setCurrentStep((prev) => Math.min(prev + 1, LOADING_LOGS.length - 1));
+        }, 1500);
         return () => clearInterval(interval);
     }
   }, [isLoading]);
 
-  // Loading
+  // Loading - System Log Style
   if (isLoading) {
     return (
-      <div className="h-full w-full bg-black flex flex-col items-center justify-center relative">
-        <div className="flex flex-col items-center gap-4">
-             <div className="w-12 h-12 border border-zinc-800 border-t-white rounded-full animate-spin"></div>
-             <div className="font-mono text-xs text-zinc-500 tracking-widest uppercase">
-                 {LOADING_STATES[loadingIndex]}...
+      <div className="h-full w-full bg-black flex flex-col items-center justify-center relative font-mono">
+        <div className="w-64">
+             <div className="flex items-center gap-3 mb-6">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-xs font-bold text-white uppercase tracking-widest">Processing</span>
+             </div>
+             
+             <div className="space-y-2 border-l border-zinc-800 pl-4 relative">
+                 {LOADING_LOGS.map((log, idx) => (
+                     <div key={log.id} className={`flex items-center gap-2 text-[10px] transition-all duration-300 ${idx === currentStep ? 'text-white translate-x-1' : idx < currentStep ? 'text-zinc-600' : 'text-zinc-800'}`}>
+                         <span className={`w-1.5 h-1.5 rounded-full ${idx === currentStep ? 'bg-white' : idx < currentStep ? 'bg-zinc-800' : 'bg-transparent'}`}></span>
+                         {log.text}... {idx < currentStep && <span className="text-zinc-700 ml-auto">[OK]</span>}
+                     </div>
+                 ))}
              </div>
         </div>
       </div>
@@ -82,9 +91,14 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
     return (
       <div className="h-full w-full bg-black flex flex-col items-center justify-center relative group">
         <div className="flex flex-col items-center text-center px-4">
-            <Camera className="w-10 h-10 text-zinc-800 mb-4 stroke-1" />
-            <p className="text-zinc-600 font-medium text-sm tracking-wide">
-                Configure your shoot to begin
+            <div className="w-16 h-16 rounded-full bg-zinc-900/50 flex items-center justify-center border border-zinc-800 mb-6 group-hover:border-zinc-700 transition-colors">
+                <Camera className="w-6 h-6 text-zinc-700 group-hover:text-zinc-500 transition-colors" />
+            </div>
+            <p className="text-zinc-500 font-mono text-xs uppercase tracking-widest mb-1">
+                No active session
+            </p>
+            <p className="text-zinc-700 text-[10px]">
+                Configure settings to initialize model
             </p>
         </div>
       </div>
@@ -93,8 +107,8 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
 
   // Success
   return (
-    <div className="h-full w-full bg-black relative flex flex-col">
-      <div className="flex-1 relative flex items-center justify-center overflow-hidden">
+    <div className="h-full w-full bg-black relative flex flex-col group">
+      <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-zinc-950/30">
         <img 
             src={image} 
             alt="Generated Photoshoot" 
@@ -102,11 +116,11 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
         />
       </div>
       
-      <div className="absolute bottom-6 right-6 flex items-center gap-2 z-30">
+      <div className="absolute bottom-6 right-6 flex items-center gap-2 z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
         <div className="relative" ref={menuRef}>
             <button
                 onClick={() => setShowMenu(!showMenu)}
-                className="h-9 px-4 bg-black/80 hover:bg-black text-white border border-zinc-800 hover:border-zinc-600 backdrop-blur-md rounded-md font-medium text-xs transition-all flex items-center gap-2"
+                className="h-9 px-4 bg-black/90 hover:bg-black text-white border border-zinc-800 hover:border-zinc-600 backdrop-blur-md rounded-md font-medium text-xs transition-all flex items-center gap-2"
             >
                 <RefreshCw size={12} />
                 Regenerate

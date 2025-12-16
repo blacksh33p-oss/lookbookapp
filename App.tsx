@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw, Command } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.4.33-GeistUI"; 
+const APP_VERSION = "v1.4.34-GeistAudited"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -211,6 +211,25 @@ const App: React.FC = () => {
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
       setToast({ message, type });
   };
+
+  const isFormValid = Object.values(options.outfit).some((item: OutfitItem) => 
+    item.images.length > 0 || (item.description && item.description.trim().length > 0) || (item.garmentType && item.garmentType.trim().length > 0)
+  );
+
+  // --- SHORTCUTS ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+            if (isFormValid && !isLoading) {
+                handleGenerate();
+            } else if (!isFormValid) {
+                showToast("Please add at least one garment description or image.", "info");
+            }
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFormValid, isLoading, options]); // Dependencies to ensure fresh state
 
   // --- PERSIST CACHE ---
   useEffect(() => {
@@ -626,9 +645,6 @@ const App: React.FC = () => {
     }
   };
 
-  const isFormValid = Object.values(options.outfit).some((item: OutfitItem) => 
-    item.images.length > 0 || (item.description && item.description.trim().length > 0) || (item.garmentType && item.garmentType.trim().length > 0)
-  );
 
   const isPremium = session ? userProfile?.tier !== SubscriptionTier.Free : false;
   const isStudio = session ? userProfile?.tier === SubscriptionTier.Studio : false;
@@ -737,7 +753,7 @@ const App: React.FC = () => {
         <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 relative">
           
           {/* Controls Column */}
-          <div className="order-2 lg:order-1 lg:col-span-4 flex flex-col gap-4 relative z-20">
+          <div className="order-2 lg:order-1 lg:col-span-4 flex flex-col gap-4 relative z-20 pb-20 lg:pb-0">
             <div className="bg-black border border-zinc-800 rounded-lg overflow-hidden shadow-sm">
                 <ConfigSection title="Wardrobe" icon={Shirt} defaultOpen={true}>
                     <OutfitControl outfit={options.outfit} onChange={(newOutfit) => setOptions({ ...options, outfit: newOutfit })} />
@@ -781,12 +797,24 @@ const App: React.FC = () => {
                 </ConfigSection>
             </div>
             
-            <div className="sticky bottom-4 z-30">
-                <button onClick={handleGenerate} disabled={!isFormValid || isLoading} className={`w-full py-3 px-4 rounded-md text-sm font-medium transition-all shadow-lg flex items-center justify-center gap-2 ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-500 cursor-not-allowed border border-zinc-800' : 'bg-white text-black hover:bg-zinc-200 border border-white'}`}>
+            <div className="sticky bottom-4 z-30 lg:bottom-0">
+                {!isFormValid && (
+                    <div className="mb-2 text-[10px] text-amber-500 font-mono text-center bg-black/80 backdrop-blur border border-amber-900/30 py-1.5 rounded flex items-center justify-center gap-2">
+                         <Info size={12} /> Add at least 1 garment to generate
+                    </div>
+                )}
+                <button 
+                    onClick={handleGenerate} 
+                    disabled={!isFormValid || isLoading} 
+                    className={`w-full py-3 px-4 rounded-md text-sm font-medium transition-all shadow-lg flex items-center justify-center gap-2 group ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-500 cursor-not-allowed border border-zinc-800' : 'bg-white text-black hover:bg-zinc-200 border border-white'}`}
+                >
                     {isLoading ? (<Loader2 size={16} className="animate-spin" />) : (<><Sparkles size={16} fill="black" /> Generate Shoot</>)}
                 </button>
                 <div className="flex justify-between items-center mt-3 px-1">
-                    <span className="text-[10px] text-zinc-600 font-mono">{APP_VERSION}</span>
+                    <span className="text-[10px] text-zinc-600 font-mono flex items-center gap-1.5">
+                       {APP_VERSION} 
+                       <span className="hidden lg:flex items-center gap-0.5 text-zinc-700 bg-zinc-900/50 px-1 rounded border border-zinc-800"><Command size={8} /> ↵</span>
+                    </span>
                     <span className="text-[10px] font-bold text-zinc-500 font-mono">Cost: {currentCost} Credits</span>
                 </div>
             </div>
