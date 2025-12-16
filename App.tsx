@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, GeneratedImage, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.4.8-Stable"; 
+const APP_VERSION = "v1.4.9-Stable"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -821,7 +821,8 @@ const App: React.FC = () => {
               <div className="glass-panel rounded-full px-2 py-2 flex items-center gap-3 relative">
                  {session ? (
                      <>
-                        {userProfile?.tier === SubscriptionTier.Free && (
+                        {/* Desktop Upgrade Button */}
+                        {userProfile?.tier !== SubscriptionTier.Studio && (
                            <button
                              onClick={() => setShowUpgradeModal(true)}
                              className="hidden sm:flex items-center gap-1.5 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(124,58,237,0.3)] hover:shadow-[0_0_20px_rgba(124,58,237,0.5)] mr-2"
@@ -845,17 +846,25 @@ const App: React.FC = () => {
 
                         {/* Profile Dropdown */}
                         {showProfileMenu && (
-                            <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl p-2 z-50 animate-slide-up origin-top-right">
+                            <div className="absolute top-full right-0 mt-2 w-56 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl p-2 z-50 animate-slide-up origin-top-right">
                                 <div className="p-2 border-b border-zinc-900 mb-1">
                                     <div className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Account</div>
                                     <div className="text-xs text-white truncate">{session.user.email}</div>
                                 </div>
                                 
                                 <button 
+                                    onClick={() => { setShowUpgradeModal(true); setShowProfileMenu(false); }}
+                                    className="w-full text-left px-3 py-2 text-xs text-white bg-gradient-to-r from-brand-600/20 to-indigo-600/20 hover:from-brand-600/30 hover:to-indigo-600/30 border border-brand-500/30 rounded-lg transition-all flex items-center gap-2 mb-1"
+                                >
+                                    <CreditCard size={14} className="text-brand-400" />
+                                    Plans & Billing
+                                </button>
+                                
+                                <button 
                                     onClick={() => { setIsSyncingPayment(true); pollForCredits(session.user.id); setShowProfileMenu(false); }}
                                     className="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-lg transition-colors flex items-center gap-2"
                                 >
-                                    <RefreshCcw size={14} className="text-brand-400" />
+                                    <RefreshCcw size={14} className="text-zinc-500" />
                                     Restore Purchase
                                 </button>
                                 
@@ -875,6 +884,16 @@ const App: React.FC = () => {
                                     Sign Out
                                 </button>
                             </div>
+                        )}
+                        
+                        {/* Mobile Controls */}
+                        {userProfile?.tier !== SubscriptionTier.Studio && (
+                             <button 
+                                onClick={() => setShowUpgradeModal(true)}
+                                className="h-8 w-8 bg-brand-900/50 rounded-full flex items-center justify-center border border-brand-500/30 hover:bg-brand-900 transition-colors cursor-pointer z-50 pointer-events-auto sm:hidden"
+                             >
+                                <Crown size={14} className="text-brand-400" fill="currentColor" />
+                             </button>
                         )}
                         
                         <button 
