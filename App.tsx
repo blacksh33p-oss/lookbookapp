@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, Clock, GitCommit, Crown, RotateCw } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, Clock, GitCommit, Crown, RotateCw, X } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, GeneratedImage, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.2-FS"; 
+const APP_VERSION = "v1.3-Stable"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -206,32 +206,53 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // --- HELPER: Handle Payment Redirect Logic ---
+  // --- URL ERROR HANDLING (Fixes "Refusing to login") ---
+  useEffect(() => {
+      // Supabase returns errors in the hash, e.g., #error=access_denied&error_description=...
+      const hash = window.location.hash;
+      if (hash && hash.includes('error=')) {
+          const params = new URLSearchParams(hash.substring(1));
+          const errorDescription = params.get('error_description');
+          
+          if (errorDescription) {
+              console.error("Auth URL Error:", errorDescription);
+              // Convert spaces to pluses sometimes happens in decoding
+              const cleanMsg = errorDescription.replace(/\+/g, ' ');
+              showToast(cleanMsg, 'error');
+              
+              // Clear the URL so we don't keep hitting the error state
+              window.history.replaceState(null, '', window.location.pathname);
+          }
+      }
+  }, []);
+
+  // --- PAYMENT REDIRECT CHECKER ---
   const checkPendingPlan = async (userSession: any) => {
     if (!userSession) return;
     
-    // Check URL parameters for successful payment return
+    // 1. Check for SUCCESSFUL return from FastSpring
     const params = new URLSearchParams(window.location.search);
     if (params.get('success') === 'true') {
         showToast('Payment successful! Syncing credits...', 'success');
-        // Clean up URL
         window.history.replaceState({}, '', window.location.pathname);
         localStorage.removeItem('pending_plan');
-        // Force refresh
         await fetchProfile(userSession.user.id);
         return;
     }
 
+    // 2. Check for PENDING PLAN (User signed up intending to buy)
     const pendingPlan = localStorage.getItem('pending_plan');
-    if (pendingPlan && pendingPlan !== SubscriptionTier.Free) {
-        console.log("Found pending plan, initiating checkout...", pendingPlan);
+    if (pendingPlan && pendingPlan !== SubscriptionTier.Free && !isRedirecting) {
+        console.log("Found pending plan, initiating checkout sequence...", pendingPlan);
         setIsRedirecting(true);
-        // Small delay to ensure UI updates before redirect
-        setTimeout(async () => {
-             await handleUpgrade(pendingPlan as SubscriptionTier, userSession);
-             localStorage.removeItem('pending_plan');
-             setIsRedirecting(false);
-        }, 1000);
+        
+        // Delay slighty to let UI settle, then redirect
+        setTimeout(() => {
+             handleUpgrade(pendingPlan as SubscriptionTier, userSession);
+             // We do NOT clear pending_plan here, we clear it on success return
+             // But to prevent infinite loops if the user comes back without paying,
+             // the UI provides a "Cancel" button.
+        }, 1500);
     }
   };
 
@@ -248,18 +269,26 @@ const App: React.FC = () => {
       }
     });
 
-    // 2. Listen for auth changes (Magic Link login, Sign out, etc)
+    // 2. Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Auth Event:", event);
       setSession(session);
       
       if (event === 'SIGNED_IN' && session) {
-         await fetchProfile(session.user.id);
-         await checkPendingPlan(session);
+         // Clear any login modal
          setShowLoginModal(false);
+         
+         // Fetch profile first
+         await fetchProfile(session.user.id);
+         
+         // Then check if they need to pay
+         await checkPendingPlan(session);
+         
          showToast(`Welcome back!`, 'success');
       } else if (event === 'SIGNED_OUT') {
          setUserProfile(null);
+         setSession(null);
+         localStorage.removeItem('pending_plan'); // Clear intention on logout
          showToast('Signed out successfully', 'info');
       }
     });
@@ -276,7 +305,7 @@ const App: React.FC = () => {
             .eq('id', userId)
             .single();
         
-        // Handle "Row not found" (PGRST116) by creating a profile manually
+        // Handle "Row not found" (PGRST116)
         if (error && error.code === 'PGRST116') {
              console.log("Profile missing for user, creating default profile...");
              const { data: newProfile, error: createError } = await supabase
@@ -293,9 +322,6 @@ const App: React.FC = () => {
              if (!createError && newProfile) {
                  data = newProfile;
                  error = null;
-             } else {
-                 console.error("Failed to create default profile:", createError);
-                 showToast("Error initializing profile", 'error');
              }
         }
 
@@ -373,6 +399,7 @@ const App: React.FC = () => {
   const handleUpgrade = async (tier: SubscriptionTier, explicitSession?: any) => {
      const activeSession = explicitSession || session;
 
+     // If not logged in, save intent and force login/signup
      if (!activeSession) {
          localStorage.setItem('pending_plan', tier);
          setLoginModalView('pricing');
@@ -380,7 +407,10 @@ const App: React.FC = () => {
          return;
      }
 
-     if (tier === SubscriptionTier.Free) return;
+     if (tier === SubscriptionTier.Free) {
+         localStorage.removeItem('pending_plan');
+         return;
+     }
 
      // Get FastSpring Checkout URL from Environment Variables
      const checkoutUrl = tier === SubscriptionTier.Creator 
@@ -389,20 +419,15 @@ const App: React.FC = () => {
 
      if (!checkoutUrl) {
          showToast("Checkout configuration missing. Contact support.", "error");
-         console.error("Missing VITE_FASTSPRING URL for tier:", tier);
+         setIsRedirecting(false); // Cancel redirect loop if config is missing
          return;
      }
 
-     // Construct FastSpring URL with User ID tag
-     // We pass 'tags' so the webhook knows which user to credit
-     // We also pre-fill email if possible depending on FastSpring configuration, 
-     // but 'tags' is the most critical for the webhook logic.
      const tags = `userId:${activeSession.user.id},userEmail:${activeSession.user.email}`;
-     
-     // Robustly append tags to the URL (handling potential existing query params)
      const separator = checkoutUrl.includes('?') ? '&' : '?';
      const finalUrl = `${checkoutUrl}${separator}tags=${tags}`;
 
+     // Perform Redirect
      window.location.href = finalUrl;
   };
 
@@ -456,7 +481,6 @@ const App: React.FC = () => {
       setGeneratedImage(null);
 
       try {
-        // Call Gemini API
         console.log("Generating with model:", currentOptions.modelVersion);
         const result = await generatePhotoshootImage(currentOptions);
         setGeneratedImage(result);
@@ -467,7 +491,7 @@ const App: React.FC = () => {
             setGuestCredits(newGuestCredits);
             localStorage.setItem('fashion_guest_credits', newGuestCredits.toString());
         } else {
-            // Fetch fresh credits first
+            // Fetch fresh credits first to ensure accuracy
             const { data: freshProfile } = await supabase
                 .from('profiles')
                 .select('credits')
@@ -484,8 +508,6 @@ const App: React.FC = () => {
                 
                 if (!error) {
                      setUserProfile(prev => prev ? ({ ...prev, credits: currentDbCredits - cost }) : null);
-                } else {
-                    console.error("Failed to update credits in DB", error);
                 }
             }
         }
@@ -553,13 +575,27 @@ const App: React.FC = () => {
 
   const currentCost = getGenerationCost(options);
 
+  // --- REDIRECT OVERLAY (Blocking UI) ---
   if (isRedirecting) {
       return (
-        <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center">
-            <div className="flex flex-col items-center gap-6 animate-fade-in">
+        <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-6">
+            <div className="flex flex-col items-center gap-6 animate-fade-in text-center max-w-md">
                 <div className="w-12 h-12 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
-                <h2 className="text-xl font-bold text-white tracking-widest uppercase">Redirecting to Secure Checkout</h2>
-                <p className="text-zinc-500 font-mono text-xs">Please wait while we transfer you to our payment provider...</p>
+                <div>
+                    <h2 className="text-xl font-bold text-white tracking-widest uppercase mb-2">Redirecting to Checkout</h2>
+                    <p className="text-zinc-500 font-mono text-xs">Please wait while we transfer you to our secure payment provider...</p>
+                </div>
+                
+                {/* Manual Cancel Button to prevent infinite loops */}
+                <button 
+                    onClick={() => {
+                        setIsRedirecting(false);
+                        localStorage.removeItem('pending_plan');
+                    }}
+                    className="mt-4 px-6 py-2 bg-zinc-900 border border-zinc-700 text-zinc-300 rounded-full text-xs font-bold hover:bg-zinc-800 transition-all flex items-center gap-2"
+                >
+                    <X size={14} /> Cancel
+                </button>
             </div>
         </div>
       );

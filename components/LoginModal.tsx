@@ -137,17 +137,25 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         
         // Handle Duplicate Email
         if (msg.includes("already registered") || msg.includes("unique constraint") || msg.includes("User already exists") || msg.includes("already taken")) {
-            msg = "This email is already registered. Please Sign In instead.";
-            // Optional: Auto-switch to sign in for better UX
-             setTimeout(() => {
+            msg = "Account already exists for this email.";
+            
+            // Auto-suggestion to sign in
+            if (showToast) showToast("User exists. Please log in.", 'info');
+            setTimeout(() => {
                  setAuthMode('signin');
                  setError(null);
-             }, 2000);
+            }, 1000);
+            return;
         }
         
         // Handle Wrong Password
         if (msg.includes("Invalid login credentials")) {
             msg = "Incorrect email or password.";
+        }
+        
+        // Handle Unconfirmed Email
+        if (msg.includes("Email not confirmed")) {
+            msg = "Please verify your email address before logging in. Check your inbox/spam.";
         }
 
         setError(msg);
@@ -187,7 +195,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 </div>
 
                 <div className="bg-zinc-900/30 p-4 rounded-lg border border-zinc-800/50 text-xs text-zinc-500 mb-6 text-left">
-                    <p>Once verified, this window will close and you will be redirected to finalize your <strong>{selectedTier} Plan</strong>.</p>
+                    <p>Once verified, come back here to log in. We will redirect you to {selectedTier !== 'Free' ? 'finalize your payment' : 'your studio'}.</p>
                 </div>
 
                 <div className="flex items-center justify-between text-xs text-zinc-500">
