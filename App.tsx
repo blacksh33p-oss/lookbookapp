@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, Clock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, GeneratedImage, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.4.14-Fix"; 
+const APP_VERSION = "v1.4.15-SyncFix"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -189,6 +189,7 @@ const App: React.FC = () => {
   // New State for Payment Sync
   const [isSyncingPayment, setIsSyncingPayment] = useState(false);
   const [syncAttempts, setSyncAttempts] = useState(0);
+  const syncIntervalRef = useRef<any>(null);
 
   // Guest State (LocalStorage)
   const [guestCredits, setGuestCredits] = useState<number>(() => {
@@ -276,6 +277,13 @@ const App: React.FC = () => {
       }
   }, []);
 
+  // Cleanup sync interval on unmount
+  useEffect(() => {
+    return () => {
+      if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
+    };
+  }, []);
+
   // --- PAYMENT REDIRECT CHECKER ---
   const checkPendingPlan = async (userSession: any) => {
     if (!userSession) return;
@@ -306,14 +314,16 @@ const App: React.FC = () => {
       const { data: initialData } = await supabase.from('profiles').select('credits').eq('id', userId).single();
       const startCredits = initialData?.credits || 0;
 
-      const interval = setInterval(async () => {
+      if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
+
+      syncIntervalRef.current = setInterval(async () => {
           attempts++;
           setSyncAttempts(attempts);
           
-          // Only select fields that definitely exist
+          // FIX: Select email as well so we don't lose the username
           const { data } = await supabase
               .from('profiles')
-              .select('tier, credits')
+              .select('tier, credits, email')
               .eq('id', userId)
               .single();
               
@@ -321,14 +331,15 @@ const App: React.FC = () => {
           const creditBump = data && data.credits > startCredits;
           
           if (data && (tierMatch || creditBump || attempts >= 60)) {
-              clearInterval(interval);
+              clearInterval(syncIntervalRef.current);
               
               if (data) {
-                  setUserProfile({
+                  setUserProfile((prev) => ({
                       tier: data.tier as SubscriptionTier,
                       credits: data.credits,
-                      username: undefined // Will derive from session
-                  });
+                      // Derived username logic, fall back to previous state if email missing, or default
+                      username: data.email ? data.email.split('@')[0] : (prev?.username || 'Studio User')
+                  }));
               }
               
               if (tierMatch || creditBump) {
