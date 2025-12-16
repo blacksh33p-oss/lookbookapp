@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, GeneratedImage, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.4.11-Live"; 
+const APP_VERSION = "v1.4.12-Live"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -554,13 +554,13 @@ const App: React.FC = () => {
          }
 
          // GENERATE ROBUST TAGS
-         // FastSpring expects 'tags' param to be key:value,key2:value2
-         const tags = `userId:${activeSession.user.id},userEmail:${activeSession.user.email}`;
+         // Use encodeURIComponent to ensure special characters (like @ or :) don't break the URL parameters
+         const tags = encodeURIComponent(`userId:${activeSession.user.id},userEmail:${activeSession.user.email}`);
          
          const separator = checkoutUrl.includes('?') ? '&' : '?';
          
          // We pass userId and userEmail as explicit params AND as tags to be double safe
-         const finalUrl = `${checkoutUrl}${separator}tags=${tags}&userId=${activeSession.user.id}&userEmail=${activeSession.user.email}`;
+         const finalUrl = `${checkoutUrl}${separator}tags=${tags}&userId=${activeSession.user.id}&userEmail=${encodeURIComponent(activeSession.user.email)}`;
 
          window.location.href = finalUrl;
          
