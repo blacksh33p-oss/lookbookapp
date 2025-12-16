@@ -15,7 +15,7 @@ const readStream = async (req) => {
 };
 
 export default async function handler(req, res) {
-  const LOG_PREFIX = '[FastSpring V8-EmailPriority]'; 
+  const LOG_PREFIX = '[FastSpring V9-SchemaFix]'; 
   const trace = []; 
 
   const log = (msg) => {
@@ -39,7 +39,7 @@ export default async function handler(req, res) {
       const { check_email } = req.query;
       const status = {
           status: 'Active',
-          version: 'v8-EmailPriority',
+          version: 'v9-SchemaFix',
           config: {
               hasUrl: !!supabaseUrl,
               hasKey: !!serviceRoleKey,
@@ -57,8 +57,10 @@ export default async function handler(req, res) {
                   status.userId = match ? match.id : null;
                   
                   if (match) {
-                      const { data: profile } = await supabase.from('profiles').select('credits, tier').eq('id', match.id).single();
+                      // V9: Removed username from select
+                      const { data: profile, error: profileError } = await supabase.from('profiles').select('credits, tier, email').eq('id', match.id).single();
                       status.profile = profile || 'No Profile Row';
+                      if (profileError) status.profileError = profileError.message;
                   }
               }
           } catch(e) { status.exception = e.message; }
@@ -127,13 +129,12 @@ export default async function handler(req, res) {
           const uniqueEmails = [...new Set(candidates.filter(Boolean))];
           if (uniqueEmails.length > 0) emailFound = uniqueEmails[0];
 
-          // STEP B: PRIORITY 1 - Email Lookup (The Source of Truth)
+          // STEP B: PRIORITY 1 - Email Lookup
           if (emailFound) {
               log(`Lookup by Email: ${emailFound}`);
               const { data: userResult } = await supabase.auth.admin.listUsers({ perPage: 1000 });
               if (userResult && userResult.users) {
                   const cleanEmail = emailFound.toLowerCase().trim();
-                  // Strict match
                   const match = userResult.users.find(u => u.email?.toLowerCase().trim() === cleanEmail);
                   if (match) {
                       userId = match.id;
@@ -142,7 +143,7 @@ export default async function handler(req, res) {
               }
           }
 
-          // STEP C: PRIORITY 2 - Tags (Fallback only if Email failed)
+          // STEP C: PRIORITY 2 - Tags
           if (!userId) {
               const tags = data.tags || (data.order && data.order.tags) || (data.subscription && data.subscription.tags);
               if (tags) {
@@ -161,7 +162,7 @@ export default async function handler(req, res) {
           }
 
           if (!userId) {
-              log("SKIPPING: User ID could not be resolved by Email OR Tags.");
+              log("SKIPPING: User ID could not be resolved.");
               continue;
           }
 
@@ -179,6 +180,7 @@ export default async function handler(req, res) {
           log(`Tier: ${tier} | Adding: ${creditsToAdd} credits`);
 
           // STEP E: DB UPDATE
+          // V9 CHANGE: Do NOT select 'username' as it causes crashes if column missing
           const { data: preProfile, error: preError } = await supabase
             .from('profiles')
             .select('*')
@@ -186,11 +188,9 @@ export default async function handler(req, res) {
             .single();
           
           let currentCredits = 0;
-          // Use existing username if present, otherwise fallback to email handle
-          let username = preProfile?.username || (emailFound ? emailFound.split('@')[0] : 'Studio User');
 
           if (preError) {
-              log(`Profile Missing (Creating New): ${preError.message}`);
+              log(`Profile Missing or Read Error: ${preError.message}`);
           } else {
               currentCredits = preProfile.credits || 0;
               log(`PRE-UPDATE CREDITS: ${currentCredits}`);
@@ -199,12 +199,13 @@ export default async function handler(req, res) {
           const newCredits = currentCredits + creditsToAdd;
           log(`CALCULATION: ${currentCredits} + ${creditsToAdd} = ${newCredits}`);
 
+          // V9 CHANGE: Do NOT include 'username' in payload. Only standard fields.
           const payload = {
               id: userId,
               tier: tier,
               credits: newCredits,
               updated_at: new Date().toISOString(),
-              username: username
+              email: emailFound || undefined // Sync email if we have it
           };
 
           const { data: updatedRow, error: upsertErr } = await supabase
@@ -214,10 +215,17 @@ export default async function handler(req, res) {
 
           if (upsertErr) {
               log(`CRITICAL DB ERROR: ${upsertErr.message}`);
+              // If error is about email column missing, try one last fallback without email
+              if (upsertErr.message.includes('email') && upsertErr.message.includes('column')) {
+                 log("RETRYING without email column...");
+                 delete payload.email;
+                 const { error: retryErr } = await supabase.from('profiles').upsert(payload);
+                 if (retryErr) log(`RETRY FAILED: ${retryErr.message}`);
+                 else log("RETRY SUCCESS");
+              }
           } else {
               if (updatedRow && updatedRow.length > 0) {
                   log(`POST-UPDATE VERIFIED CREDITS: ${updatedRow[0].credits}`);
-                  log(`POST-UPDATE VERIFIED TIER: ${updatedRow[0].tier}`);
               }
               processedCount++;
           }

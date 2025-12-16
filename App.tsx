@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, GeneratedImage, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.4.13-Fix"; 
+const APP_VERSION = "v1.4.14-Fix"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -310,9 +310,10 @@ const App: React.FC = () => {
           attempts++;
           setSyncAttempts(attempts);
           
+          // Only select fields that definitely exist
           const { data } = await supabase
               .from('profiles')
-              .select('tier, credits, username')
+              .select('tier, credits')
               .eq('id', userId)
               .single();
               
@@ -326,7 +327,7 @@ const App: React.FC = () => {
                   setUserProfile({
                       tier: data.tier as SubscriptionTier,
                       credits: data.credits,
-                      username: data.username
+                      username: undefined // Will derive from session
                   });
               }
               
@@ -380,9 +381,10 @@ const App: React.FC = () => {
 
   const fetchProfile = async (userId: string) => {
     try {
+        // FIX: Removed 'username' from selection as it causes errors if column missing
         let { data, error } = await supabase
             .from('profiles')
-            .select('tier, credits, username')
+            .select('tier, credits, email')
             .eq('id', userId)
             .single();
         
@@ -393,8 +395,7 @@ const App: React.FC = () => {
                 .insert([{
                     id: userId,
                     tier: SubscriptionTier.Free,
-                    credits: 5,
-                    username: 'Studio User'
+                    credits: 5
                 }])
                 .select()
                 .single();
@@ -409,7 +410,7 @@ const App: React.FC = () => {
             setUserProfile({
                 tier: data.tier as SubscriptionTier || SubscriptionTier.Free,
                 credits: typeof data.credits === 'number' ? data.credits : 0,
-                username: data.username
+                username: data.email ? data.email.split('@')[0] : 'Studio User'
             });
             return data;
         }
@@ -454,7 +455,7 @@ const App: React.FC = () => {
               options: {
                 emailRedirectTo: window.location.origin, 
                 data: {
-                    username: username,
+                    // We keep metadata but don't assume DB column exists
                     full_name: username
                 }
               }
