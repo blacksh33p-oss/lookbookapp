@@ -4,9 +4,11 @@ import { buffer } from 'micro';
 
 // Initialize Supabase (Service Role)
 // We need the SERVICE_ROLE_KEY to bypass Row Level Security and write credits
+// Fallback to ANON key for development/local testing if service key is missing, 
+// though this will fail RLS if not handled correctly.
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
 );
 
 export const config = {
@@ -22,12 +24,17 @@ export default async function handler(req, res) {
 
   try {
     const rawBody = await buffer(req);
-    // Note: FastSpring HMAC verification usually goes here using headers['x-fs-signature'] if enabled in FastSpring settings.
-    
     const payload = JSON.parse(rawBody.toString());
+    
+    console.log('[Webhook] Received payload:', JSON.stringify(payload));
     
     // FastSpring sends an object with an 'events' array
     const events = payload.events || [];
+
+    if (events.length === 0) {
+        console.log('[Webhook] No events found in payload.');
+        return res.status(200).send("No events");
+    }
 
     for (const event of events) {
         // We care about 'order.completed' or 'subscription.activated'
@@ -35,12 +42,29 @@ export default async function handler(req, res) {
             const data = event.data;
             
             // Extract the User ID we passed via URL tags
-            // FastSpring returns tags as a key-value object in data.tags
-            const tags = data.tags || {};
-            const userId = tags.userId;
+            // FastSpring returns tags as a key-value object in data.tags, 
+            // BUT sometimes as a string if configured via Popup Storefront URL parameters incorrectly.
+            let userId = null;
+
+            if (data.tags) {
+                if (typeof data.tags === 'object' && data.tags.userId) {
+                    userId = data.tags.userId;
+                } else if (typeof data.tags === 'string') {
+                     // Try to parse string like "userId:123,email:abc"
+                     console.log('[Webhook] Tags received as string, parsing:', data.tags);
+                     const parts = data.tags.split(',');
+                     for (const part of parts) {
+                         const [key, value] = part.split(':');
+                         if (key && key.trim() === 'userId') {
+                             userId = value.trim();
+                             break;
+                         }
+                     }
+                }
+            }
             
             if (!userId) {
-                console.log('Webhook skipped: No userId tag found in order.');
+                console.error('[Webhook] Skipped: No userId tag found in order.', data.tags);
                 continue;
             }
 
@@ -54,6 +78,8 @@ export default async function handler(req, res) {
                 const productPath = (item.product || '').toLowerCase();
                 const productName = (item.display || '').toLowerCase();
                 
+                console.log(`[Webhook] Processing item: ${productName} (${productPath})`);
+
                 // Match your FastSpring Product Paths or Names here
                 if (productPath.includes('creator') || productName.includes('creator')) {
                     newCredits += 500;
@@ -68,15 +94,20 @@ export default async function handler(req, res) {
 
             if (foundPlan) {
                 // 3. Update Supabase
-                const { data: profile } = await supabase
+                const { data: profile, error: fetchError } = await supabase
                     .from('profiles')
                     .select('credits')
                     .eq('id', userId)
                     .single();
                 
+                if (fetchError) {
+                    console.error('[Webhook] Failed to fetch user profile:', fetchError);
+                    continue;
+                }
+                
                 const currentCredits = profile?.credits || 0;
                 
-                const { error } = await supabase
+                const { error: updateError } = await supabase
                     .from('profiles')
                     .update({ 
                         credits: currentCredits + newCredits,
@@ -84,11 +115,13 @@ export default async function handler(req, res) {
                     })
                     .eq('id', userId);
 
-                if (error) {
-                    console.error('Supabase Update Error for user ' + userId, error);
+                if (updateError) {
+                    console.error(`[Webhook] Supabase Update Error for user ${userId}:`, updateError);
                 } else {
-                    console.log(`Successfully credited user ${userId} with ${newCredits} credits.`);
+                    console.log(`[Webhook] Success! Credited user ${userId} with ${newCredits} credits. New Tier: ${newTier}`);
                 }
+            } else {
+                console.warn('[Webhook] No matching plan found in order items.');
             }
         }
     }
@@ -96,7 +129,7 @@ export default async function handler(req, res) {
     // Always return 200 to FastSpring to confirm receipt
     res.status(200).send("Webhook processed");
   } catch (err) {
-    console.error(`Webhook Error: ${err.message}`);
+    console.error(`[Webhook] Fatal Error: ${err.message}`);
     res.status(500).send(`Webhook Error: ${err.message}`);
   }
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, Clock, GitCommit, Crown } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, Clock, GitCommit, Crown, RotateCw } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -133,7 +133,8 @@ const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<{tier: SubscriptionTier, credits: number, username?: string} | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const [isRedirecting, setIsRedirecting] = useState(false); 
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [isRefreshingProfile, setIsRefreshingProfile] = useState(false);
 
   // Guest State (LocalStorage)
   const [guestCredits, setGuestCredits] = useState<number>(() => {
@@ -212,10 +213,12 @@ const App: React.FC = () => {
     // Check URL parameters for successful payment return
     const params = new URLSearchParams(window.location.search);
     if (params.get('success') === 'true') {
-        showToast('Payment successful! Your credits have been updated.', 'success');
+        showToast('Payment successful! Syncing credits...', 'success');
         // Clean up URL
         window.history.replaceState({}, '', window.location.pathname);
         localStorage.removeItem('pending_plan');
+        // Force refresh
+        await fetchProfile(userSession.user.id);
         return;
     }
 
@@ -265,6 +268,7 @@ const App: React.FC = () => {
   }, []);
 
   const fetchProfile = async (userId: string) => {
+    setIsRefreshingProfile(true);
     try {
         let { data, error } = await supabase
             .from('profiles')
@@ -306,6 +310,14 @@ const App: React.FC = () => {
         console.error("Profile fetch error", e);
     } finally {
         setIsAuthLoading(false);
+        setIsRefreshingProfile(false);
+    }
+  };
+
+  const handleManualRefresh = () => {
+    if (session) {
+        fetchProfile(session.user.id);
+        showToast("Profile synced.", "info");
     }
   };
 
@@ -618,6 +630,15 @@ const App: React.FC = () => {
                                 {userProfile?.credits || 0} <Zap size={10} className="text-brand-400 fill-brand-400" />
                             </div>
                         </div>
+                        
+                        <button 
+                            onClick={handleManualRefresh}
+                            className={`h-8 w-8 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700 hover:bg-zinc-700 transition-colors cursor-pointer z-50 pointer-events-auto ${isRefreshingProfile ? 'animate-spin text-brand-400' : 'text-zinc-400 hover:text-white'}`}
+                            title="Refresh Credits"
+                        >
+                            <RotateCw size={12} />
+                        </button>
+
                         <div className="h-8 w-8 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700 hover:bg-zinc-700 transition-colors cursor-pointer z-50 pointer-events-auto" onClick={(e) => handleLogout(e)} title="Logout">
                              <LogOut size={12} />
                         </div>
