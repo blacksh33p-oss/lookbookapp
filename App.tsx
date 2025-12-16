@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.4.27-CacheSync"; 
+const APP_VERSION = "v1.4.28-LoginFix"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -348,6 +348,14 @@ const App: React.FC = () => {
       setSession(session);
       if (event === 'SIGNED_IN' && session) {
          setShowLoginModal(false);
+         // 1. Optimistic Set: Immediately show UI to prevent infinite spinner
+         setUserProfile({ 
+            tier: SubscriptionTier.Free, 
+            credits: 0, 
+            username: session.user.email?.split('@')[0] || 'User' 
+         });
+         
+         // 2. Real Fetch
          await fetchProfile(session.user.id, session.user.email);
          await checkPendingPlan(session);
          showToast(`Welcome back!`, 'success');
@@ -427,16 +435,24 @@ const App: React.FC = () => {
         }
 
         if (data) {
-            if (data.credits === null || data.credits === undefined) return null;
-            setUserProfile({
+            const finalProfile = {
                 tier: data.tier as SubscriptionTier || SubscriptionTier.Free,
-                credits: data.credits, 
+                credits: data.credits ?? 0, 
                 username: email ? email.split('@')[0] : 'Studio User'
-            });
+            };
+            setUserProfile(finalProfile);
             return data;
         }
     } catch (e) {
         console.error("Profile fetch error", e);
+        // Fallback to ensure we don't stick on loading
+        if (session) {
+             setUserProfile({
+                tier: SubscriptionTier.Free,
+                credits: 0,
+                username: email ? email.split('@')[0] : 'Studio User'
+            });
+        }
     } finally {
         setIsAuthLoading(false);
     }
@@ -476,13 +492,23 @@ const App: React.FC = () => {
 
   const handleLogout = async (e?: React.MouseEvent) => {
       if (e) e.preventDefault();
+      // Clean up local state immediately
       setSession(null);
       setUserProfile(null);
       localStorage.removeItem('fashion_user_profile');
       localStorage.removeItem('pending_plan');
       setShowProfileMenu(false);
-      try { await supabase.auth.signOut(); } catch (err) {} 
-      window.location.reload();
+      
+      try { 
+          await supabase.auth.signOut(); 
+          // Re-initialize guest state
+          const today = new Date().toDateString();
+          localStorage.setItem('fashion_guest_date', today);
+          setGuestCredits(5);
+      } catch (err) {} 
+      
+      // Removed window.location.reload() for smoother experience
+      showToast('Signed out successfully', 'info');
   };
 
   const handleUpgrade = async (tier: SubscriptionTier) => {
