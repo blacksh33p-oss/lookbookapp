@@ -15,7 +15,7 @@ const readStream = async (req) => {
 };
 
 export default async function handler(req, res) {
-  const LOG_PREFIX = '[FastSpring Webhook v5]'; 
+  const LOG_PREFIX = '[FastSpring Webhook v6]'; 
   const trace = []; 
 
   const log = (msg) => {
@@ -39,7 +39,7 @@ export default async function handler(req, res) {
       const { check_email } = req.query;
       const status = {
           status: 'Active',
-          version: 'v5',
+          version: 'v6-Production',
           config: {
               hasUrl: !!supabaseUrl,
               hasKey: !!serviceRoleKey,
@@ -56,7 +56,6 @@ export default async function handler(req, res) {
                   const match = data.users.find(u => u.email?.toLowerCase() === check_email.toLowerCase());
                   status.userFound = !!match;
                   status.userId = match ? match.id : null;
-                  status.totalUsersFetched = data.users.length;
               }
           } catch(e) { status.exception = e.message; }
       }
@@ -107,11 +106,11 @@ export default async function handler(req, res) {
           let userId = null;
           let emailFound = null;
 
-          // STEP A: Look for Tags
+          // STEP A: Look for Tags (Primary)
           const tags = data.tags || (data.order && data.order.tags) || (data.subscription && data.subscription.tags);
           if (tags) {
               log(`Tags found: ${JSON.stringify(tags)}`);
-              // Handle URL encoded tags if they come through that way
+              // Handle URL encoded tags
               let decodedTags = tags;
               if (typeof tags === 'string' && tags.includes('%')) {
                    try { decodedTags = decodeURIComponent(tags); } catch(e) {}
@@ -122,8 +121,6 @@ export default async function handler(req, res) {
                   const match = decodedTags.match(/userId:([a-f0-9-]{36})/i);
                   if (match) userId = match[1];
               }
-          } else {
-              log("No tags found.");
           }
 
           // STEP B: Look for Email (Fallback)
@@ -137,7 +134,6 @@ export default async function handler(req, res) {
                   data.recipient?.email
               ];
 
-              // Check recipients array
               if (Array.isArray(data.recipients)) {
                   data.recipients.forEach(r => {
                       if (r.recipient?.email) candidates.push(r.recipient.email);
@@ -149,24 +145,23 @@ export default async function handler(req, res) {
               log(`Email Candidates: ${JSON.stringify(uniqueEmails)}`);
 
               if (uniqueEmails.length > 0) {
-                  emailFound = uniqueEmails[0]; // Take primary
+                  emailFound = uniqueEmails[0]; 
                   log(`Looking up email: ${emailFound}`);
 
                   const { data: userResult, error: userError } = await supabase.auth.admin.listUsers({ perPage: 1000 });
                   
                   if (userError) {
-                      log(`Auth Lookup ERROR: ${userError.message} (Code: ${userError.code})`);
+                      log(`Auth Lookup ERROR: ${userError.message}`);
                   } else {
                       const users = userResult.users || [];
                       const cleanEmail = emailFound.toLowerCase().trim();
-                      
                       const match = users.find(u => u.email?.toLowerCase().trim() === cleanEmail);
                       
                       if (match) {
                           userId = match.id;
                           log(`User Found: ${userId}`);
                       } else {
-                          log(`No user found for ${cleanEmail} among ${users.length} users.`);
+                          log(`No user found for ${cleanEmail}`);
                       }
                   }
               }
@@ -180,7 +175,7 @@ export default async function handler(req, res) {
           // STEP C: Determine Plan
           const itemsJSON = JSON.stringify(data.items || []).toLowerCase();
           let tier = 'Creator';
-          let creditsToAdd = 500; // Default for Creator
+          let creditsToAdd = 500; // Default
           
           if (itemsJSON.includes('studio') || itemsJSON.includes('agency')) {
               tier = 'Studio';
@@ -188,22 +183,35 @@ export default async function handler(req, res) {
           }
           log(`Plan identified: ${tier} (+${creditsToAdd} credits)`);
 
-          // STEP D: Update DB
-          const { data: currentProfile, error: fetchErr } = await supabase.from('profiles').select('credits').eq('id', userId).single();
+          // STEP D: Update DB (Robust Upsert)
           
-          if (fetchErr) log(`Profile fetch warning: ${fetchErr.message}`);
+          // 1. Fetch existing profile first to preserve other fields (like username)
+          const { data: currentProfile, error: fetchErr } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
           
           const currentCredits = currentProfile?.credits || 0;
           const newCredits = currentCredits + creditsToAdd;
-
-          log(`Upserting Profile: ${userId} -> ${newCredits} credits`);
-
-          const { error: upsertErr } = await supabase.from('profiles').upsert({
+          
+          // 2. Prepare Payload
+          // If profile doesn't exist, we MUST provide a username if the DB requires it
+          const username = currentProfile?.username || emailFound?.split('@')[0] || 'Studio User';
+          
+          const payload = {
               id: userId,
               tier: tier,
               credits: newCredits,
-              updated_at: new Date().toISOString()
-          });
+              updated_at: new Date().toISOString(),
+              username: username // Ensure username is present for new rows
+          };
+
+          log(`Upserting Profile: ${userId} -> ${newCredits} credits`);
+
+          const { error: upsertErr } = await supabase
+            .from('profiles')
+            .upsert(payload);
 
           if (upsertErr) {
               log(`DB Update FAILED: ${upsertErr.message}`);
