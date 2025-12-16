@@ -1,6 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
 
-export default async function handler(req, res) {
+const { createClient } = require('@supabase/supabase-js');
+
+module.exports = async (req, res) => {
   const LOG_PREFIX = '[FastSpring Webhook]';
 
   // 1. CORS & Methods
@@ -16,8 +17,9 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
   try {
+      // Allow VITE_ prefix or standard env vars
       const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
       if (!supabaseUrl || !serviceRoleKey) {
           console.error("Missing Supabase Service Key");
@@ -25,6 +27,7 @@ export default async function handler(req, res) {
       }
 
       let payload = req.body;
+      // Parse body if it comes as string (sometimes happens depending on body-parser settings in Vercel)
       if (typeof payload === 'string') {
           try { payload = JSON.parse(payload); } catch (e) { return res.status(400).json({ error: 'Invalid JSON' }); }
       }
@@ -47,7 +50,6 @@ export default async function handler(req, res) {
           let userId = null;
 
           // 1. Extract User ID (Tags)
-          // Note: FastSpring tags structure can vary between order and subscription events
           if (data.tags) {
                if (typeof data.tags === 'object') userId = data.tags.userId;
                else if (typeof data.tags === 'string') {
@@ -79,8 +81,10 @@ export default async function handler(req, res) {
                   console.log(`${LOG_PREFIX} Looking up user by email: ${email}`);
                   // Fetch users (limit 1000 to be safe)
                   const { data: { users } } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-                  const match = users.find(u => u.email?.toLowerCase().trim() === email.toLowerCase().trim());
-                  if (match) userId = match.id;
+                  if (users) {
+                    const match = users.find(u => u.email?.toLowerCase().trim() === email.toLowerCase().trim());
+                    if (match) userId = match.id;
+                  }
               }
           }
 
@@ -90,7 +94,6 @@ export default async function handler(req, res) {
           }
 
           // 3. Determine Plan (Permissive Mode)
-          // We check the items list. If it's a test order, it might be messy, so we default to Creator.
           const itemsJSON = JSON.stringify(data.items || data.lineItems || []).toLowerCase();
           
           let tier = 'Creator'; // Default to Creator for ANY successful payment if unidentified
@@ -108,8 +111,6 @@ export default async function handler(req, res) {
           const { data: profile } = await supabase.from('profiles').select('credits').eq('id', userId).single();
           const currentCredits = profile?.credits || 0;
 
-          // For monthly charges, we ADD credits. We don't just set them.
-          // This logic works for both initial buy and renewal.
           const { error } = await supabase.from('profiles').upsert({
               id: userId,
               tier: tier,
@@ -130,4 +131,4 @@ export default async function handler(req, res) {
       console.error(err);
       return res.status(500).json({ error: err.message });
   }
-}
+};
