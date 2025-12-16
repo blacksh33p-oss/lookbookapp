@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Mail, ArrowRight, Loader2, Check, User, Building2, Lock, Fingerprint, LogIn, Eye, EyeOff, ExternalLink, RefreshCw, Zap, Crown, Star, ShieldCheck } from 'lucide-react';
+import { X, Mail, ArrowRight, Loader2, Check, User, Building2, Lock, Fingerprint, Eye, EyeOff, ExternalLink, RefreshCw, Zap, Crown, Star, ShieldCheck } from 'lucide-react';
 import { SubscriptionTier } from '../types';
 
 interface LoginModalProps {

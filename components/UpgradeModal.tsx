@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Check, Zap, Crown, Sparkles, Building2, User, Star, Infinity, Layers, Image as ImageIcon, ShieldCheck } from 'lucide-react';
+import { X, Check, Zap, Crown, Building2, User, Star, Infinity, Layers, Image as ImageIcon, ShieldCheck } from 'lucide-react';
 import { SubscriptionTier } from '../types';
 
 interface UpgradeModalProps {

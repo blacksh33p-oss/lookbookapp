@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, Clock } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, Clock, GitCommit } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -13,6 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, GeneratedImage, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
+const APP_VERSION = "v1.1"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -368,7 +369,6 @@ const App: React.FC = () => {
      if (tier === SubscriptionTier.Free) return;
 
      // Get Checkout URL from Environment Variables
-     // FORMAT: VITE_LEMON_SQUEEZY_CREATOR_URL=https://store.lemonsqueezy.com/checkout/buy/variant_...
      const checkoutUrl = tier === SubscriptionTier.Creator 
         ? import.meta.env.VITE_LEMON_SQUEEZY_CREATOR_URL 
         : import.meta.env.VITE_LEMON_SQUEEZY_STUDIO_URL;
@@ -379,14 +379,9 @@ const App: React.FC = () => {
          return;
      }
 
-     // Construct URL with Custom Data for Webhook
-     // We pass user_id so the webhook knows who to credit
-     // We pass email to pre-fill the checkout form
-     // We pass redirect_url to bring them back here
      const redirectUrl = `${window.location.origin}/?success=true`;
      const finalUrl = `${checkoutUrl}?checkout[email]=${activeSession.user.email}&checkout[custom][user_id]=${activeSession.user.id}&checkout[redirect_url]=${redirectUrl}`;
 
-     // Redirect
      window.location.href = finalUrl;
   };
 
@@ -687,7 +682,7 @@ const App: React.FC = () => {
                 </ConfigSection>
             </div>
 
-            <div className="mt-8 lg:mt-6 sticky bottom-0 z-30">
+            <div className="mt-8 lg:mt-6 sticky bottom-0 z-30 space-y-3">
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent -top-12 pointer-events-none"></div>
                 <button
                     onClick={handleGenerate}
@@ -711,8 +706,11 @@ const App: React.FC = () => {
                         </>
                     )}
                 </button>
-                <div className="flex justify-between items-center mt-2 px-1">
-                    <span className="text-[10px] text-zinc-600 font-mono">Est. Time: {options.modelVersion === ModelVersion.Pro ? '15s' : '4s'}</span>
+                <div className="flex justify-between items-center px-1">
+                    <span className="text-[10px] text-zinc-600 font-mono flex items-center gap-1.5">
+                        <GitCommit size={10} />
+                        {APP_VERSION}
+                    </span>
                     <span className="text-[10px] font-bold text-zinc-400 font-mono flex items-center gap-1">
                         Cost: {currentCost} Credit{currentCost > 1 ? 's' : ''}
                     </span>
