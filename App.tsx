@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, Clock, GitCommit } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, Clock, GitCommit, Crown } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -596,11 +596,25 @@ const App: React.FC = () => {
               <div className="glass-panel rounded-full px-2 py-2 flex items-center gap-3">
                  {session ? (
                      <>
-                        <div className="hidden sm:flex flex-col items-end px-2 border-r border-white/10">
-                            <span className="text-[10px] text-zinc-400 font-bold uppercase">
+                        {/* Explicit Upgrade Button for Free Users */}
+                        {userProfile?.tier === SubscriptionTier.Free && (
+                           <button
+                             onClick={() => setShowUpgradeModal(true)}
+                             className="hidden sm:flex items-center gap-1.5 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(124,58,237,0.3)] hover:shadow-[0_0_20px_rgba(124,58,237,0.5)] mr-2"
+                           >
+                              <Crown size={12} fill="currentColor" />
+                              Upgrade
+                           </button>
+                        )}
+
+                        <div 
+                           onClick={() => setShowUpgradeModal(true)}
+                           className="hidden sm:flex flex-col items-end px-2 border-r border-white/10 cursor-pointer group"
+                        >
+                            <span className="text-[10px] text-zinc-400 font-bold uppercase group-hover:text-white transition-colors">
                                 {userProfile?.username || 'Studio User'}
                             </span>
-                            <div className="text-xs font-mono font-bold text-white tabular-nums flex items-center gap-1">
+                            <div className="text-xs font-mono font-bold text-white tabular-nums flex items-center gap-1 group-hover:text-brand-300 transition-colors">
                                 {userProfile?.credits || 0} <Zap size={10} className="text-brand-400 fill-brand-400" />
                             </div>
                         </div>
