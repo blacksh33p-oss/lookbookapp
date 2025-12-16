@@ -12,10 +12,11 @@ interface ImportMeta {
   readonly env: ImportMetaEnv
 }
 
-// Add process.env definition to support strict coding guidelines for API Key usage
-declare var process: {
-  env: {
+// Augment NodeJS.ProcessEnv to support strict coding guidelines for API Key usage
+// We do not redeclare 'process' here to avoid conflicts with @types/node or other libraries.
+declare namespace NodeJS {
+  interface ProcessEnv {
     API_KEY: string;
     [key: string]: string | undefined;
   }
-};
+}

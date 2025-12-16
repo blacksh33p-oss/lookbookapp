@@ -25,9 +25,17 @@ export const generatePhotoshootImage = async (
   options: PhotoshootOptions
 ): Promise<string> => {
   
-  // Usage of process.env.API_KEY is mandatory per coding guidelines.
-  // We assume it is pre-configured and available.
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Usage of process.env.API_KEY is mandatory.
+  // We strictly rely on the bundler (Vite) to inject this via the 'define' config.
+  const API_KEY = process.env.API_KEY;
+
+  if (!API_KEY) {
+    throw new Error(
+      "Configuration Error: API Key is missing.\nPlease check your VITE_API_KEY environment variable in Vercel settings."
+    );
+  }
+
+  const ai = new GoogleGenAI({ apiKey: API_KEY });
 
   // 1. Model & Body Prompt
   const unit = options.measurementUnit;
@@ -200,7 +208,29 @@ export const generatePhotoshootImage = async (
 
   } catch (error: any) {
     console.error("Gemini API Error:", error);
-    const msg = error.message || "Failed to generate image.";
+    
+    let msg = error.message || "Failed to generate image.";
+    
+    // Enhance Error Message for Leaked Keys
+    if (msg.includes('leaked') || msg.includes('Permission denied')) {
+        msg = "ACCESS DENIED: Your API Key has been blocked by Google because it was detected in a public environment.\n\nACTION REQUIRED:\n1. Go to Google AI Studio\n2. Generate a NEW API Key\n3. Update your Vercel Environment Variables\n4. Redeploy.";
+    } 
+    // Handle JSON error messages
+    else if (msg.includes('{')) {
+        try {
+            const parsed = JSON.parse(msg);
+            if (parsed.error && parsed.error.message) {
+                if (parsed.error.message.includes('leaked')) {
+                     msg = "ACCESS DENIED: Your API Key has been blocked by Google because it was detected in a public environment.\n\nACTION REQUIRED:\n1. Go to Google AI Studio\n2. Generate a NEW API Key\n3. Update your Vercel Environment Variables\n4. Redeploy.";
+                } else {
+                    msg = parsed.error.message;
+                }
+            }
+        } catch (e) {
+            // keep original msg
+        }
+    }
+
     throw new Error(msg);
   }
 };
