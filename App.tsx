@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.4.22-RaceFix"; 
+const APP_VERSION = "v1.4.23-SyncFix"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -631,8 +631,49 @@ const App: React.FC = () => {
               setShowUpgradeModal(true);
               return;
           }
+          
+          setIsLoading(true);
+          setError(null);
+          setGeneratedImage(null);
+
+          try {
+            console.log("Generating with model:", currentOptions.modelVersion);
+            const result = await generatePhotoshootImage(currentOptions);
+            setGeneratedImage(result);
+
+            if (isGuest) {
+                const newGuestCredits = guestCredits - cost;
+                setGuestCredits(newGuestCredits);
+                localStorage.setItem('fashion_guest_credits', newGuestCredits.toString());
+            } else {
+                // Deduct and return new value via .select() to ensure atomic sync
+                const { data: updatedRows, error } = await supabase
+                    .from('profiles')
+                    .update({ credits: actualCredits - cost })
+                    .eq('id', session.user.id)
+                    .select();
+                
+                if (!error && updatedRows && updatedRows.length > 0) {
+                     // Update local state with the AUTHORITATIVE source from DB
+                     const newBalance = updatedRows[0].credits;
+                     setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
+                } else {
+                     // Fallback if select failed (rare)
+                     setUserProfile(prev => prev ? ({ ...prev, credits: actualCredits - cost }) : null);
+                }
+            }
+
+          } catch (err: any) {
+            setError(err.message || 'Something went wrong during generation.');
+            showToast("Generation failed", 'error');
+          } finally {
+            setIsLoading(false);
+          }
+          // Return early to prevent double execution structure from original code
+          return;
       }
 
+      // Guest Execution Flow (if not handled in the 'else' above)
       setIsLoading(true);
       setError(null);
       setGeneratedImage(null);
@@ -642,30 +683,9 @@ const App: React.FC = () => {
         const result = await generatePhotoshootImage(currentOptions);
         setGeneratedImage(result);
 
-        if (isGuest) {
-            const newGuestCredits = guestCredits - cost;
-            setGuestCredits(newGuestCredits);
-            localStorage.setItem('fashion_guest_credits', newGuestCredits.toString());
-        } else {
-            const { data: freshProfile } = await supabase
-                .from('profiles')
-                .select('credits')
-                .eq('id', session.user.id)
-                .single();
-            
-            const currentDbCredits = freshProfile?.credits || 0;
-            
-            // Deduct
-            const { error } = await supabase
-                .from('profiles')
-                .update({ credits: currentDbCredits - cost })
-                .eq('id', session.user.id);
-            
-            if (!error) {
-                 // Update local state immediately for UI responsiveness
-                 setUserProfile(prev => prev ? ({ ...prev, credits: currentDbCredits - cost }) : null);
-            }
-        }
+        const newGuestCredits = guestCredits - cost;
+        setGuestCredits(newGuestCredits);
+        localStorage.setItem('fashion_guest_credits', newGuestCredits.toString());
 
       } catch (err: any) {
         setError(err.message || 'Something went wrong during generation.');
