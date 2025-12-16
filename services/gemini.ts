@@ -21,49 +21,13 @@ const getModelName = (version: ModelVersion): string => {
   }
 };
 
-// Robust API Key Accessor
-const getApiKey = (): string | undefined => {
-  // CRITICAL: Access these DIRECTLY. 
-  // Vite statically replaces 'import.meta.env.VITE_API_KEY' with the actual string at build time.
-  // Do not use intermediate variables like 'const env = import.meta.env'.
-  
-  // FIX: Cast import.meta to any to avoid TS errors.
-  const k1 = (import.meta as any).env?.VITE_API_KEY;
-  const k2 = (import.meta as any).env?.VITE_GEMINI_API_KEY;
-  const k3 = (import.meta as any).env?.VITE_GOOGLE_API_KEY;
-
-  if (k1 && k1.length > 0) return k1;
-  if (k2 && k2.length > 0) return k2;
-  if (k3 && k3.length > 0) return k3;
-  
-  // Fallback for non-Vite environments
-  try {
-    // @ts-ignore
-    if (typeof process !== 'undefined' && process.env) {
-      // @ts-ignore
-      return process.env.VITE_API_KEY || process.env.API_KEY;
-    }
-  } catch (e) {
-    // ignore
-  }
-
-  return undefined;
-};
-
 export const generatePhotoshootImage = async (
   options: PhotoshootOptions
 ): Promise<string> => {
   
-  const API_KEY = getApiKey();
-
-  if (!API_KEY || API_KEY.includes('PASTE_YOUR')) {
-    console.error("API Key Check Failed. Values checked: VITE_API_KEY, VITE_GEMINI_API_KEY, VITE_GOOGLE_API_KEY");
-    throw new Error(
-      "Configuration Error: API Key is missing.\n\n1. Go to Vercel Dashboard > Deployments.\n2. Click the three dots (...) next to the latest deployment.\n3. Click 'Redeploy'.\n\n(Environment variables are only applied during build time)."
-    );
-  }
-
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
+  // Usage of process.env.API_KEY is mandatory per coding guidelines.
+  // We assume it is pre-configured and available.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   // 1. Model & Body Prompt
   const unit = options.measurementUnit;
