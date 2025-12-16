@@ -15,7 +15,7 @@ const readStream = async (req) => {
 };
 
 export default async function handler(req, res) {
-  const LOG_PREFIX = '[FastSpring Debugger]'; 
+  const LOG_PREFIX = '[FastSpring Webhook v5]'; 
   const trace = []; 
 
   const log = (msg) => {
@@ -25,24 +25,52 @@ export default async function handler(req, res) {
 
   // 1. CORS & Methods
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method === 'GET') return res.status(200).json({ status: 'Webhook Active', version: 'v4-debug' });
+
+  // SETUP SUPABASE
+  const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
+  const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '').trim();
+  
+  // --- DIAGNOSTIC MODE (GET) ---
+  if (req.method === 'GET') {
+      const { check_email } = req.query;
+      const status = {
+          status: 'Active',
+          version: 'v5',
+          config: {
+              hasUrl: !!supabaseUrl,
+              hasKey: !!serviceRoleKey,
+              keyLength: serviceRoleKey ? serviceRoleKey.length : 0
+          }
+      };
+
+      if (check_email && serviceRoleKey) {
+          const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
+          try {
+              const { data, error } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+              if (error) status.lookupError = error;
+              else {
+                  const match = data.users.find(u => u.email?.toLowerCase() === check_email.toLowerCase());
+                  status.userFound = !!match;
+                  status.userId = match ? match.id : null;
+                  status.totalUsersFetched = data.users.length;
+              }
+          } catch(e) { status.exception = e.message; }
+      }
+
+      return res.status(200).json(status);
+  }
+  
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
   try {
-      // 1. Credentials Check
-      const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
-      const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '').trim();
-
       if (!supabaseUrl || !serviceRoleKey) {
-          log("CRITICAL: Missing Supabase Credentials in Env Vars.");
-          return res.status(500).json({ error: 'Server Config Error: Missing credentials', trace });
+          log("CRITICAL: Missing Supabase Credentials.");
+          return res.status(500).json({ error: 'Server Config Error', trace });
       }
-      
-      log(`Credentials present. Key length: ${serviceRoleKey.length}`);
 
       // 2. Body Parsing
       let payload = req.body;
@@ -79,90 +107,96 @@ export default async function handler(req, res) {
           let userId = null;
           let emailFound = null;
 
-          // STEP A: Look for Tags (Primary)
+          // STEP A: Look for Tags
           const tags = data.tags || (data.order && data.order.tags) || (data.subscription && data.subscription.tags);
           if (tags) {
               log(`Tags found: ${JSON.stringify(tags)}`);
-              if (typeof tags === 'object' && tags.userId) userId = tags.userId;
-              else if (typeof tags === 'string') {
-                  const match = tags.match(/userId:([a-f0-9-]{36})/i);
+              // Handle URL encoded tags if they come through that way
+              let decodedTags = tags;
+              if (typeof tags === 'string' && tags.includes('%')) {
+                   try { decodedTags = decodeURIComponent(tags); } catch(e) {}
+              }
+
+              if (typeof decodedTags === 'object' && decodedTags.userId) userId = decodedTags.userId;
+              else if (typeof decodedTags === 'string') {
+                  const match = decodedTags.match(/userId:([a-f0-9-]{36})/i);
                   if (match) userId = match[1];
               }
           } else {
-              log("No tags found in event data.");
+              log("No tags found.");
           }
 
           // STEP B: Look for Email (Fallback)
           if (!userId) {
-              // Deep Search for Email based on your payload structure
+              // Deep extraction of email candidates
               const candidates = [
-                  data.email, // Top level
-                  data.customer?.email, // Customer object
-                  data.account?.contact?.email, // Account Contact (found in your payload)
+                  data.email, 
+                  data.customer?.email, 
+                  data.account?.contact?.email, 
                   data.contact?.email, 
-                  data.recipient?.email,
-                  // Check array of recipients
-                  ...(Array.isArray(data.recipients) ? data.recipients.map(r => r.recipient?.email || r.recipient?.account?.contact?.email) : [])
-              ].filter(Boolean); // Remove null/undefined
+                  data.recipient?.email
+              ];
 
-              // Deduplicate
-              const uniqueEmails = [...new Set(candidates)];
-              log(`Email Candidates found: ${JSON.stringify(uniqueEmails)}`);
+              // Check recipients array
+              if (Array.isArray(data.recipients)) {
+                  data.recipients.forEach(r => {
+                      if (r.recipient?.email) candidates.push(r.recipient.email);
+                      if (r.recipient?.account?.contact?.email) candidates.push(r.recipient.account.contact.email);
+                  });
+              }
+
+              const uniqueEmails = [...new Set(candidates.filter(Boolean))];
+              log(`Email Candidates: ${JSON.stringify(uniqueEmails)}`);
 
               if (uniqueEmails.length > 0) {
-                  emailFound = uniqueEmails[0]; // Take the first valid email
-                  log(`Attempting lookup for email: ${emailFound}`);
+                  emailFound = uniqueEmails[0]; // Take primary
+                  log(`Looking up email: ${emailFound}`);
 
-                  // Supabase Admin Lookup
                   const { data: userResult, error: userError } = await supabase.auth.admin.listUsers({ perPage: 1000 });
                   
                   if (userError) {
-                      log(`Auth Lookup ERROR: ${userError.message}`);
-                      if (userError.code === 401) log("CHECK YOUR SERVICE_ROLE_KEY. It seems invalid.");
+                      log(`Auth Lookup ERROR: ${userError.message} (Code: ${userError.code})`);
                   } else {
                       const users = userResult.users || [];
-                      log(`Fetched ${users.length} users from Supabase.`);
+                      const cleanEmail = emailFound.toLowerCase().trim();
                       
-                      const match = users.find(u => u.email?.toLowerCase().trim() === emailFound.toLowerCase().trim());
+                      const match = users.find(u => u.email?.toLowerCase().trim() === cleanEmail);
                       
                       if (match) {
                           userId = match.id;
-                          log(`MATCH FOUND! User ID: ${userId}`);
+                          log(`User Found: ${userId}`);
                       } else {
-                          log(`No user found matching email: ${emailFound}`);
-                          // Debug: Log first 3 emails in DB to verify we are looking at right DB
-                          const sample = users.slice(0, 3).map(u => u.email);
-                          log(`Sample DB emails: ${JSON.stringify(sample)}`);
+                          log(`No user found for ${cleanEmail} among ${users.length} users.`);
                       }
                   }
-              } else {
-                  log("CRITICAL: No email found in payload structure.");
               }
           }
 
           if (!userId) {
-              log("SKIPPING: Could not identify user ID.");
+              log("SKIPPING: User ID could not be resolved.");
               continue;
           }
 
-          // STEP C: Determine Credits
+          // STEP C: Determine Plan
           const itemsJSON = JSON.stringify(data.items || []).toLowerCase();
           let tier = 'Creator';
-          let creditsToAdd = 500;
+          let creditsToAdd = 500; // Default for Creator
           
           if (itemsJSON.includes('studio') || itemsJSON.includes('agency')) {
               tier = 'Studio';
               creditsToAdd = 2000;
           }
-          log(`Plan: ${tier} (+${creditsToAdd} credits)`);
+          log(`Plan identified: ${tier} (+${creditsToAdd} credits)`);
 
           // STEP D: Update DB
           const { data: currentProfile, error: fetchErr } = await supabase.from('profiles').select('credits').eq('id', userId).single();
           
-          if (fetchErr) log(`Profile fetch warning: ${fetchErr.message} (Will attempt upsert)`);
+          if (fetchErr) log(`Profile fetch warning: ${fetchErr.message}`);
           
           const currentCredits = currentProfile?.credits || 0;
           const newCredits = currentCredits + creditsToAdd;
+
+          log(`Upserting Profile: ${userId} -> ${newCredits} credits`);
 
           const { error: upsertErr } = await supabase.from('profiles').upsert({
               id: userId,
@@ -174,7 +208,7 @@ export default async function handler(req, res) {
           if (upsertErr) {
               log(`DB Update FAILED: ${upsertErr.message}`);
           } else {
-              log(`DB Update SUCCESS. ${userId} now has ${newCredits} credits.`);
+              log(`DB Update SUCCESS`);
               processedCount++;
           }
       }
