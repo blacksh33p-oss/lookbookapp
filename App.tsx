@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.4.32-SessionFix"; 
+const APP_VERSION = "v1.4.33-GeistUI"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -63,22 +63,22 @@ interface ConfigSectionProps {
 const ConfigSection: React.FC<ConfigSectionProps> = ({ title, icon: Icon, children, defaultOpen = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
-    <div className={`glass-panel rounded-none border-x-0 border-t border-b-0 first:border-t-0 border-white/10 overflow-hidden transition-all duration-300`}>
+    <div className="border-b border-zinc-800 bg-black last:border-b-0">
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-5 text-left focus:outline-none group hover:bg-white/5 transition-colors"
+        className="w-full flex items-center justify-between p-4 text-left focus:outline-none group hover:bg-zinc-900 transition-colors"
       >
-        <div className="flex items-center gap-4">
-          <Icon size={16} className={`text-zinc-500 group-hover:text-brand-400 transition-colors ${isOpen ? 'text-brand-400' : ''}`} />
-          <span className="font-mono text-sm tracking-widest uppercase text-zinc-300 group-hover:text-white transition-colors">{title}</span>
+        <div className="flex items-center gap-3">
+          <Icon size={14} className={`text-zinc-500 group-hover:text-white transition-colors ${isOpen ? 'text-white' : ''}`} />
+          <span className="font-mono text-xs font-medium tracking-wide text-zinc-300 group-hover:text-white transition-colors">{title}</span>
         </div>
-        <div className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
+        <div className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
            <ChevronDown size={14} className="text-zinc-600 group-hover:text-white" />
         </div>
       </button>
       {isOpen && (
-        <div className="p-5 pt-0 animate-slide-up">
-            <div className="mt-2 space-y-6">
+        <div className="p-4 pt-0 animate-fade-in">
+            <div className="mt-2 space-y-5">
                 {children}
             </div>
         </div>
@@ -98,30 +98,19 @@ const StyleButton: React.FC<StyleButtonProps> = ({ label, isSelected, isLocked, 
     return (
         <button
             onClick={onClick}
-            className={`relative p-3 rounded-lg border text-left transition-all group overflow-hidden min-h-[3.5rem] flex flex-col justify-center
+            className={`relative px-3 py-3 rounded-md border text-left transition-all group overflow-hidden min-h-[3rem] flex items-center justify-between
             ${isSelected 
-                ? 'bg-brand-500/10 border-brand-500 text-white ring-1 ring-brand-500' 
-                : 'bg-zinc-900/40 border-zinc-800'
+                ? 'bg-white border-white text-black' 
+                : 'bg-black border-zinc-800 hover:border-zinc-600 text-zinc-400'
             }
-            ${isLocked && !isSelected ? 'opacity-80 hover:opacity-100 hover:border-brand-500/40' : 'hover:border-zinc-600'}
+            ${isLocked && !isSelected ? 'opacity-60 cursor-not-allowed hover:bg-black hover:border-zinc-800' : ''}
             `}
         >
-            <span className={`text-[9px] font-bold uppercase tracking-widest z-10 relative ${isSelected ? 'text-brand-300' : 'text-zinc-400 group-hover:text-zinc-200'}`}>
+            <span className={`text-[10px] font-bold uppercase tracking-wide z-10 relative ${isSelected ? 'text-black' : 'text-zinc-400 group-hover:text-zinc-200'}`}>
                 {simpleName}
             </span>
-            {isLocked && !isSelected && (
-                <div className="absolute inset-0 z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/40 backdrop-blur-sm">
-                    <div className="bg-black/90 px-2 py-1 rounded-full border border-brand-500/30 shadow-[0_0_15px_rgba(139,92,246,0.3)] flex items-center gap-1.5 transform scale-90 group-hover:scale-100 transition-transform">
-                        <Lock size={10} className="text-brand-400" />
-                        <span className="text-[8px] font-bold text-white uppercase tracking-wider">Unlock</span>
-                    </div>
-                </div>
-            )}
-            {isLocked && (
-                <div className="absolute top-1.5 right-1.5 opacity-40 group-hover:opacity-0 transition-opacity">
-                    <Lock size={10} className="text-zinc-500" />
-                </div>
-            )}
+            
+            {isLocked && !isSelected && <Lock size={10} className="text-zinc-600" />}
         </button>
     );
 };
@@ -133,34 +122,29 @@ interface ToastProps {
 }
 const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
     useEffect(() => {
-        const timer = setTimeout(onClose, 5000);
+        const timer = setTimeout(onClose, 4000);
         return () => clearTimeout(timer);
     }, [onClose]);
 
-    const bgColors = {
-        success: 'bg-emerald-950/90 border-emerald-900',
-        error: 'bg-red-950/90 border-red-900',
-        info: 'bg-zinc-900/90 border-zinc-800'
-    };
-    const iconColors = {
-        success: 'text-emerald-400',
-        error: 'text-red-400',
-        info: 'text-brand-400'
+    const colors = {
+        success: 'bg-zinc-900 border-zinc-700 text-white',
+        error: 'bg-red-950 border-red-900 text-red-200',
+        info: 'bg-zinc-900 border-zinc-700 text-zinc-300'
     };
     const Icon = type === 'success' ? CheckCircle : type === 'error' ? XCircle : Info;
 
     return (
-        <div className={`fixed bottom-6 right-6 z-[200] flex items-center gap-3 px-4 py-3 rounded-lg border shadow-2xl backdrop-blur-md animate-slide-up ${bgColors[type]}`}>
-            <Icon size={18} className={iconColors[type]} />
-            <span className="text-sm font-medium text-white">{message}</span>
-            <button onClick={onClose} className="ml-2 text-zinc-500 hover:text-white"><XCircle size={14} /></button>
+        <div className={`fixed bottom-6 right-6 z-[200] flex items-center gap-3 px-4 py-3 rounded-md border shadow-xl backdrop-blur-md animate-slide-up ${colors[type]}`}>
+            <Icon size={16} />
+            <span className="text-xs font-medium font-mono">{message}</span>
+            <button onClick={onClose} className="ml-4 hover:text-white"><X size={12} /></button>
         </div>
     );
 };
 
 const App: React.FC = () => {
   
-  // CACHED INITIAL STATE: Load from localStorage immediately to prevent flicker
+  // CACHED INITIAL STATE
   const [userProfile, setUserProfile] = useState<{tier: SubscriptionTier, credits: number, username?: string} | null>(() => {
       try {
           const cached = localStorage.getItem('fashion_user_profile');
@@ -348,7 +332,6 @@ const App: React.FC = () => {
       setSession(session);
       if (event === 'SIGNED_IN' && session) {
          setShowLoginModal(false);
-         // DELAY FIX: Small delay to ensure session is fully propagated for RLS policies
          setTimeout(() => {
              fetchProfile(session.user.id, session.user.email);
              checkPendingPlan(session);
@@ -420,7 +403,6 @@ const App: React.FC = () => {
         }
 
         if (error && error.code === 'PGRST116') {
-             // Profile doesn't exist - Create it (Default to 5 for new users)
              const { data: newProfile, error: createError } = await supabase
                 .from('profiles')
                 .insert([{ id: userId, email: email || 'unknown', tier: SubscriptionTier.Free, credits: 5 }])
@@ -432,14 +414,12 @@ const App: React.FC = () => {
              }
         }
 
-        // Daily Refill Logic: Only if DB specifically says 0 (or null) AND Free Tier
         if (data && data.tier === SubscriptionTier.Free && (data.credits === 0 || data.credits === null)) {
             await supabase.from('profiles').update({ credits: 5 }).eq('id', userId);
             data.credits = 5;
         }
 
         if (data) {
-            // Use the Exact value from DB (e.g., 464)
             const finalProfile = {
                 tier: data.tier as SubscriptionTier || SubscriptionTier.Free,
                 credits: data.credits ?? 5, 
@@ -450,11 +430,9 @@ const App: React.FC = () => {
         }
     } catch (e) {
         console.error("Profile fetch error", e);
-        // CRITICAL FIX: If all fetches fail, DO NOT leave userProfile as null (infinite spinner).
-        // Set a fallback state so the app is usable, even if credits might be out of sync temporarily.
         setUserProfile(prev => prev || {
             tier: SubscriptionTier.Free,
-            credits: 0, // Fallback to 0 if we can't connect, better than spinning.
+            credits: 0,
             username: email ? email.split('@')[0] : 'Studio User'
         });
         showToast("Connection issue. Showing cached/default credits.", "info");
@@ -497,7 +475,6 @@ const App: React.FC = () => {
 
   const handleLogout = async (e?: React.MouseEvent) => {
       if (e) e.preventDefault();
-      // Clean up local state immediately
       setSession(null);
       setUserProfile(null);
       localStorage.removeItem('fashion_user_profile');
@@ -506,7 +483,6 @@ const App: React.FC = () => {
       
       try { 
           await supabase.auth.signOut(); 
-          // Re-initialize guest state
           const today = new Date().toDateString();
           localStorage.setItem('fashion_guest_date', today);
           setGuestCredits(5);
@@ -592,7 +568,6 @@ const App: React.FC = () => {
           } finally { setIsLoading(false); }
       } else {
           if (!userProfile) return;
-          // Optimistic check
           if (userProfile.credits < cost) {
               showToast(`Insufficient credits. You have ${userProfile.credits}, need ${cost}.`, "info");
               setShowUpgradeModal(true);
@@ -607,16 +582,11 @@ const App: React.FC = () => {
             const result = await generatePhotoshootImage(currentOptions);
             setGeneratedImage(result);
 
-            // 1. Optimistic Update (Immediate)
             const newBalance = userProfile.credits - cost;
             setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
 
-            // 2. Fire and forget DB update (Realtime subscription will correct if needed)
             supabase.from('profiles').update({ credits: newBalance }).eq('id', session.user.id).then(({ error }) => {
-                if (error) {
-                    console.error("DB Sync Error:", error);
-                    // Revert if critical error (though usually realtime will fix this)
-                }
+                if (error) { console.error("DB Sync Error:", error); }
             });
 
           } catch (err: any) {
@@ -668,12 +638,11 @@ const App: React.FC = () => {
       return (
         <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center p-6">
             <div className="flex flex-col items-center gap-6 animate-fade-in text-center max-w-md">
-                <div className="w-12 h-12 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 <div>
-                    <h2 className="text-xl font-bold text-white tracking-widest uppercase mb-2">Redirecting to Checkout</h2>
-                    <p className="text-zinc-500 font-mono text-xs">Please wait while we transfer you to our secure payment provider...</p>
+                    <h2 className="text-xl font-bold text-white tracking-tight">Redirecting</h2>
+                    <p className="text-zinc-500 text-sm mt-1">Connecting to payment gateway...</p>
                 </div>
-                <button onClick={() => { setIsRedirecting(false); localStorage.removeItem('pending_plan'); }} className="mt-4 px-6 py-2 bg-zinc-900 border border-zinc-700 text-zinc-300 rounded-full text-xs font-bold hover:bg-zinc-800 transition-all flex items-center gap-2"><X size={14} /> Cancel</button>
             </div>
         </div>
       );
@@ -681,104 +650,111 @@ const App: React.FC = () => {
 
   if (isSyncingPayment) {
     return (
-        <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-6">
-            <div className="flex flex-col items-center gap-6 animate-fade-in text-center max-w-md border border-brand-500/20 bg-zinc-900/50 p-8 rounded-3xl shadow-2xl shadow-brand-500/10 relative">
-                <button onClick={() => setIsSyncingPayment(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white p-2 rounded-full hover:bg-zinc-800 transition-all"><X size={20} /></button>
-                <div className="w-16 h-16 bg-brand-500/10 rounded-full flex items-center justify-center border border-brand-500/20 animate-pulse-slow"><Loader2 size={32} className="text-brand-400 animate-spin" /></div>
-                <div><h2 className="text-2xl font-black text-white tracking-tight mb-2">Syncing Purchase</h2><p className="text-zinc-400 text-sm">Waiting for payment provider confirmation...</p></div>
-                <div className="flex flex-col gap-2 w-full"><div className="h-1 w-full bg-zinc-800 rounded-full overflow-hidden"><div className="h-full bg-brand-500 animate-[progress_2s_ease-in-out_infinite]"></div></div><div className="flex justify-between items-center text-[10px] text-zinc-600 font-mono uppercase"><span>Connecting</span><span>{Math.min(syncAttempts * 2, 120)}s elapsed</span></div></div>
-                {syncAttempts > 5 && <div className="text-[10px] text-amber-500 font-bold bg-amber-900/20 p-2 rounded mt-2 border border-amber-500/30">Webhook delaying... Please wait.</div>}
-                {syncAttempts > 10 && <button onClick={() => pollForCredits(session?.user?.id, session?.user?.email)} className="mt-2 text-xs text-brand-400 hover:text-brand-300 underline">Force Check Again</button>}
+        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6">
+            <div className="bg-black border border-zinc-800 p-8 rounded-lg max-w-sm w-full text-center">
+                <div className="w-12 h-12 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4 border border-zinc-800">
+                    <Loader2 size={24} className="text-white animate-spin" />
+                </div>
+                <h2 className="text-lg font-bold text-white mb-2">Syncing Purchase</h2>
+                <p className="text-zinc-500 text-xs mb-6">This may take a moment while we verify your transaction.</p>
+                <div className="w-full bg-zinc-900 h-1 rounded-full overflow-hidden">
+                    <div className="bg-white h-full animate-progress"></div>
+                </div>
+                <button onClick={() => setIsSyncingPayment(false)} className="mt-6 text-xs text-zinc-500 hover:text-white transition-colors">Cancel</button>
             </div>
-             <style>{`@keyframes progress { 0% { width: 0%; transform: translateX(-100%); } 50% { width: 50%; } 100% { width: 100%; transform: translateX(100%); } }`}</style>
         </div>
     );
   }
 
   return (
-    <div className="min-h-screen text-zinc-200 font-sans selection:bg-brand-500/99 selection:text-white">
+    <div className="min-h-screen text-zinc-300 font-sans selection:bg-white selection:text-black bg-black">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onAuth={handleAuth} initialView={loginModalView} showToast={showToast} />
       <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} onUpgrade={(tier) => handleUpgrade(tier)} />
 
-      <header className="fixed top-0 left-0 right-0 z-40 px-6 py-4 pointer-events-none">
-          <div className="max-w-[1920px] mx-auto flex justify-between items-start pointer-events-auto">
-              <div className="flex items-center gap-4 glass-panel px-4 py-2.5 rounded-full">
-                  <div className="bg-brand-600 text-white p-1.5 rounded-full shadow-[0_0_15px_rgba(124,58,237,0.5)]">
-                     <Hexagon size={18} fill="currentColor" className="animate-pulse-slow" />
+      {/* Header */}
+      <header className="fixed top-0 left-0 right-0 z-40 bg-black/50 backdrop-blur-xl border-b border-zinc-800 h-14">
+          <div className="max-w-[1920px] mx-auto h-full flex justify-between items-center px-4 md:px-6">
+              <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 bg-white text-black rounded-sm flex items-center justify-center">
+                     <Hexagon size={14} fill="currentColor" strokeWidth={0} />
                   </div>
-                  <div><h1 className="text-sm font-bold tracking-widest uppercase leading-none">Fashion<span className="text-zinc-500 font-light">Studio</span></h1></div>
+                  <h1 className="text-sm font-bold tracking-tight text-white">FashionStudio</h1>
               </div>
 
-              <div className="hidden md:flex glass-panel rounded-full p-1 gap-1">
-                  <button onClick={() => setAppMode('single')} className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${appMode === 'single' ? 'bg-white text-black' : 'text-zinc-500 hover:text-white'}`}><LayoutGrid size={14} /> Runway</button>
-                  <button onClick={() => setAppMode('batch')} className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${appMode === 'batch' ? 'bg-white text-black' : 'text-zinc-500 hover:text-white'}`}><LayoutList size={14} /> Batch</button>
+              <div className="hidden md:flex gap-px bg-zinc-800 p-[1px] rounded-md overflow-hidden">
+                  <button onClick={() => setAppMode('single')} className={`px-4 py-1.5 text-xs font-medium transition-all ${appMode === 'single' ? 'bg-zinc-100 text-black' : 'bg-black text-zinc-500 hover:text-zinc-300'}`}>Runway</button>
+                  <button onClick={() => setAppMode('batch')} className={`px-4 py-1.5 text-xs font-medium transition-all ${appMode === 'batch' ? 'bg-zinc-100 text-black' : 'bg-black text-zinc-500 hover:text-zinc-300'}`}>Batch</button>
               </div>
 
-              <div className="glass-panel rounded-full px-2 py-2 flex items-center gap-3 relative">
+              <div className="flex items-center gap-4">
                  {session ? (
                      <>
                         {(!userProfile || userProfile.tier !== SubscriptionTier.Studio) && (
-                           <button onClick={() => setShowUpgradeModal(true)} className="hidden sm:flex items-center gap-1.5 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(124,58,237,0.3)] hover:shadow-[0_0_20px_rgba(124,58,237,0.5)] mr-2">
-                              <Crown size={12} fill="currentColor" /> Upgrade
+                           <button onClick={() => setShowUpgradeModal(true)} className="hidden sm:flex text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white transition-colors items-center gap-1.5 border border-zinc-800 hover:border-zinc-600 px-3 py-1.5 rounded-md">
+                              <Crown size={12} /> Pro
                            </button>
                         )}
-                        <div onClick={() => setShowProfileMenu(!showProfileMenu)} className="hidden sm:flex flex-col items-end px-2 border-r border-white/10 cursor-pointer group select-none">
-                            <span className="text-[10px] text-zinc-400 font-bold uppercase group-hover:text-white transition-colors">
-                                {userProfile?.username || (session.user.email ? session.user.email.split('@')[0] : 'Studio User')}
-                            </span>
-                            <div className="text-xs font-mono font-bold text-white tabular-nums flex items-center gap-1 group-hover:text-brand-300 transition-colors">
-                                {userProfile?.credits !== undefined ? userProfile.credits : <Loader2 size={10} className="animate-spin text-zinc-500" />} 
-                                <Zap size={10} className="text-brand-400 fill-brand-400" />
+                        <div onClick={() => setShowProfileMenu(!showProfileMenu)} className="flex items-center gap-3 cursor-pointer group px-2 py-1 rounded-md hover:bg-zinc-900 transition-colors">
+                            <div className="text-right hidden sm:block">
+                                <div className="text-[10px] font-bold text-white">
+                                    {userProfile?.username || session.user.email?.split('@')[0]}
+                                </div>
+                                <div className="text-[10px] text-zinc-500 font-mono">
+                                    {userProfile?.credits ?? <Loader2 size={8} className="animate-spin inline" />} Credits
+                                </div>
+                            </div>
+                            <div className="w-6 h-6 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700">
+                                <span className="text-xs font-bold text-white">{session.user.email?.[0].toUpperCase()}</span>
                             </div>
                         </div>
                         {showProfileMenu && (
-                            <div className="absolute top-full right-0 mt-2 w-56 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl p-2 z-50 animate-slide-up origin-top-right">
-                                <div className="p-2 border-b border-zinc-900 mb-1">
-                                    <div className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Account</div>
-                                    <div className="text-xs text-white truncate">{session.user.email}</div>
+                            <div className="absolute top-12 right-4 w-48 bg-black border border-zinc-800 rounded-md shadow-2xl z-50 animate-fade-in overflow-hidden">
+                                <div className="p-3 border-b border-zinc-800">
+                                    <div className="text-xs text-zinc-400 truncate">{session.user.email}</div>
                                 </div>
-                                <button onClick={() => { setShowUpgradeModal(true); setShowProfileMenu(false); }} className="w-full text-left px-3 py-2 text-xs text-white bg-gradient-to-r from-brand-600/20 to-indigo-600/20 hover:from-brand-600/30 hover:to-indigo-600/30 border border-brand-500/30 rounded-lg transition-all flex items-center gap-2 mb-1"><CreditCard size={14} className="text-brand-400" /> Plans & Billing</button>
-                                <button onClick={() => { setIsSyncingPayment(true); pollForCredits(session.user.id, session.user.email); setShowProfileMenu(false); }} className="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-lg transition-colors flex items-center gap-2"><RefreshCcw size={14} className="text-zinc-500" /> Restore Purchase</button>
-                                <button onClick={handleManualRefresh} className="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-lg transition-colors flex items-center gap-2"><RotateCw size={14} className={isRefreshingProfile ? 'animate-spin' : ''} /> Sync Profile</button>
-                                <button onClick={(e) => handleLogout(e)} className="w-full text-left px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-950/30 rounded-lg transition-colors flex items-center gap-2 mt-1"><LogOut size={14} /> Sign Out</button>
+                                <div className="p-1">
+                                    <button onClick={() => { setShowUpgradeModal(true); setShowProfileMenu(false); }} className="w-full text-left px-3 py-2 text-xs text-white hover:bg-zinc-900 rounded-sm transition-colors flex items-center gap-2"><CreditCard size={12} /> Billing</button>
+                                    <button onClick={() => { setIsSyncingPayment(true); pollForCredits(session.user.id, session.user.email); setShowProfileMenu(false); }} className="w-full text-left px-3 py-2 text-xs text-white hover:bg-zinc-900 rounded-sm transition-colors flex items-center gap-2"><RefreshCcw size={12} /> Sync</button>
+                                    <button onClick={(e) => handleLogout(e)} className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-zinc-900 rounded-sm transition-colors flex items-center gap-2"><LogOut size={12} /> Sign Out</button>
+                                </div>
                             </div>
                         )}
-                        {(!userProfile || userProfile.tier !== SubscriptionTier.Studio) && (
-                             <button onClick={() => setShowUpgradeModal(true)} className="h-8 w-8 bg-brand-900/50 rounded-full flex items-center justify-center border border-brand-500/30 hover:bg-brand-900 transition-colors cursor-pointer z-50 pointer-events-auto sm:hidden"><Crown size={14} className="text-brand-400" fill="currentColor" /></button>
-                        )}
-                        <button onClick={handleManualRefresh} className={`h-8 w-8 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700 hover:bg-zinc-700 transition-colors cursor-pointer z-50 pointer-events-auto sm:hidden ${isRefreshingProfile ? 'animate-spin text-brand-400' : 'text-zinc-400 hover:text-white'}`}><RotateCw size={12} /></button>
-                        <div className="h-8 w-8 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700 hover:bg-zinc-700 transition-colors cursor-pointer z-50 pointer-events-auto sm:hidden" onClick={(e) => handleLogout(e)}><LogOut size={12} /></div>
                      </>
                  ) : (
-                    <div className="flex items-center gap-2 px-2">
-                        <div className="hidden sm:flex flex-col items-end mr-3">
-                            <span className="text-[10px] text-zinc-500 font-mono text-right">GUEST MODE</span>
-                            <div className="text-xs font-mono font-bold text-white tabular-nums flex items-center justify-end gap-1">{guestCredits} <Zap size={10} className={guestCredits > 0 ? "text-brand-400 fill-brand-400" : "text-zinc-600"} /></div>
-                        </div>
-                        <button onClick={handleLogin} className="text-zinc-400 hover:text-white px-3 py-1.5 text-xs font-bold transition-colors">Log in</button>
-                        <button onClick={handleSignup} className="bg-white text-black hover:bg-zinc-200 px-4 py-1.5 rounded-full text-xs font-bold transition-colors">Start Creating</button>
+                    <div className="flex items-center gap-3">
+                        <span className="hidden sm:inline text-xs font-mono text-zinc-500">{guestCredits} Credits</span>
+                        <button onClick={handleLogin} className="text-xs font-medium text-white hover:text-zinc-300">Log in</button>
+                        <button onClick={handleSignup} className="bg-white text-black hover:bg-zinc-200 px-3 py-1.5 rounded-md text-xs font-bold transition-colors">Sign up</button>
                     </div>
                  )}
               </div>
           </div>
       </header>
 
-      <main className="pt-24 px-4 sm:px-6 lg:px-8 max-w-[1920px] mx-auto min-h-screen pb-12">
+      <main className="pt-20 px-4 md:px-6 max-w-[1920px] mx-auto min-h-screen pb-12">
         {appMode === 'batch' ? ( <BatchMode /> ) : (
         <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 relative">
-          <div className="order-2 lg:order-1 lg:col-span-4 flex flex-col gap-0 relative z-20">
-            <div className="mb-6 px-1"><h2 className="text-3xl font-bold tracking-tighter text-white uppercase">Configuration</h2><div className="h-1 w-12 bg-brand-500 mt-2"></div></div>
-            <div className="flex flex-col gap-px bg-zinc-800/50 border border-white/5 rounded-xl overflow-hidden shadow-2xl">
-                <ConfigSection title="01 // Wardrobe" icon={Shirt} defaultOpen={true}>
+          
+          {/* Controls Column */}
+          <div className="order-2 lg:order-1 lg:col-span-4 flex flex-col gap-4 relative z-20">
+            <div className="bg-black border border-zinc-800 rounded-lg overflow-hidden shadow-sm">
+                <ConfigSection title="Wardrobe" icon={Shirt} defaultOpen={true}>
                     <OutfitControl outfit={options.outfit} onChange={(newOutfit) => setOptions({ ...options, outfit: newOutfit })} />
                 </ConfigSection>
-                <ConfigSection title="02 // Model & Set" icon={UserCircle} defaultOpen={true}>
-                    <div className="mb-6 space-y-2">
-                        <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1">Model Engine</label>
-                        <div className="grid grid-cols-2 gap-2 bg-black p-1 rounded-lg border border-zinc-800">
-                            <button onClick={() => setOptions({...options, modelVersion: ModelVersion.Flash})} className={`flex flex-col items-center justify-center py-3 px-2 rounded-md transition-all ${options.modelVersion === ModelVersion.Flash ? 'bg-zinc-800 border border-zinc-600 shadow-md ring-1 ring-white/10' : 'hover:bg-zinc-900 border border-transparent opacity-60 hover:opacity-100'}`}><span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Flash ? 'text-white' : 'text-zinc-500'}`}>Flash</span><span className="text-[8px] text-zinc-400 font-mono">1 Credit</span></button>
-                            <button onClick={() => { if(isPremium) setOptions({...options, modelVersion: ModelVersion.Pro}); else setShowUpgradeModal(true); }} className={`flex flex-col items-center justify-center py-3 px-2 rounded-md transition-all relative overflow-hidden ${options.modelVersion === ModelVersion.Pro ? 'bg-brand-900/40 border border-brand-500 shadow-md ring-1 ring-brand-400/50' : 'hover:bg-zinc-900 border border-transparent opacity-60 hover:opacity-100'}`}><div className="absolute top-0 right-0 p-1">{isPremium ? <Star size={6} className="text-brand-400 fill-brand-400" /> : <Lock size={8} className="text-zinc-500" />}</div><span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Pro ? 'text-brand-200' : 'text-zinc-500'}`}>Pro</span><span className="text-[8px] text-zinc-500 font-mono">10 Credits</span></button>
+                <ConfigSection title="Model & Set" icon={UserCircle} defaultOpen={true}>
+                    <div className="mb-6 space-y-3">
+                        <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Engine</label>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button onClick={() => setOptions({...options, modelVersion: ModelVersion.Flash})} className={`flex flex-col items-center justify-center py-3 px-2 rounded-md border transition-all ${options.modelVersion === ModelVersion.Flash ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-600'}`}>
+                                <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Flash ? 'text-black' : 'text-white'}`}>Flash 2.5</span>
+                                <span className={`text-[9px] font-mono mt-0.5 ${options.modelVersion === ModelVersion.Flash ? 'text-zinc-600' : 'text-zinc-500'}`}>1 Credit</span>
+                            </button>
+                            <button onClick={() => { if(isPremium) setOptions({...options, modelVersion: ModelVersion.Pro}); else setShowUpgradeModal(true); }} className={`flex flex-col items-center justify-center py-3 px-2 rounded-md border transition-all relative ${options.modelVersion === ModelVersion.Pro ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-600'}`}>
+                                {!isPremium && <Lock size={10} className="absolute top-2 right-2 text-zinc-500" />}
+                                <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Pro ? 'text-black' : 'text-white'}`}>Pro 3</span>
+                                <span className={`text-[9px] font-mono mt-0.5 ${options.modelVersion === ModelVersion.Pro ? 'text-zinc-600' : 'text-zinc-500'}`}>10 Credits</span>
+                            </button>
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -787,37 +763,40 @@ const App: React.FC = () => {
                         <Dropdown label="Ethnicity" value={options.ethnicity} options={Object.values(ModelEthnicity)} onChange={(val) => setOptions({ ...options, ethnicity: val })} />
                         <Dropdown label="Mood" value={options.facialExpression} options={Object.values(FacialExpression)} onChange={(val) => setOptions({ ...options, facialExpression: val })} />
                     </div>
-                    <div className="border-t border-dashed border-zinc-800 my-4"></div>
+                    <div className="h-px bg-zinc-900 my-4"></div>
                     <div className="space-y-3">
-                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2"><Palette size={12} /> Art Direction</label>
-                      <div className="grid grid-cols-2 gap-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Style</label>
+                      <div className="grid grid-cols-2 gap-2 max-h-[240px] overflow-y-auto pr-2 custom-scrollbar">
                          {STANDARD_STYLES.map(style => (<StyleButton key={style} label={style} isSelected={options.style === style} onClick={() => setOptions({...options, style: style as PhotoStyle})} />))}
-                         <div className="col-span-2 text-[9px] font-bold text-zinc-600 uppercase tracking-widest mt-2 mb-1 pl-1 flex items-center gap-2">Pro Styles <div className="h-px bg-zinc-800 flex-1"></div></div>
+                         <div className="col-span-2 text-[9px] font-bold text-zinc-500 uppercase tracking-wider mt-2 mb-1 pl-1">Pro Styles</div>
                          {PRO_STYLES.map(style => (<StyleButton key={style} label={style} isSelected={options.style === style} isLocked={!isPremium} onClick={() => { if(isPremium) setOptions({...options, style: style as PhotoStyle}); else setShowUpgradeModal(true); }} />))}
                       </div>
                     </div>
                 </ConfigSection>
-                <ConfigSection title="03 // Pose & Action" icon={Move}>
+                <ConfigSection title="Pose" icon={Move}>
                     <PoseControl selectedPose={options.pose} onPoseChange={(p) => setOptions({ ...options, pose: p })} isAutoMode={autoPose} onToggleAutoMode={setAutoPose} isPremium={isPremium} onUpgrade={() => setShowUpgradeModal(true)} />
                 </ConfigSection>
-                <ConfigSection title="04 // Measurements" icon={Ruler}>
+                <ConfigSection title="Size" icon={Ruler}>
                     <SizeControl options={options} onChange={setOptions} isPremium={isStudio} onUpgradeRequest={() => setShowUpgradeModal(true)} />
                 </ConfigSection>
             </div>
-            <div className="mt-8 lg:mt-6 sticky bottom-0 z-30 space-y-3">
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent -top-12 pointer-events-none"></div>
-                <button onClick={handleGenerate} disabled={!isFormValid || isLoading} className={`relative w-full py-4 px-6 text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed border border-zinc-800' : 'bg-white text-black hover:bg-brand-400 hover:text-black border border-white hover:border-brand-400 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(167,139,250,0.4)]'}`}>
-                    {isLoading ? (<div className="flex items-center gap-2"><span className="w-2 h-2 bg-black rounded-full animate-bounce"></span><span className="w-2 h-2 bg-black rounded-full animate-bounce delay-100"></span><span className="w-2 h-2 bg-black rounded-full animate-bounce delay-200"></span></div>) : (<><Sparkles size={16} /> Generate Shoot</>)}
+            
+            <div className="sticky bottom-4 z-30">
+                <button onClick={handleGenerate} disabled={!isFormValid || isLoading} className={`w-full py-3 px-4 rounded-md text-sm font-medium transition-all shadow-lg flex items-center justify-center gap-2 ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-500 cursor-not-allowed border border-zinc-800' : 'bg-white text-black hover:bg-zinc-200 border border-white'}`}>
+                    {isLoading ? (<Loader2 size={16} className="animate-spin" />) : (<><Sparkles size={16} fill="black" /> Generate Shoot</>)}
                 </button>
-                <div className="flex justify-between items-center px-1">
-                    <span className="text-[10px] text-zinc-600 font-mono flex items-center gap-1.5"><GitCommit size={10} /> {APP_VERSION}</span>
-                    <span className="text-[10px] font-bold text-zinc-400 font-mono flex items-center gap-1">Cost: {currentCost} Credit{currentCost > 1 ? 's' : ''}</span>
+                <div className="flex justify-between items-center mt-3 px-1">
+                    <span className="text-[10px] text-zinc-600 font-mono">{APP_VERSION}</span>
+                    <span className="text-[10px] font-bold text-zinc-500 font-mono">Cost: {currentCost} Credits</span>
                 </div>
             </div>
           </div>
-          <div className="order-1 lg:order-2 lg:col-span-8 h-[60vh] lg:h-[calc(100vh-8rem)] sticky top-24">
+          
+          {/* Preview Column */}
+          <div className="order-1 lg:order-2 lg:col-span-8 h-[60vh] lg:h-[calc(100vh-8rem)] sticky top-20 bg-black border border-zinc-800 rounded-lg overflow-hidden">
              <ResultDisplay isLoading={isLoading} image={generatedImage} onDownload={handleDownload} onRegenerate={handleRegenerate} isPremium={isPremium} error={error} />
           </div>
+
         </div>
         )}
       </main>

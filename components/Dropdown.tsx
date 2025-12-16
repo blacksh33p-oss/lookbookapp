@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
 
@@ -18,14 +17,14 @@ export const Dropdown = <T extends string>({
   disabled
 }: DropdownProps<T>) => {
   return (
-    <div className="flex flex-col gap-2">
-      <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">{label}</label>
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{label}</label>
       <div className="relative group">
         <select
           value={value}
           onChange={(e) => onChange(e.target.value as T)}
           disabled={disabled}
-          className="w-full appearance-none bg-black border border-zinc-800 text-white text-xs font-mono uppercase rounded-none px-4 py-2.5 focus:border-white focus:outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed group-hover:border-zinc-700"
+          className="w-full appearance-none bg-black border border-zinc-800 text-white text-xs rounded-md px-3 py-2.5 focus:border-zinc-500 focus:outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed font-sans"
         >
           {options.map((opt) => (
             <option key={opt} value={opt}>
@@ -33,7 +32,7 @@ export const Dropdown = <T extends string>({
             </option>
           ))}
         </select>
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-600">
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500">
           <ChevronDown size={14} />
         </div>
       </div>

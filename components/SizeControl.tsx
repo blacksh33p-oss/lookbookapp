@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Ruler, ChevronDown, User } from 'lucide-react';
 import { MeasurementUnit, PhotoshootOptions, BodyType } from '../types';
@@ -14,23 +13,21 @@ export const SizeControl: React.FC<SizeControlProps> = ({ options, onChange, isP
   const { measurementUnit, height, bodyType } = options;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-4">
-          
-          {/* Height Input */}
           <div className="space-y-2">
-             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
-                <span className="flex items-center gap-2"><Ruler size={12} /> Model Height</span>
-                <div className="flex bg-slate-900 rounded-md p-0.5 border border-slate-700">
+             <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center justify-between">
+                <span>Model Height</span>
+                <div className="flex bg-black rounded-sm border border-zinc-800">
                     <button
                         onClick={() => onChange({ ...options, measurementUnit: MeasurementUnit.CM })}
-                        className={`px-2 py-0.5 text-[10px] font-bold rounded transition-all ${measurementUnit === MeasurementUnit.CM ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                        className={`px-2 py-0.5 text-[9px] font-medium rounded-sm transition-all ${measurementUnit === MeasurementUnit.CM ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-white'}`}
                     >
                         CM
                     </button>
                     <button
                         onClick={() => onChange({ ...options, measurementUnit: MeasurementUnit.INCH })}
-                        className={`px-2 py-0.5 text-[10px] font-bold rounded transition-all ${measurementUnit === MeasurementUnit.INCH ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                        className={`px-2 py-0.5 text-[9px] font-medium rounded-sm transition-all ${measurementUnit === MeasurementUnit.INCH ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-white'}`}
                     >
                         IN
                     </button>
@@ -42,30 +39,29 @@ export const SizeControl: React.FC<SizeControlProps> = ({ options, onChange, isP
                     value={height}
                     onChange={(e) => onChange({...options, height: e.target.value})}
                     placeholder={measurementUnit === MeasurementUnit.CM ? "e.g. 175" : "e.g. 5'9\""}
-                    className="w-full bg-slate-950 border border-slate-700 hover:border-brand-500 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all font-medium placeholder:text-slate-600"
+                    className="w-full bg-black border border-zinc-800 text-white rounded-md px-3 py-2.5 focus:border-zinc-500 transition-all font-mono text-xs placeholder:text-zinc-700"
                 />
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium pointer-events-none">
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 text-xs font-mono pointer-events-none">
                     {measurementUnit}
                 </div>
              </div>
           </div>
 
-          {/* Body Type Dropdown */}
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                <User size={12} /> Body Type
+            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                Body Type
             </label>
             <div className="relative">
                 <select
                     value={bodyType}
                     onChange={(e) => onChange({ ...options, bodyType: e.target.value as BodyType })}
-                    className="w-full appearance-none bg-slate-950 border border-slate-700 hover:border-brand-500 text-white rounded-lg px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+                    className="w-full appearance-none bg-black border border-zinc-800 text-white rounded-md px-3 py-2.5 pr-10 focus:border-zinc-500 transition-all text-xs"
                 >
                     {Object.values(BodyType).map((type) => (
                         <option key={type} value={type}>{type}</option>
                     ))}
                 </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={14} />
             </div>
           </div>
       </div>
