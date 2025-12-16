@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.4.30-CreditLock"; 
+const APP_VERSION = "v1.4.31-TrueBalance"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -348,21 +348,10 @@ const App: React.FC = () => {
       setSession(session);
       if (event === 'SIGNED_IN' && session) {
          setShowLoginModal(false);
+         // REMOVED: No optimistic update to "5". 
+         // We simply wait for fetchProfile to get the true DB value.
+         // This ensures users with 464 credits don't see "5" flash.
          
-         // Fix: Only optimistic set if we don't have a profile yet (avoid flashing 5 if we have 464 in cache)
-         setUserProfile((prev) => {
-             // If we already have a loaded profile, do NOT overwrite it with default 5
-             // This prevents the "464 -> 5 -> 464" flash/corruption
-             if (prev && prev.credits !== undefined) return prev;
-             
-             return { 
-                tier: SubscriptionTier.Free, 
-                credits: 5, 
-                username: session.user.email?.split('@')[0] || 'User' 
-             };
-         });
-         
-         // 2. Real Fetch
          await fetchProfile(session.user.id, session.user.email);
          await checkPendingPlan(session);
          showToast(`Welcome back!`, 'success');
@@ -422,6 +411,7 @@ const App: React.FC = () => {
         let { data, error } = await supabase.from('profiles').select('tier, credits').eq('id', userId).single();
         
         if (error && error.code === 'PGRST116') {
+             // Profile doesn't exist - Create it (Default to 5 for new users)
              const { data: newProfile, error: createError } = await supabase
                 .from('profiles')
                 .insert([{ id: userId, email: email || 'unknown', tier: SubscriptionTier.Free, credits: 5 }])
@@ -433,13 +423,14 @@ const App: React.FC = () => {
              }
         }
 
-        // Auto-Repair 0 Credit Glitch for Free Users
+        // Daily Refill Logic: Only if DB specifically says 0 (or null) AND Free Tier
         if (data && data.tier === SubscriptionTier.Free && (data.credits === 0 || data.credits === null)) {
             await supabase.from('profiles').update({ credits: 5 }).eq('id', userId);
             data.credits = 5;
         }
 
         if (data) {
+            // Use the Exact value from DB (e.g., 464)
             const finalProfile = {
                 tier: data.tier as SubscriptionTier || SubscriptionTier.Free,
                 credits: data.credits ?? 5, 
@@ -450,13 +441,9 @@ const App: React.FC = () => {
         }
     } catch (e) {
         console.error("Profile fetch error", e);
-        // CRITICAL: Do NOT overwrite valid state with an error state
-        // Use functional update to ensure we keep existing credits if possible
-        setUserProfile(prev => prev ? prev : {
-            tier: SubscriptionTier.Free,
-            credits: 5,
-            username: email ? email.split('@')[0] : 'Studio User'
-        });
+        // On error, do NOT force 5. Keep previous state or let it be null (loading)
+        // This prevents overwriting valid cached data with a default "5"
+        setUserProfile(prev => prev || null);
     } finally {
         setIsAuthLoading(false);
     }
