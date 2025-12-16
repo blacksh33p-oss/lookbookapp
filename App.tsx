@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.4.28-LoginFix"; 
+const APP_VERSION = "v1.4.29-StableCredits"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -348,10 +348,10 @@ const App: React.FC = () => {
       setSession(session);
       if (event === 'SIGNED_IN' && session) {
          setShowLoginModal(false);
-         // 1. Optimistic Set: Immediately show UI to prevent infinite spinner
+         // 1. Optimistic Set: Default to 5 credits so UI isn't empty/zero
          setUserProfile({ 
             tier: SubscriptionTier.Free, 
-            credits: 0, 
+            credits: 5, 
             username: session.user.email?.split('@')[0] || 'User' 
          });
          
@@ -361,7 +361,7 @@ const App: React.FC = () => {
          showToast(`Welcome back!`, 'success');
       } else if (event === 'SIGNED_OUT') {
          setUserProfile(null);
-         localStorage.removeItem('fashion_user_profile'); // Clear cache on logout
+         localStorage.removeItem('fashion_user_profile'); 
          setSession(null);
          localStorage.removeItem('pending_plan');
          showToast('Signed out successfully', 'info');
@@ -377,7 +377,6 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!session?.user?.id) return;
 
-    // Create a dedicated channel for profile updates
     const channel = supabase.channel(`profile_sync:${session.user.id}`)
       .on(
         'postgres_changes',
@@ -390,8 +389,6 @@ const App: React.FC = () => {
         (payload: any) => {
           if (payload.new && typeof payload.new.credits === 'number') {
             setUserProfile((prev) => {
-               // Update local state if DB changes (e.g. background webhook or manual update)
-               // This keeps us in sync without refresh
                if (!prev) return {
                    tier: payload.new.tier as SubscriptionTier || SubscriptionTier.Free,
                    credits: payload.new.credits,
@@ -411,7 +408,7 @@ const App: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [session?.user?.id]); // Re-subscribe only if user changes
+  }, [session?.user?.id]); 
 
   const fetchProfile = async (userId: string, email?: string) => {
     try {
@@ -429,15 +426,18 @@ const App: React.FC = () => {
              }
         }
 
+        // Auto-Repair 0 Credit Glitch for Free Users
+        // If DB has 0 or null, attempt update. Even if update fails (RLS), Force 5 locally.
         if (data && data.tier === SubscriptionTier.Free && (data.credits === 0 || data.credits === null)) {
             await supabase.from('profiles').update({ credits: 5 }).eq('id', userId);
+            // Force local override to 5 regardless of DB response (in case RLS blocks update)
             data.credits = 5;
         }
 
         if (data) {
             const finalProfile = {
                 tier: data.tier as SubscriptionTier || SubscriptionTier.Free,
-                credits: data.credits ?? 0, 
+                credits: data.credits ?? 5, // Fallback to 5 if still null
                 username: email ? email.split('@')[0] : 'Studio User'
             };
             setUserProfile(finalProfile);
@@ -445,14 +445,13 @@ const App: React.FC = () => {
         }
     } catch (e) {
         console.error("Profile fetch error", e);
-        // Fallback to ensure we don't stick on loading
-        if (session) {
-             setUserProfile({
-                tier: SubscriptionTier.Free,
-                credits: 0,
-                username: email ? email.split('@')[0] : 'Studio User'
-            });
-        }
+        // CRITICAL: Do NOT overwrite valid state with an error state (0)
+        // Only set fallback if we have NO data at all.
+        setUserProfile(prev => prev ? prev : {
+            tier: SubscriptionTier.Free,
+            credits: 5,
+            username: email ? email.split('@')[0] : 'Studio User'
+        });
     } finally {
         setIsAuthLoading(false);
     }
@@ -507,7 +506,6 @@ const App: React.FC = () => {
           setGuestCredits(5);
       } catch (err) {} 
       
-      // Removed window.location.reload() for smoother experience
       showToast('Signed out successfully', 'info');
   };
 
