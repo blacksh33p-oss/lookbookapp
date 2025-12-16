@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, Clock, GitCommit, Crown, RotateCw, X, Loader2, Palette } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, Clock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, GeneratedImage, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.4.7-Stable"; 
+const APP_VERSION = "v1.4.8-Stable"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -184,6 +184,7 @@ const App: React.FC = () => {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [isRefreshingProfile, setIsRefreshingProfile] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   
   // New State for Payment Sync
   const [isSyncingPayment, setIsSyncingPayment] = useState(false);
@@ -350,8 +351,9 @@ const App: React.FC = () => {
                       showToast('Purchase synced successfully!', 'success');
                   }, 1500);
               } else {
-                  // Timed out, but kept overlay open. Allow user to manually retry or close.
-                  // We don't auto-close on timeout anymore, we show a button.
+                  // Timed out.
+                  setIsSyncingPayment(false);
+                  showToast("Sync timed out. Click 'Restore Purchase' in menu to retry.", "info");
               }
           }
       }, 2000); // Check every 2 seconds
@@ -499,7 +501,8 @@ const App: React.FC = () => {
       setUserProfile(null);
       localStorage.removeItem('pending_plan');
       localStorage.removeItem('supabase.auth.token'); // Attempt to clear persisted token
-      
+      setShowProfileMenu(false);
+
       // 2. Attempt Supabase SignOut (Fire and Forget)
       try {
           await supabase.auth.signOut();
@@ -815,7 +818,7 @@ const App: React.FC = () => {
                   </button>
               </div>
 
-              <div className="glass-panel rounded-full px-2 py-2 flex items-center gap-3">
+              <div className="glass-panel rounded-full px-2 py-2 flex items-center gap-3 relative">
                  {session ? (
                      <>
                         {userProfile?.tier === SubscriptionTier.Free && (
@@ -829,8 +832,8 @@ const App: React.FC = () => {
                         )}
 
                         <div 
-                           onClick={() => setShowUpgradeModal(true)}
-                           className="hidden sm:flex flex-col items-end px-2 border-r border-white/10 cursor-pointer group"
+                           onClick={() => setShowProfileMenu(!showProfileMenu)}
+                           className="hidden sm:flex flex-col items-end px-2 border-r border-white/10 cursor-pointer group select-none"
                         >
                             <span className="text-[10px] text-zinc-400 font-bold uppercase group-hover:text-white transition-colors">
                                 {userProfile?.username || 'Studio User'}
@@ -839,16 +842,49 @@ const App: React.FC = () => {
                                 {userProfile?.credits || 0} <Zap size={10} className="text-brand-400 fill-brand-400" />
                             </div>
                         </div>
+
+                        {/* Profile Dropdown */}
+                        {showProfileMenu && (
+                            <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl p-2 z-50 animate-slide-up origin-top-right">
+                                <div className="p-2 border-b border-zinc-900 mb-1">
+                                    <div className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Account</div>
+                                    <div className="text-xs text-white truncate">{session.user.email}</div>
+                                </div>
+                                
+                                <button 
+                                    onClick={() => { setIsSyncingPayment(true); pollForCredits(session.user.id); setShowProfileMenu(false); }}
+                                    className="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-lg transition-colors flex items-center gap-2"
+                                >
+                                    <RefreshCcw size={14} className="text-brand-400" />
+                                    Restore Purchase
+                                </button>
+                                
+                                <button 
+                                    onClick={handleManualRefresh}
+                                    className="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-lg transition-colors flex items-center gap-2"
+                                >
+                                    <RotateCw size={14} className={isRefreshingProfile ? 'animate-spin' : ''} />
+                                    Sync Profile
+                                </button>
+
+                                <button 
+                                    onClick={(e) => handleLogout(e)}
+                                    className="w-full text-left px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-950/30 rounded-lg transition-colors flex items-center gap-2 mt-1"
+                                >
+                                    <LogOut size={14} />
+                                    Sign Out
+                                </button>
+                            </div>
+                        )}
                         
                         <button 
                             onClick={handleManualRefresh}
-                            className={`h-8 w-8 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700 hover:bg-zinc-700 transition-colors cursor-pointer z-50 pointer-events-auto ${isRefreshingProfile ? 'animate-spin text-brand-400' : 'text-zinc-400 hover:text-white'}`}
-                            title="Refresh Credits"
+                            className={`h-8 w-8 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700 hover:bg-zinc-700 transition-colors cursor-pointer z-50 pointer-events-auto sm:hidden ${isRefreshingProfile ? 'animate-spin text-brand-400' : 'text-zinc-400 hover:text-white'}`}
                         >
                             <RotateCw size={12} />
                         </button>
 
-                        <div className="h-8 w-8 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700 hover:bg-zinc-700 transition-colors cursor-pointer z-50 pointer-events-auto" onClick={(e) => handleLogout(e)} title="Logout">
+                         <div className="h-8 w-8 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700 hover:bg-zinc-700 transition-colors cursor-pointer z-50 pointer-events-auto sm:hidden" onClick={(e) => handleLogout(e)}>
                              <LogOut size={12} />
                         </div>
                      </>
