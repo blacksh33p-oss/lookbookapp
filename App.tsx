@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.4.19-Adaptive"; 
+const APP_VERSION = "v1.4.20-Bulletproof"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -399,15 +399,13 @@ const App: React.FC = () => {
 
   const fetchProfile = async (userId: string, email?: string) => {
     try {
-        // V12: Adaptive Selection
-        // Try to fetch credits/tier first
         let { data, error } = await supabase
             .from('profiles')
             .select('tier, credits')
             .eq('id', userId)
             .single();
         
-        // Handle "Row not found"
+        // Handle "Row not found" - Auto Create
         if (error && error.code === 'PGRST116') {
              // 1. Attempt Minimal Insert
              const { data: minimalProfile, error: minimalError } = await supabase
@@ -446,6 +444,18 @@ const App: React.FC = () => {
                      console.error("Failed to create profile (Adaptive strategy failed)", minimalError, fullError);
                  }
              }
+        }
+
+        // Auto-Repair 0 Credit Glitch for Free Users
+        if (data && data.tier === SubscriptionTier.Free && (data.credits === 0 || data.credits === null)) {
+            const { error: repairError } = await supabase
+                .from('profiles')
+                .update({ credits: 5 })
+                .eq('id', userId);
+            
+            if (!repairError) {
+                data.credits = 5;
+            }
         }
 
         if (data) {

@@ -15,7 +15,7 @@ const readStream = async (req) => {
 };
 
 export default async function handler(req, res) {
-  const LOG_PREFIX = '[FastSpring V12-Adaptive]'; 
+  const LOG_PREFIX = '[FastSpring V13-Bulletproof]'; 
   const trace = []; 
 
   const log = (msg) => {
@@ -23,19 +23,17 @@ export default async function handler(req, res) {
       trace.push(msg);
   };
 
-  // 1. CORS & Methods
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  // SETUP SUPABASE
   const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
   const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '').trim();
   
   if (req.method === 'GET') {
-      return res.status(200).json({ status: 'Active', version: 'v12-Adaptive' });
+      return res.status(200).json({ status: 'Active', version: 'v13-Bulletproof' });
   }
   
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -46,20 +44,17 @@ export default async function handler(req, res) {
           return res.status(500).json({ error: 'Server Config Error', trace });
       }
 
-      // 2. Body Parsing
+      // Payload Parsing
       let payload = req.body;
       if (!payload) {
-          log("Reading raw stream...");
           const raw = await readStream(req);
           try { payload = JSON.parse(raw); } catch(e) { log("Failed to parse stream JSON"); }
       } else if (typeof payload === 'string') {
           try { payload = JSON.parse(payload); } catch(e) {}
-      } else if (Buffer.isBuffer(payload)) {
-          try { payload = JSON.parse(payload.toString()); } catch(e) {}
       }
 
       if (!payload || !payload.events) {
-          log("No events found in payload.");
+          log("No events found.");
           return res.status(200).json({ message: 'Invalid payload', trace });
       }
 
@@ -73,68 +68,45 @@ export default async function handler(req, res) {
           log(`Event: ${event.type} (ID: ${event.id})`);
           
           if (!['order.completed', 'subscription.activated', 'subscription.charge.completed'].includes(event.type)) {
-             log("Skipping event type.");
              continue;
           }
 
           const data = event.data || {};
-          let userId = null;
-          let emailFound = null;
+          let targetUserId = null;
+          let emailFound = data.email || data.customer?.email || data.account?.contact?.email;
 
-          // STEP A: Extract Email Candidates
-          const candidates = [
-              data.email, 
-              data.customer?.email, 
-              data.account?.contact?.email, 
-              data.contact?.email, 
-              data.recipient?.email
-          ];
-          if (Array.isArray(data.recipients)) {
-              data.recipients.forEach(r => {
-                  if (r.recipient?.email) candidates.push(r.recipient.email);
-                  if (r.recipient?.account?.contact?.email) candidates.push(r.recipient.account.contact.email);
-              });
+          // STRATEGY: Trust the 'tags' UserID first. It is the most reliable link to the session.
+          const tags = data.tags || (data.order && data.order.tags) || (data.subscription && data.subscription.tags);
+          if (tags) {
+              let decodedTags = tags;
+              if (typeof tags === 'string' && tags.includes('%')) {
+                   try { decodedTags = decodeURIComponent(tags); } catch(e) {}
+              }
+
+              if (typeof decodedTags === 'object' && decodedTags.userId) targetUserId = decodedTags.userId;
+              else if (typeof decodedTags === 'string') {
+                  const match = decodedTags.match(/userId:([a-f0-9-]{36})/i);
+                  if (match) targetUserId = match[1];
+              }
           }
-          const uniqueEmails = [...new Set(candidates.filter(Boolean))];
-          if (uniqueEmails.length > 0) emailFound = uniqueEmails[0];
 
-          // STEP B: PRIORITY 1 - Email Lookup
-          if (emailFound) {
-              log(`Lookup by Email: ${emailFound}`);
+          // Fallback: If no UserID tag, look up by Email
+          if (!targetUserId && emailFound) {
+              log(`No UserID tag. Looking up email: ${emailFound}`);
               const { data: userResult } = await supabase.auth.admin.listUsers({ perPage: 1000 });
               if (userResult && userResult.users) {
                   const cleanEmail = emailFound.toLowerCase().trim();
                   const match = userResult.users.find(u => u.email?.toLowerCase().trim() === cleanEmail);
-                  if (match) {
-                      userId = match.id;
-                      log(`Match Found via Email: ${userId}`);
-                  }
+                  if (match) targetUserId = match.id;
               }
           }
 
-          // STEP C: PRIORITY 2 - Tags
-          if (!userId) {
-              const tags = data.tags || (data.order && data.order.tags) || (data.subscription && data.subscription.tags);
-              if (tags) {
-                  let decodedTags = tags;
-                  if (typeof tags === 'string' && tags.includes('%')) {
-                       try { decodedTags = decodeURIComponent(tags); } catch(e) {}
-                  }
-
-                  if (typeof decodedTags === 'object' && decodedTags.userId) userId = decodedTags.userId;
-                  else if (typeof decodedTags === 'string') {
-                      const match = decodedTags.match(/userId:([a-f0-9-]{36})/i);
-                      if (match) userId = match[1];
-                  }
-              }
-          }
-
-          if (!userId) {
-              log("SKIPPING: User ID could not be resolved.");
+          if (!targetUserId) {
+              log("SKIPPING: Could not resolve User ID.");
               continue;
           }
 
-          // STEP D: Determine Plan
+          // Determine Plan
           const itemsJSON = JSON.stringify(data.items || []).toLowerCase();
           let tier = 'Creator';
           let creditsToAdd = 500;
@@ -143,81 +115,45 @@ export default async function handler(req, res) {
               tier = 'Studio';
               creditsToAdd = 2000;
           }
-          log(`Tier: ${tier} | Adding: ${creditsToAdd} credits`);
+          log(`User: ${targetUserId} | Tier: ${tier} | Adding: ${creditsToAdd}`);
 
-          // STEP E: DB UPDATE (ADAPTIVE MODE)
-          
-          // 1. Fetch current credits
-          const { data: preProfile, error: preError } = await supabase
+          // EXECUTE UPDATE
+          // 1. Get current state to ensure we add, not overwrite
+          const { data: currentProfile } = await supabase
             .from('profiles')
             .select('credits')
-            .eq('id', userId)
+            .eq('id', targetUserId)
             .single();
           
-          const currentCredits = (preProfile && typeof preProfile.credits === 'number') ? preProfile.credits : 0;
-          const newCredits = currentCredits + creditsToAdd;
+          // Default to 0 if missing/null, but if it exists, use it.
+          const existingCredits = (currentProfile && typeof currentProfile.credits === 'number') ? currentProfile.credits : 0;
+          const finalCredits = existingCredits + creditsToAdd;
 
-          log(`Attempting UPDATE: ${currentCredits} -> ${newCredits}`);
+          // 2. Perform Upsert
+          // We include 'email' and 'username' if we have them, to satisfy potential NOT NULL constraints on new rows
+          const upsertPayload = {
+              id: targetUserId,
+              tier: tier,
+              credits: finalCredits,
+              updated_at: new Date().toISOString()
+          };
 
-          // 2. Try UPDATE first
-          const { data: updateData, error: updateError } = await supabase
-              .from('profiles')
-              .update({ 
-                  credits: newCredits, 
-                  tier: tier, 
-                  updated_at: new Date().toISOString() 
-              })
-              .eq('id', userId)
-              .select();
-
-          let success = false;
-          
-          if (!updateError && updateData && updateData.length > 0) {
-              log("UPDATE Successful.");
-              success = true;
-          } else {
-              // 3. If UPDATE failed, Try INSERT (Minimal)
-              log("UPDATE failed/empty. Attempting Minimal INSERT.");
-              const { error: insertError } = await supabase
-                  .from('profiles')
-                  .insert({
-                      id: userId,
-                      tier: tier,
-                      credits: newCredits,
-                      updated_at: new Date().toISOString()
-                  });
-              
-              if (!insertError) {
-                  log("Minimal INSERT Successful.");
-                  success = true;
-              } else {
-                  // 4. If Minimal Insert Failed (likely due to NOT NULL email), Try Full Insert
-                  log(`Minimal INSERT Failed: ${insertError.message}. Retrying with Email/Username.`);
-                  
-                  const username = emailFound ? emailFound.split('@')[0] : 'Studio User';
-                  
-                  const { error: fullInsertError } = await supabase
-                    .from('profiles')
-                    .insert({
-                        id: userId,
-                        tier: tier,
-                        credits: newCredits,
-                        email: emailFound,     // Explicitly add these back
-                        username: username,    // Explicitly add these back
-                        full_name: username,   // Some schemas use full_name
-                        updated_at: new Date().toISOString()
-                    });
-
-                  if (!fullInsertError) {
-                      log("Full INSERT Successful.");
-                      success = true;
-                  } else {
-                      log(`Full INSERT also failed: ${fullInsertError.message}`);
-                  }
-              }
+          if (emailFound) {
+              upsertPayload.email = emailFound;
+              upsertPayload.username = emailFound.split('@')[0];
+              upsertPayload.full_name = emailFound.split('@')[0];
           }
 
-          if (success) processedCount++;
+          const { error: upsertError } = await supabase
+              .from('profiles')
+              .upsert(upsertPayload, { onConflict: 'id' });
+
+          if (!upsertError) {
+              log(`SUCCESS: Set credits to ${finalCredits}`);
+              processedCount++;
+          } else {
+              log(`ERROR: ${upsertError.message}`);
+          }
       }
 
       return res.status(200).json({ success: true, processed: processedCount, trace });
