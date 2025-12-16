@@ -1,5 +1,35 @@
+
 import { GoogleGenAI } from "@google/genai";
-import { PhotoshootOptions, ModelVersion, OutfitItem } from "../types";
+import { PhotoshootOptions, ModelVersion, OutfitItem, PhotoStyle, FacialExpression } from "../types";
+
+// --- PROMPT MAPPINGS ---
+// Decouples UI selection from Prompt Engineering
+const STYLE_PROMPTS: Record<PhotoStyle, string> = {
+  [PhotoStyle.Studio]: 'High Key Studio Lighting, Clean White Cyclorama, Commercial Look',
+  [PhotoStyle.Urban]: 'Urban Editorial, Concrete Textures, Natural City Light, Streetwear Context',
+  [PhotoStyle.Nature]: 'Outdoor Natural Environment, Soft Sunlight, Organic Background',
+  [PhotoStyle.Coastal]: 'Coastal Golden Hour, Sand and Sky tones, Soft Breeze',
+  
+  [PhotoStyle.Luxury]: 'Modern Luxury Interior, Architectural Depth, Expensive Materials',
+  [PhotoStyle.Chromatic]: 'Studio Color Gel Lighting, Neon Accents, High Contrast, Chromatic Aberration',
+  [PhotoStyle.Minimalist]: 'Minimalist Brutalist Architecture, Sharp Shadows, Clean Lines',
+  [PhotoStyle.Film]: 'Analog Film Grain, Kodak Portra 400 aesthetic, Soft focus, Emotional',
+
+  [PhotoStyle.Newton]: 'Helmut Newton Style, High Contrast Black and White, Powerful Stance, Voyeuristic',
+  [PhotoStyle.Lindbergh]: 'Peter Lindbergh Style, Raw Realism, Cinematic Black and White, Emotional',
+  [PhotoStyle.Leibovitz]: 'Annie Leibovitz Style, Dramatic Painterly Lighting, Environmental Portrait',
+  [PhotoStyle.Avedon]: 'Richard Avedon Style, Minimalist White Background, Dynamic Motion',
+  [PhotoStyle.LaChapelle]: 'David LaChapelle Style, Hyper-Realistic Pop Surrealism, Vibrant Saturation',
+  [PhotoStyle.Testino]: 'Mario Testino Style, Glamorous, Vibrant, High Energy'
+};
+
+const EXPRESSION_PROMPTS: Record<FacialExpression, string> = {
+  [FacialExpression.Neutral]: 'Neutral Expression, High Fashion Pout, Detached',
+  [FacialExpression.Confident]: 'Confident Gaze, Strong Eye Contact, Powerful',
+  [FacialExpression.Fierce]: 'Fierce Intensity, Editorial Edge, Sharp',
+  [FacialExpression.Candid]: 'Laughing, Candid Moment, Genuine Smile, Relaxed',
+  [FacialExpression.Ethereal]: 'Ethereal, Soft Gaze, Dreamy, Serene'
+};
 
 // Helper to strip data:image/xyz;base64, prefix
 const extractBase64 = (dataUrl: string): string => {
@@ -90,9 +120,13 @@ export const generatePhotoshootImage = async (
       imageInputs.push({ type: 'CHARACTER_REFERENCE', data: options.referenceModelImage });
   }
 
+  // Resolve Rich Prompts from Enums
+  const richStylePrompt = STYLE_PROMPTS[options.style] || options.style;
+  const richExpressionPrompt = EXPRESSION_PROMPTS[options.facialExpression] || options.facialExpression;
+
   const sceneInstruction = options.sceneDetails 
     ? `SCENE: ${options.sceneDetails}`
-    : `SCENE: Professional ${options.style} setting.`;
+    : `SCENE: ${richStylePrompt}`;
 
   const hasImages = imageInputs.length > 0;
   const hasRefImage = !!options.referenceModelImage;
@@ -112,7 +146,7 @@ export const generatePhotoshootImage = async (
     - Age: ${options.age}
     - Ethnicity: ${options.ethnicity}
     - Hair: ${options.hairColor}, ${options.hairStyle}
-    - Expression: ${options.facialExpression}
+    - Expression: ${richExpressionPrompt}
     - ${heightStr}
     - ${bodyTypeStr}
     - ${measurementsStr}
@@ -120,7 +154,7 @@ export const generatePhotoshootImage = async (
     - Pose: ${options.pose || 'Standing naturally'}
 
     ART DIRECTION:
-    - Style: ${options.style}
+    - Style: ${richStylePrompt}
     - ${sceneInstruction}
     - Lighting: Professional commercial lighting.
 

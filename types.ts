@@ -24,29 +24,33 @@ export enum ModelAge {
 }
 
 export enum FacialExpression {
-  Neutral = 'Neutral (High Fashion)',
-  Smiling = 'Smiling (Commercial)',
-  Fierce = 'Fierce (Editorial)',
-  Candid = 'Laughing/Candid',
-  Serene = 'Serene/Soft'
+  Neutral = 'Neutral',
+  Confident = 'Confident',
+  Fierce = 'Fierce',
+  Candid = 'Candid',
+  Ethereal = 'Ethereal'
 }
 
 export enum PhotoStyle {
-  // Original Styles
-  Studio = 'Studio High Key',
-  Street = 'Urban Streetwear',
-  Nature = 'Outdoor Nature',
-  Luxury = 'Luxury Interior',
-  Cyberpunk = 'Neon Cyberpunk',
-  Minimalist = 'Minimalist Concrete',
-  Beach = 'Golden Hour Beach',
+  // Standard Styles (Clean, Commercial)
+  Studio = 'Studio',
+  Urban = 'Urban',
+  Nature = 'Nature',
+  Coastal = 'Coastal', // Replaces 'Beach'
+  
+  // Pro Styles (Editorial, High Concept)
+  Luxury = 'Luxury',
+  Chromatic = 'Chromatic', // Replaces 'Cyberpunk'
+  Minimalist = 'Minimalist',
+  Film = 'Analog Film',
+  
   // Renowned Photographer Styles
-  Newton = 'Helmut Newton Style (High Contrast B&W)',
-  Lindbergh = 'Peter Lindbergh Style (Raw Cinematic)',
-  Leibovitz = 'Annie Leibovitz Style (Dramatic Editorial)',
-  Avedon = 'Richard Avedon Style (Minimalist Motion)',
-  LaChapelle = 'David LaChapelle Style (Hyper-Real Pop)',
-  Testino = 'Mario Testino Style (Glamour & Vibrancy)'
+  Newton = 'Newton',
+  Lindbergh = 'Lindbergh',
+  Leibovitz = 'Leibovitz',
+  Avedon = 'Avedon',
+  LaChapelle = 'LaChapelle',
+  Testino = 'Testino'
 }
 
 export enum ModelVersion {
@@ -55,11 +59,11 @@ export enum ModelVersion {
 }
 
 export enum BodyType {
-  Standard = 'Standard / Sample Size',
-  Curvy = 'Curvy / Plus Size',
+  Standard = 'Standard',
+  Curvy = 'Curvy',
   Petite = 'Petite',
-  Athletic = 'Athletic / Muscular',
-  Slim = 'Slim / Skinny'
+  Athletic = 'Athletic',
+  Slim = 'Slim'
 }
 
 export enum MeasurementUnit {

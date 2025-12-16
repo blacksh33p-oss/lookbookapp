@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw, Command } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw, Command, Monitor } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -13,7 +14,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.4.34-GeistAudited"; 
+const APP_VERSION = "v1.4.35-ProPolish"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -32,8 +33,9 @@ const POSES = [
 const EYE_COLORS = ["Amber", "Deep Brown", "Steel Blue", "Emerald Green", "Hazel", "Dark Grey"];
 const FACE_SHAPES = ["Oval face", "Square jawline", "Heart-shaped face", "High cheekbones", "Soft features", "Defined jawline"];
 const SKIN_DETAILS = ["Freckles", "Clear complexion", "Sun-kissed skin", "Dewy skin", "Mole on cheek"];
-const STANDARD_STYLES = [ PhotoStyle.Studio, PhotoStyle.Street, PhotoStyle.Nature, PhotoStyle.Beach ];
-const PRO_STYLES = [ PhotoStyle.Luxury, PhotoStyle.Cyberpunk, PhotoStyle.Minimalist, PhotoStyle.Newton, PhotoStyle.Lindbergh, PhotoStyle.Leibovitz, PhotoStyle.Avedon, PhotoStyle.LaChapelle, PhotoStyle.Testino ];
+
+const STANDARD_STYLES = [ PhotoStyle.Studio, PhotoStyle.Urban, PhotoStyle.Nature, PhotoStyle.Coastal ];
+const PRO_STYLES = [ PhotoStyle.Luxury, PhotoStyle.Chromatic, PhotoStyle.Minimalist, PhotoStyle.Film, PhotoStyle.Newton, PhotoStyle.Lindbergh, PhotoStyle.Leibovitz, PhotoStyle.Avedon, PhotoStyle.LaChapelle, PhotoStyle.Testino ];
 
 const getRandomPose = () => POSES[Math.floor(Math.random() * POSES.length)];
 const getRandomSeed = () => Math.floor(Math.random() * 1000000000);
@@ -94,7 +96,8 @@ interface StyleButtonProps {
     onClick: () => void;
 }
 const StyleButton: React.FC<StyleButtonProps> = ({ label, isSelected, isLocked, onClick }) => {
-    const simpleName = label.split('(')[0].trim();
+    // Clean label for UI (e.g. "Newton" instead of full name if redundant)
+    const simpleName = label; 
     return (
         <button
             onClick={onClick}
@@ -761,7 +764,7 @@ const App: React.FC = () => {
                 <ConfigSection title="Model & Set" icon={UserCircle} defaultOpen={true}>
                     <div className="mb-6 space-y-3">
                         <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Engine</label>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 gap-3 mb-2">
                             <button onClick={() => setOptions({...options, modelVersion: ModelVersion.Flash})} className={`flex flex-col items-center justify-center py-3 px-2 rounded-md border transition-all ${options.modelVersion === ModelVersion.Flash ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-600'}`}>
                                 <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Flash ? 'text-black' : 'text-white'}`}>Flash 2.5</span>
                                 <span className={`text-[9px] font-mono mt-0.5 ${options.modelVersion === ModelVersion.Flash ? 'text-zinc-600' : 'text-zinc-500'}`}>1 Credit</span>
@@ -772,12 +775,31 @@ const App: React.FC = () => {
                                 <span className={`text-[9px] font-mono mt-0.5 ${options.modelVersion === ModelVersion.Pro ? 'text-zinc-600' : 'text-zinc-500'}`}>10 Credits</span>
                             </button>
                         </div>
+                        
+                        {/* 4K Toggle - Only visible when Pro is selected */}
+                        {options.modelVersion === ModelVersion.Pro && (
+                            <div className="flex items-center justify-between px-3 py-2 bg-zinc-900/30 rounded border border-zinc-800">
+                                <div className="flex items-center gap-2">
+                                    <Monitor size={12} className="text-zinc-400" />
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] font-bold text-white uppercase tracking-wide">4K Resolution</span>
+                                        <span className="text-[9px] text-zinc-500 font-mono">+5 Credits</span>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => setOptions({...options, enable4K: !options.enable4K})}
+                                    className={`w-8 h-4 rounded-full transition-colors relative ${options.enable4K ? 'bg-white' : 'bg-zinc-700'}`}
+                                >
+                                    <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-black rounded-full transition-transform ${options.enable4K ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                                </button>
+                            </div>
+                        )}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <Dropdown label="Sex" value={options.sex} options={Object.values(ModelSex)} onChange={(val) => setOptions({ ...options, sex: val })} />
                         <Dropdown label="Age" value={options.age} options={Object.values(ModelAge)} onChange={(val) => setOptions({ ...options, age: val })} />
                         <Dropdown label="Ethnicity" value={options.ethnicity} options={Object.values(ModelEthnicity)} onChange={(val) => setOptions({ ...options, ethnicity: val })} />
-                        <Dropdown label="Mood" value={options.facialExpression} options={Object.values(FacialExpression)} onChange={(val) => setOptions({ ...options, facialExpression: val })} />
+                        <Dropdown label="Expression" value={options.facialExpression} options={Object.values(FacialExpression)} onChange={(val) => setOptions({ ...options, facialExpression: val })} />
                     </div>
                     <div className="h-px bg-zinc-900 my-4"></div>
                     <div className="space-y-3">

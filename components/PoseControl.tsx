@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { User, Move, Armchair, Lock, Wand2, RefreshCcw, Briefcase } from 'lucide-react';
+import { User, Move, Armchair, Lock, Wand2, RefreshCcw, Briefcase, Shuffle } from 'lucide-react';
 
 interface PoseControlProps {
   selectedPose: string | undefined;
@@ -85,7 +86,7 @@ export const PoseControl: React.FC<PoseControlProps> = ({
             isAutoMode ? 'bg-zinc-100 text-black' : 'bg-black text-zinc-500 hover:text-zinc-300'
           }`}
         >
-          <Wand2 size={12} /> Auto
+          <Shuffle size={12} /> Shuffle
         </button>
         <button
           onClick={() => handleModeToggle(false)}
@@ -127,9 +128,9 @@ export const PoseControl: React.FC<PoseControlProps> = ({
         </div>
       ) : (
         <div className="p-6 border border-zinc-800 rounded-lg flex flex-col items-center justify-center text-center bg-zinc-900/30">
-            <Wand2 size={20} className="text-zinc-500 mb-3" />
+            <Shuffle size={20} className="text-zinc-500 mb-3" />
             <p className="text-xs text-zinc-400">
-                AI will select the optimal pose based on the garment.
+                Random pose will be selected for every generation.
             </p>
         </div>
       )}
