@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, GeneratedImage, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.4.4-Stable"; 
+const APP_VERSION = "v1.4.6-Stable"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -138,6 +138,7 @@ const App: React.FC = () => {
   
   // New State for Payment Sync
   const [isSyncingPayment, setIsSyncingPayment] = useState(false);
+  const [syncAttempts, setSyncAttempts] = useState(0);
 
   // Guest State (LocalStorage)
   const [guestCredits, setGuestCredits] = useState<number>(() => {
@@ -238,72 +239,73 @@ const App: React.FC = () => {
     if (params.get('success') === 'true') {
         // Activate the Overlay
         setIsSyncingPayment(true);
+        setSyncAttempts(0);
         window.history.replaceState({}, '', window.location.pathname);
         
-        // Polling logic
-        let attempts = 0;
+        // Start Polling
+        pollForCredits(userSession.user.id);
+    } else {
+        // Safety check if they just came back without the param
         const pendingPlan = localStorage.getItem('pending_plan');
-        const initialCredits = userProfile?.credits || 0;
-        
-        const interval = setInterval(async () => {
-            attempts++;
-            console.log(`Syncing purchase (Attempt ${attempts})...`);
-            
-            // Re-fetch profile
-            const { data } = await supabase
-                .from('profiles')
-                .select('tier, credits, username')
-                .eq('id', userSession.user.id)
-                .single();
-                
-            // Success Criteria: Credits increased, Tier matched pending, or new tier is not Free
-            const tierMatch = pendingPlan ? data?.tier === pendingPlan : false;
-            const creditBump = data && data.credits > initialCredits;
-            
-            if (data && (tierMatch || creditBump || attempts >= 10)) {
-                clearInterval(interval);
-                
-                if (data) {
-                    setUserProfile({
-                        tier: data.tier as SubscriptionTier,
-                        credits: data.credits,
-                        username: data.username
-                    });
+        if (pendingPlan && pendingPlan !== SubscriptionTier.Free) {
+            fetchProfile(userSession.user.id).then(data => {
+                if (data && data.tier === pendingPlan) {
+                    localStorage.removeItem('pending_plan');
+                    showToast(`You are now on the ${pendingPlan} plan.`, 'success');
                 }
-                
-                if (tierMatch || creditBump) {
-                     localStorage.removeItem('pending_plan');
-                     setTimeout(() => {
-                        setIsSyncingPayment(false);
-                        showToast('Purchase synced successfully!', 'success');
-                    }, 1500);
-                } else {
-                    // Timed out. Allow user to close manually.
-                    setIsSyncingPayment(false);
-                }
-            }
-        }, 2000);
-        return;
+            });
+        }
     }
+  };
 
-    // 2. Check for PENDING PLAN (Safety Check)
-    // If the user manually navigated back without ?success=true, we check if they upgraded.
-    // We DO NOT auto-redirect to checkout here anymore to prevent infinite loops.
-    const pendingPlan = localStorage.getItem('pending_plan');
-    if (pendingPlan && pendingPlan !== SubscriptionTier.Free) {
-        const { data } = await supabase
-            .from('profiles')
-            .select('tier')
-            .eq('id', userSession.user.id)
-            .single();
-            
-        if (data && data.tier === pendingPlan) {
-            // They upgraded but didn't get the redirect param. Clean up.
-            localStorage.removeItem('pending_plan');
-            showToast(`You are now on the ${pendingPlan} plan.`, 'success');
-        } 
-        // If not upgraded, we do nothing. They can click "Upgrade" again if they wish.
-    }
+  const pollForCredits = async (userId: string) => {
+      let attempts = 0;
+      const pendingPlan = localStorage.getItem('pending_plan');
+      
+      // Initial profile to compare against
+      const { data: initialData } = await supabase.from('profiles').select('credits').eq('id', userId).single();
+      const startCredits = initialData?.credits || 0;
+
+      const interval = setInterval(async () => {
+          attempts++;
+          setSyncAttempts(attempts);
+          console.log(`Syncing purchase (Attempt ${attempts})...`);
+          
+          // Re-fetch profile
+          const { data } = await supabase
+              .from('profiles')
+              .select('tier, credits, username')
+              .eq('id', userId)
+              .single();
+              
+          // Success Criteria
+          const tierMatch = pendingPlan ? data?.tier === pendingPlan : false;
+          const creditBump = data && data.credits > startCredits;
+          
+          // Max attempts: 60 (2 minutes)
+          if (data && (tierMatch || creditBump || attempts >= 60)) {
+              clearInterval(interval);
+              
+              if (data) {
+                  setUserProfile({
+                      tier: data.tier as SubscriptionTier,
+                      credits: data.credits,
+                      username: data.username
+                  });
+              }
+              
+              if (tierMatch || creditBump) {
+                   localStorage.removeItem('pending_plan');
+                   setTimeout(() => {
+                      setIsSyncingPayment(false);
+                      showToast('Purchase synced successfully!', 'success');
+                  }, 1500);
+              } else {
+                  // Timed out, but kept overlay open. Allow user to manually retry or close.
+                  // We don't auto-close on timeout anymore, we show a button.
+              }
+          }
+      }, 2000); // Check every 2 seconds
   };
 
   // --- SUPABASE INITIALIZATION & AUTH ---
@@ -341,7 +343,6 @@ const App: React.FC = () => {
   }, []);
 
   const fetchProfile = async (userId: string) => {
-    setIsRefreshingProfile(true);
     try {
         let { data, error } = await supabase
             .from('profiles')
@@ -375,18 +376,32 @@ const App: React.FC = () => {
                 credits: data.credits !== undefined ? data.credits : 0,
                 username: data.username
             });
+            return data;
         }
     } catch (e) {
         console.error("Profile fetch error", e);
     } finally {
         setIsAuthLoading(false);
-        setIsRefreshingProfile(false);
     }
+    return null;
   };
 
-  const handleManualRefresh = () => {
+  const handleManualRefresh = async () => {
     if (session) {
-        fetchProfile(session.user.id);
+        setIsRefreshingProfile(true);
+        const freshData = await fetchProfile(session.user.id);
+        setIsRefreshingProfile(false);
+
+        // Smart Check: Did they just buy something?
+        const pendingPlan = localStorage.getItem('pending_plan');
+        if (pendingPlan && freshData) {
+            if (freshData.tier === pendingPlan) {
+                localStorage.removeItem('pending_plan');
+                showToast(`Purchase verified! You are now on the ${pendingPlan} plan.`, 'success');
+                return;
+            }
+        }
+
         showToast("Profile synced.", "info");
     }
   };
@@ -675,14 +690,25 @@ const App: React.FC = () => {
                 </div>
                 <div>
                     <h2 className="text-2xl font-black text-white tracking-tight mb-2">Syncing Purchase</h2>
-                    <p className="text-zinc-400 text-sm">Please wait while we verify your transaction and update your credits...</p>
+                    <p className="text-zinc-400 text-sm">Waiting for payment provider confirmation...</p>
                 </div>
                 <div className="flex flex-col gap-2 w-full">
                      <div className="h-1 w-full bg-zinc-800 rounded-full overflow-hidden">
                         <div className="h-full bg-brand-500 animate-[progress_2s_ease-in-out_infinite]"></div>
                      </div>
-                     <span className="text-[10px] text-zinc-600 font-mono uppercase">Connecting to Payment Provider</span>
+                     <div className="flex justify-between items-center text-[10px] text-zinc-600 font-mono uppercase">
+                        <span>Connecting</span>
+                        <span>{Math.min(syncAttempts * 2, 120)}s elapsed</span>
+                     </div>
                 </div>
+                {syncAttempts > 10 && (
+                     <button 
+                        onClick={() => pollForCredits(session?.user?.id)}
+                        className="mt-2 text-xs text-brand-400 hover:text-brand-300 underline"
+                     >
+                        Force Check Again
+                     </button>
+                )}
             </div>
             <style>{`
                 @keyframes progress {
