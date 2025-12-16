@@ -42,29 +42,51 @@ export default async function handler(req, res) {
             const data = event.data;
             let userId = null;
 
-            // Robust Tag Parsing
-            // Tags can be in event.data.tags OR event.data.order.tags depending on webhook type
+            // 1. Attempt to find userId in tags (Best Practice)
             const tagsSource = data.tags || (data.order && data.order.tags);
 
             if (tagsSource) {
                 if (typeof tagsSource === 'object' && tagsSource.userId) {
                     userId = tagsSource.userId;
                 } else if (typeof tagsSource === 'string') {
-                     // Parse string format: "userId:123, email:abc"
-                     console.log('[Webhook] Parsing string tags:', tagsSource);
                      const parts = tagsSource.split(',');
                      for (const part of parts) {
                          const [key, value] = part.split(':');
                          if (key && key.trim() === 'userId') {
-                             userId = value.trim().replace(/['"]+/g, ''); // Remove potential quotes
+                             userId = value.trim().replace(/['"]+/g, '');
                              break;
                          }
                      }
                 }
             }
+
+            // 2. Fallback: Lookup by Email (If tags failed)
+            if (!userId) {
+                const customerEmail = data.email || (data.customer && data.customer.email);
+                if (customerEmail && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+                    console.log(`[Webhook] Tags missing. Attempting email lookup for: ${customerEmail}`);
+                    
+                    // Use Admin API to find user by email
+                    // Note: 'listUsers' is paginated, but usually returns exact match if filtered?
+                    // Supabase Admin doesn't have a direct 'getUserByEmail' in older versions, 
+                    // but we can try to assume the profile exists or use admin.listUsers
+                    
+                    // Actually, simpler fallback: Do we have a profile with this email? Not usually stored in profile.
+                    // We must use auth admin.
+                    const { data: { users }, error: userError } = await supabase.auth.admin.listUsers();
+                    
+                    if (!userError && users) {
+                        const matchedUser = users.find(u => u.email && u.email.toLowerCase() === customerEmail.toLowerCase());
+                        if (matchedUser) {
+                            userId = matchedUser.id;
+                            console.log(`[Webhook] Resolved Email ${customerEmail} to UserId ${userId}`);
+                        }
+                    }
+                }
+            }
             
             if (!userId) {
-                console.error('[Webhook] Skipped: No userId tag found.', tagsSource);
+                console.error('[Webhook] Skipped: No userId tag found and email lookup failed.', tagsSource);
                 continue;
             }
 
@@ -90,9 +112,9 @@ export default async function handler(req, res) {
                 }
             }
             
-            // Fallback for generic test orders if no product name match
+            // Fallback for generic test orders
             if (!foundPlan && data.live === false) {
-                 console.log('[Webhook] Test Mode Fallback: Defaulting to Creator tier for test order.');
+                 console.log('[Webhook] Test Mode Fallback: Defaulting to Creator tier.');
                  newCredits += 500;
                  newTier = 'Creator';
                  foundPlan = true;
@@ -106,12 +128,9 @@ export default async function handler(req, res) {
                     .eq('id', userId)
                     .single();
                 
-                if (fetchError) {
-                    console.error('[Webhook] Profile fetch failed:', fetchError);
-                    // Try creating profile if missing
-                    if (fetchError.code === 'PGRST116') {
-                        await supabase.from('profiles').insert([{ id: userId, tier: 'Free', credits: 0 }]);
-                    }
+                // Handle missing profile
+                if (fetchError && fetchError.code === 'PGRST116') {
+                    await supabase.from('profiles').insert([{ id: userId, tier: 'Free', credits: 0 }]);
                 }
                 
                 const currentCredits = profile?.credits || 0;
@@ -130,8 +149,6 @@ export default async function handler(req, res) {
                 } else {
                     console.log(`[Webhook] Success! User ${userId} updated to ${newTier} with +${newCredits} credits.`);
                 }
-            } else {
-                console.warn('[Webhook] No matching plan found in items:', items);
             }
         }
     }

@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, GeneratedImage, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.4.1-Stable"; 
+const APP_VERSION = "v1.4.2-Stable"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -233,22 +233,22 @@ const App: React.FC = () => {
     // 1. Check for SUCCESSFUL return from FastSpring
     const params = new URLSearchParams(window.location.search);
     if (params.get('success') === 'true') {
-        showToast('Payment verification in progress...', 'info');
+        showToast('Processing purchase...', 'info');
         window.history.replaceState({}, '', window.location.pathname);
         localStorage.removeItem('pending_plan');
         
         // Immediate fetch
         await fetchProfile(userSession.user.id);
 
-        // Polling to catch webhook delay (5 times over 10 seconds)
+        // Extended Polling (20 seconds)
         let attempts = 0;
         const interval = setInterval(async () => {
             attempts++;
-            console.log(`Polling profile attempt ${attempts}...`);
+            console.log(`Checking for upgrade (Attempt ${attempts}/10)...`);
             await fetchProfile(userSession.user.id);
-            if (attempts >= 5) {
+            if (attempts >= 10) {
                 clearInterval(interval);
-                showToast('Sync complete. If credits are missing, please wait 1 min and refresh.', 'success');
+                showToast('Sync completed. Please refresh manually if credits are missing.', 'info');
             }
         }, 2000);
         
@@ -383,17 +383,25 @@ const App: React.FC = () => {
       }
   };
 
+  // AGGRESSIVE LOGOUT TO FIX "CAN'T LOG OUT"
   const handleLogout = async (e?: React.MouseEvent) => {
       if (e) e.preventDefault();
+      
+      // 1. Clear Local State & Storage Immediately
+      setSession(null);
+      setUserProfile(null);
+      localStorage.removeItem('pending_plan');
+      localStorage.removeItem('supabase.auth.token'); // Attempt to clear persisted token
+      
+      // 2. Attempt Supabase SignOut (Fire and Forget)
       try {
           await supabase.auth.signOut();
       } catch (err) {
-          console.error("Supabase signout error:", err);
-      } finally {
-          setUserProfile(null);
-          setSession(null);
-          localStorage.removeItem('pending_plan');
-      }
+          console.error("Supabase signout warning:", err);
+      } 
+
+      // 3. Force Reload to guarantee clean slate
+      window.location.reload();
   };
 
   // FastSpring Payment Integration (ROBUST)
