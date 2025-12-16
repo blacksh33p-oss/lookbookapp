@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.4.24-StableCredits"; 
+const APP_VERSION = "v1.4.25-RealtimeSync"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -369,6 +369,43 @@ const App: React.FC = () => {
       if (session) {
           fetchProfile(session.user.id, session.user.email);
           checkPendingPlan(session);
+          
+          // --- REALTIME SUBSCRIPTION (The Fix for Sync Issues) ---
+          const channel = supabase.channel(`profile:${session.user.id}`)
+              .on(
+                  'postgres_changes',
+                  {
+                      event: 'UPDATE',
+                      schema: 'public',
+                      table: 'profiles',
+                      filter: `id=eq.${session.user.id}`
+                  },
+                  (payload: any) => {
+                      // REALTIME SYNC: Force update local state when DB changes
+                      if (payload.new && typeof payload.new.credits === 'number') {
+                          console.log("Realtime Update Received:", payload.new);
+                          setUserProfile((prev) => {
+                              // Preserve existing profile data, only update what changed
+                              if (!prev) return { 
+                                  tier: payload.new.tier as SubscriptionTier || SubscriptionTier.Free, 
+                                  credits: payload.new.credits, 
+                                  username: session.user.email?.split('@')[0] || 'Studio User' 
+                              };
+                              return {
+                                  ...prev,
+                                  tier: payload.new.tier as SubscriptionTier || prev.tier,
+                                  credits: payload.new.credits
+                              };
+                          });
+                      }
+                  }
+              )
+              .subscribe();
+          
+          return () => {
+              supabase.removeChannel(channel);
+          };
+
       } else {
           setIsAuthLoading(false);
       }
@@ -388,7 +425,7 @@ const App: React.FC = () => {
          localStorage.removeItem('pending_plan');
          showToast('Signed out successfully', 'info');
       } else if (event === 'TOKEN_REFRESHED' && session) {
-         // Silently refresh profile on token refresh to keep credits in sync
+         // Silently refresh profile on token refresh
          fetchProfile(session.user.id, session.user.email);
       }
     });
@@ -423,8 +460,6 @@ const App: React.FC = () => {
                  error = null;
              } else if (createError?.code === '23505') {
                  // 23505 = Unique Violation (Duplicate Key)
-                 // This means the row actually EXISTS (created by webhook race condition), but the SELECT missed it.
-                 // RETRY SELECT
                  const { data: retryData, error: retryError } = await supabase
                     .from('profiles')
                     .select('tier, credits')
@@ -441,7 +476,6 @@ const App: React.FC = () => {
         }
 
         // Auto-Repair 0 Credit Glitch for Free Users
-        // We only do this if Tier is explicitly Free. We trust 'Creator/Studio' tiers from webhook.
         if (data && data.tier === SubscriptionTier.Free && (data.credits === 0 || data.credits === null)) {
             const { error: repairError } = await supabase
                 .from('profiles')
@@ -455,7 +489,6 @@ const App: React.FC = () => {
 
         if (data) {
             // SAFETY CHECK: If credits comes back as null/undefined, DO NOT overwrite with 0.
-            // This prevents UI flicker during transient DB issues.
             if (data.credits === null || data.credits === undefined) {
                 console.warn("Fetched profile has NULL credits. Ignoring update to prevent state corruption.");
                 return null;
@@ -463,8 +496,7 @@ const App: React.FC = () => {
 
             setUserProfile({
                 tier: data.tier as SubscriptionTier || SubscriptionTier.Free,
-                credits: data.credits, // Trusted value (we filtered nulls above)
-                // Username derived strictly from session email if available
+                credits: data.credits, 
                 username: email ? email.split('@')[0] : 'Studio User'
             });
             return data;
@@ -653,21 +685,19 @@ const App: React.FC = () => {
                 setGuestCredits(newGuestCredits);
                 localStorage.setItem('fashion_guest_credits', newGuestCredits.toString());
             } else {
-                // Deduct and return new value via .select() to ensure atomic sync
-                const { data: updatedRows, error } = await supabase
+                // Deduct via DB. Realtime subscription will handle the UI update.
+                const { error } = await supabase
                     .from('profiles')
                     .update({ credits: actualCredits - cost })
-                    .eq('id', session.user.id)
-                    .select();
+                    .eq('id', session.user.id);
                 
-                if (!error && updatedRows && updatedRows.length > 0) {
-                     // Update local state with the AUTHORITATIVE source from DB
-                     const newBalance = updatedRows[0].credits;
-                     setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
-                } else {
-                     // Fallback if select failed (rare) but be safe
-                     setUserProfile(prev => prev ? ({ ...prev, credits: Math.max(0, actualCredits - cost) }) : null);
+                if (error) {
+                    // Fallback local update if DB update fails (rare)
+                    console.error("DB Update failed, falling back to local state");
+                    setUserProfile(prev => prev ? ({ ...prev, credits: Math.max(0, actualCredits - cost) }) : null);
                 }
+                // Note: We don't manually setUserProfile here because the Realtime Subscription 
+                // configured in useEffect will catch the UPDATE event and set it automatically.
             }
 
           } catch (err: any) {
@@ -894,7 +924,13 @@ const App: React.FC = () => {
                                 {userProfile?.username || (session.user.email ? session.user.email.split('@')[0] : 'Studio User')}
                             </span>
                             <div className="text-xs font-mono font-bold text-white tabular-nums flex items-center gap-1 group-hover:text-brand-300 transition-colors">
-                                {userProfile?.credits !== undefined ? userProfile.credits : 0} <Zap size={10} className="text-brand-400 fill-brand-400" />
+                                {/* FIX: Show spinner instead of 0 if loading */}
+                                {userProfile?.credits !== undefined ? (
+                                    userProfile.credits
+                                ) : (
+                                    <Loader2 size={10} className="animate-spin text-zinc-500" />
+                                )} 
+                                <Zap size={10} className="text-brand-400 fill-brand-400" />
                             </div>
                         </div>
 
