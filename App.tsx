@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, Clock, GitCommit, Crown, RotateCw, X } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, Clock, GitCommit, Crown, RotateCw, X, Loader2 } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, GeneratedImage, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.4.2-Stable"; 
+const APP_VERSION = "v1.4.4-Stable"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -135,6 +135,9 @@ const App: React.FC = () => {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [isRefreshingProfile, setIsRefreshingProfile] = useState(false);
+  
+  // New State for Payment Sync
+  const [isSyncingPayment, setIsSyncingPayment] = useState(false);
 
   // Guest State (LocalStorage)
   const [guestCredits, setGuestCredits] = useState<number>(() => {
@@ -230,36 +233,76 @@ const App: React.FC = () => {
   const checkPendingPlan = async (userSession: any) => {
     if (!userSession) return;
     
-    // 1. Check for SUCCESSFUL return from FastSpring
+    // 1. Check for SUCCESSFUL return from FastSpring via URL param
     const params = new URLSearchParams(window.location.search);
     if (params.get('success') === 'true') {
-        showToast('Processing purchase...', 'info');
+        // Activate the Overlay
+        setIsSyncingPayment(true);
         window.history.replaceState({}, '', window.location.pathname);
-        localStorage.removeItem('pending_plan');
         
-        // Immediate fetch
-        await fetchProfile(userSession.user.id);
-
-        // Extended Polling (20 seconds)
+        // Polling logic
         let attempts = 0;
+        const pendingPlan = localStorage.getItem('pending_plan');
+        const initialCredits = userProfile?.credits || 0;
+        
         const interval = setInterval(async () => {
             attempts++;
-            console.log(`Checking for upgrade (Attempt ${attempts}/10)...`);
-            await fetchProfile(userSession.user.id);
-            if (attempts >= 10) {
+            console.log(`Syncing purchase (Attempt ${attempts})...`);
+            
+            // Re-fetch profile
+            const { data } = await supabase
+                .from('profiles')
+                .select('tier, credits, username')
+                .eq('id', userSession.user.id)
+                .single();
+                
+            // Success Criteria: Credits increased, Tier matched pending, or new tier is not Free
+            const tierMatch = pendingPlan ? data?.tier === pendingPlan : false;
+            const creditBump = data && data.credits > initialCredits;
+            
+            if (data && (tierMatch || creditBump || attempts >= 10)) {
                 clearInterval(interval);
-                showToast('Sync completed. Please refresh manually if credits are missing.', 'info');
+                
+                if (data) {
+                    setUserProfile({
+                        tier: data.tier as SubscriptionTier,
+                        credits: data.credits,
+                        username: data.username
+                    });
+                }
+                
+                if (tierMatch || creditBump) {
+                     localStorage.removeItem('pending_plan');
+                     setTimeout(() => {
+                        setIsSyncingPayment(false);
+                        showToast('Purchase synced successfully!', 'success');
+                    }, 1500);
+                } else {
+                    // Timed out. Allow user to close manually.
+                    setIsSyncingPayment(false);
+                }
             }
         }, 2000);
-        
         return;
     }
 
-    // 2. Check for PENDING PLAN (User signed up intending to buy)
+    // 2. Check for PENDING PLAN (Safety Check)
+    // If the user manually navigated back without ?success=true, we check if they upgraded.
+    // We DO NOT auto-redirect to checkout here anymore to prevent infinite loops.
     const pendingPlan = localStorage.getItem('pending_plan');
-    if (pendingPlan && pendingPlan !== SubscriptionTier.Free && !isRedirecting) {
-        console.log("Found pending plan, initiating checkout sequence...", pendingPlan);
-        handleUpgrade(pendingPlan as SubscriptionTier, userSession);
+    if (pendingPlan && pendingPlan !== SubscriptionTier.Free) {
+        const { data } = await supabase
+            .from('profiles')
+            .select('tier')
+            .eq('id', userSession.user.id)
+            .single();
+            
+        if (data && data.tier === pendingPlan) {
+            // They upgraded but didn't get the redirect param. Clean up.
+            localStorage.removeItem('pending_plan');
+            showToast(`You are now on the ${pendingPlan} plan.`, 'success');
+        } 
+        // If not upgraded, we do nothing. They can click "Upgrade" again if they wish.
     }
   };
 
@@ -591,6 +634,8 @@ const App: React.FC = () => {
 
   const currentCost = getGenerationCost(options);
 
+  // --- OVERLAYS ---
+
   if (isRedirecting) {
       return (
         <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center p-6">
@@ -613,6 +658,41 @@ const App: React.FC = () => {
             </div>
         </div>
       );
+  }
+
+  if (isSyncingPayment) {
+    return (
+        <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-6">
+            <div className="flex flex-col items-center gap-6 animate-fade-in text-center max-w-md border border-brand-500/20 bg-zinc-900/50 p-8 rounded-3xl shadow-2xl shadow-brand-500/10 relative">
+                <button 
+                    onClick={() => setIsSyncingPayment(false)}
+                    className="absolute top-4 right-4 text-zinc-500 hover:text-white p-2 rounded-full hover:bg-zinc-800 transition-all"
+                >
+                    <X size={20} />
+                </button>
+                <div className="w-16 h-16 bg-brand-500/10 rounded-full flex items-center justify-center border border-brand-500/20 animate-pulse-slow">
+                    <Loader2 size={32} className="text-brand-400 animate-spin" />
+                </div>
+                <div>
+                    <h2 className="text-2xl font-black text-white tracking-tight mb-2">Syncing Purchase</h2>
+                    <p className="text-zinc-400 text-sm">Please wait while we verify your transaction and update your credits...</p>
+                </div>
+                <div className="flex flex-col gap-2 w-full">
+                     <div className="h-1 w-full bg-zinc-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-brand-500 animate-[progress_2s_ease-in-out_infinite]"></div>
+                     </div>
+                     <span className="text-[10px] text-zinc-600 font-mono uppercase">Connecting to Payment Provider</span>
+                </div>
+            </div>
+            <style>{`
+                @keyframes progress {
+                    0% { width: 0%; transform: translateX(-100%); }
+                    50% { width: 50%; }
+                    100% { width: 100%; transform: translateX(100%); }
+                }
+            `}</style>
+        </div>
+    );
   }
 
   return (
