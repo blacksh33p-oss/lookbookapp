@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -82,7 +82,7 @@ const App: React.FC = () => {
   
   // User State
   const [session, setSession] = useState<any>(null);
-  const [userProfile, setUserProfile] = useState<{tier: SubscriptionTier, credits: number} | null>(null);
+  const [userProfile, setUserProfile] = useState<{tier: SubscriptionTier, credits: number, username?: string} | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   // Guest State (LocalStorage)
@@ -163,25 +163,10 @@ const App: React.FC = () => {
         const pendingPlan = localStorage.getItem('pending_plan');
         
         if (pendingPlan && pendingPlan !== SubscriptionTier.Free) {
-            // Update the user's tier in the database
-            // Note: In a real Stripe app, you would redirect to Checkout here.
-            // For now, we update the DB directly to simulate the upgrade.
-            let startingCredits = 5;
-            if(pendingPlan === SubscriptionTier.Creator) startingCredits = 40;
-            if(pendingPlan === SubscriptionTier.Studio) startingCredits = 200;
-
-            const { error: updateError } = await supabase
-                .from('profiles')
-                .update({ 
-                    tier: pendingPlan,
-                    credits: startingCredits // Give them the credits for that plan
-                })
-                .eq('id', userId);
-            
-            if (updateError) console.error("Failed to apply pending plan", updateError);
-            
-            // Clear the pending plan
+            // Logic: Redirect to checkout for the pending plan
+            // For now, we clear it and prompt the upgrade modal or checkout flow
             localStorage.removeItem('pending_plan');
+            handleUpgrade(pendingPlan as SubscriptionTier); 
         }
 
         // Fetch final profile
@@ -195,14 +180,15 @@ const App: React.FC = () => {
     try {
         const { data, error } = await supabase
             .from('profiles')
-            .select('tier, credits')
+            .select('tier, credits, username')
             .eq('id', userId)
             .single();
         
         if (data) {
             setUserProfile({
                 tier: data.tier as SubscriptionTier || SubscriptionTier.Free,
-                credits: data.credits || 0
+                credits: data.credits || 0,
+                username: data.username
             });
         }
     } catch (e) {
@@ -213,7 +199,7 @@ const App: React.FC = () => {
   };
 
   // --- Handlers ---
-  const handleAuth = async (email: string, password?: string, isSignUp?: boolean) => {
+  const handleAuth = async (email: string, password?: string, isSignUp?: boolean, username?: string) => {
       if (!isConfigured) {
           alert("Database not connected.\n\nPlease go to Vercel > Settings > Environment Variables and add:\n- VITE_SUPABASE_URL\n- VITE_SUPABASE_ANON_KEY");
           return;
@@ -222,16 +208,19 @@ const App: React.FC = () => {
       if (!password) throw new Error("Password is required.");
 
       if (isSignUp) {
-          // Sign Up
+          // Sign Up with Meta Data
           const { data, error } = await supabase.auth.signUp({
               email,
               password,
+              options: {
+                data: {
+                    username: username, // Pass username to metadata
+                    full_name: username
+                }
+              }
           });
           if (error) throw error;
-          
-          if (data.user && !data.session) {
-              alert("Registration successful! Please check your email to confirm your account.");
-          }
+          // Note: LoginModal handles the success message for email verification
       } else {
           // Sign In
           const { error } = await supabase.auth.signInWithPassword({
@@ -248,34 +237,54 @@ const App: React.FC = () => {
       setSession(null);
   };
 
+  const createCheckoutSession = async (priceId: string) => {
+      try {
+        const response = await fetch('/api/create-checkout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                priceId,
+                userId: session?.user?.id,
+                email: session?.user?.email,
+            }),
+        });
+
+        if (!response.ok) throw new Error('Network response was not ok');
+
+        const { url } = await response.json();
+        
+        if (url) {
+            window.location.href = url;
+        } else {
+            throw new Error("Unable to initiate checkout.");
+        }
+
+      } catch (err: any) {
+        console.error("Checkout Error:", err);
+        alert(err.message || "Payment System Unavailable");
+      }
+  };
+
   const handleUpgrade = async (tier: SubscriptionTier) => {
      if (!session) {
+         // Store intent and show login
+         localStorage.setItem('pending_plan', tier);
          setShowLoginModal(true);
          return;
      }
 
-     try {
-         // Mock Upgrade for demo purposes (replace with Stripe logic later)
-         const confirmed = window.confirm(`Upgrade to ${tier} plan? (Mock Payment)`);
-         if (confirmed) {
-             let newCredits = 40;
-             if (tier === SubscriptionTier.Studio) newCredits = 200;
+     // Mapping Tiers to Stripe Price IDs (Replace with your real Price IDs from Stripe Dashboard)
+     const PRICE_IDS = {
+         [SubscriptionTier.Creator]: 'price_1234_creator', 
+         [SubscriptionTier.Studio]: 'price_5678_studio'
+     };
 
-             const { error } = await supabase
-                 .from('profiles')
-                 .update({ tier: tier, credits: newCredits })
-                 .eq('id', session.user.id);
-             
-             if (!error) {
-                 setUserProfile({ tier, credits: newCredits });
-                 setShowUpgradeModal(false);
-                 alert(`Upgraded to ${tier}!`);
-             }
-         }
-     } catch (e) {
-         console.error(e);
-         alert("Failed to initiate checkout.");
-     }
+     if (tier === SubscriptionTier.Free) return;
+
+     await createCheckoutSession(PRICE_IDS[tier]);
+     setShowUpgradeModal(false);
   };
 
   const executeGeneration = async (currentOptions: PhotoshootOptions) => {
@@ -294,10 +303,6 @@ const App: React.FC = () => {
               setShowUpgradeModal(true);
               return;
           }
-          if (!isConfigured) {
-            alert("Database not connected. Please set up your Supabase credentials.");
-            return;
-          }
       }
 
       setIsLoading(true);
@@ -315,6 +320,7 @@ const App: React.FC = () => {
             setGuestCredits(newGuestCredits);
             localStorage.setItem('fashion_guest_credits', newGuestCredits.toString());
         } else {
+            // In a real app, use a Postgres function (RPC) to decrement safely
             const { error } = await supabase
                 .from('profiles')
                 .update({ credits: userProfile!.credits - 1 })
@@ -322,8 +328,6 @@ const App: React.FC = () => {
             
             if (!error) {
                  setUserProfile(prev => prev ? ({ ...prev, credits: prev.credits - 1 }) : null);
-            } else {
-                console.error("Failed to deduct credit from DB", error);
             }
         }
 
@@ -405,8 +409,8 @@ const App: React.FC = () => {
                  {session ? (
                      <>
                         <div className="hidden sm:flex flex-col items-end px-2 border-r border-white/10">
-                            <span className="text-[10px] text-zinc-500 font-mono">
-                                {userProfile?.tier || 'FREE'} PLAN
+                            <span className="text-[10px] text-zinc-400 font-bold uppercase">
+                                {userProfile?.username || 'Studio User'}
                             </span>
                             <div className="text-xs font-mono font-bold text-white tabular-nums flex items-center gap-1">
                                 {userProfile?.credits || 0} <Zap size={10} className="text-brand-400 fill-brand-400" />
@@ -444,6 +448,32 @@ const App: React.FC = () => {
                 </ConfigSection>
                 
                 <ConfigSection title="02 // Model & Set" icon={UserCircle}>
+                    {/* Model Version Selector */}
+                    <div className="mb-6 space-y-2">
+                        <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1">
+                            Model Engine
+                        </label>
+                        <div className="grid grid-cols-2 gap-2 bg-black p-1 rounded-lg border border-zinc-800">
+                            <button
+                                onClick={() => setOptions({ ...options, modelVersion: ModelVersion.Flash })}
+                                className={`flex flex-col items-center justify-center py-2 px-2 rounded-md transition-all ${options.modelVersion === ModelVersion.Flash ? 'bg-zinc-800 border border-zinc-700 shadow-sm' : 'hover:bg-zinc-900 border border-transparent'}`}
+                            >
+                                <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Flash ? 'text-white' : 'text-zinc-500'}`}>Flash</span>
+                                <span className="text-[8px] text-zinc-600 font-mono">Fast / Std</span>
+                            </button>
+                            <button
+                                onClick={() => setOptions({ ...options, modelVersion: ModelVersion.Pro })}
+                                className={`flex flex-col items-center justify-center py-2 px-2 rounded-md transition-all relative overflow-hidden ${options.modelVersion === ModelVersion.Pro ? 'bg-brand-900/20 border border-brand-500/50 shadow-sm' : 'hover:bg-zinc-900 border border-transparent'}`}
+                            >
+                                <div className="absolute top-0 right-0 p-1">
+                                    <Star size={6} className="text-brand-400 fill-brand-400" />
+                                </div>
+                                <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Pro ? 'text-brand-300' : 'text-zinc-500'}`}>Pro</span>
+                                <span className="text-[8px] text-zinc-600 font-mono">High Quality</span>
+                            </button>
+                        </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <Dropdown label="Sex" value={options.sex} options={Object.values(ModelSex)} onChange={(val) => setOptions({ ...options, sex: val })} />
                         <Dropdown label="Age" value={options.age} options={Object.values(ModelAge)} onChange={(val) => setOptions({ ...options, age: val })} />

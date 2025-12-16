@@ -1,19 +1,21 @@
 import React, { useState } from 'react';
-import { X, Mail, ArrowRight, Loader2, Check, User, Building2, Lock } from 'lucide-react';
+import { X, Mail, ArrowRight, Loader2, Check, User, Building2, Lock, Fingerprint } from 'lucide-react';
 import { SubscriptionTier } from '../types';
 
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAuth: (email: string, password?: string, isSignUp?: boolean) => Promise<void>;
+  onAuth: (email: string, password?: string, isSignUp?: boolean, username?: string) => Promise<void>;
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onAuth }) => {
   const [step, setStep] = useState<'selection' | 'credentials'>('selection');
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>(SubscriptionTier.Free);
+  const [isSuccess, setIsSuccess] = useState(false);
   
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +47,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onAuth 
         setError("Please enter a valid email address.");
         return;
     }
+    if (authMode === 'signup' && (!username || username.length < 3)) {
+        setError("Username must be at least 3 characters.");
+        return;
+    }
     if (!password || password.length < 6) {
         setError("Password must be at least 6 characters.");
         return;
@@ -53,19 +59,46 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onAuth 
     setIsLoading(true);
     setError(null);
     try {
-        await onAuth(email, password, authMode === 'signup');
+        await onAuth(email, password, authMode === 'signup', username);
         
-        // Handle post-signup logic (tier selection persistence)
-        if (authMode === 'signup' && selectedTier !== SubscriptionTier.Free) {
-            localStorage.setItem('pending_plan', selectedTier);
+        // Handle post-signup logic
+        if (authMode === 'signup') {
+             if (selectedTier !== SubscriptionTier.Free) {
+                 localStorage.setItem('pending_plan', selectedTier);
+             }
+             // Show success screen for verification
+             setIsSuccess(true);
+        } else {
+             onClose();
         }
-        onClose();
     } catch (err: any) {
         setError(err.message || "Authentication failed. Please check your credentials.");
     } finally {
         setIsLoading(false);
     }
   };
+
+  // Success Screen (Email Verification)
+  if (isSuccess) {
+      return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-zinc-950 border border-brand-500/30 rounded-2xl w-full max-w-md p-8 text-center shadow-2xl relative">
+                <button onClick={onClose} className="absolute top-4 right-4 text-zinc-500 hover:text-white"><X size={20}/></button>
+                <div className="w-16 h-16 bg-brand-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Mail className="text-brand-400" size={32} />
+                </div>
+                <h3 className="text-2xl font-bold text-white mb-2">Check your email</h3>
+                <p className="text-zinc-400 mb-6">We've sent a verification link to <span className="text-white font-medium">{email}</span>.</p>
+                <div className="bg-zinc-900 p-4 rounded-lg border border-zinc-800 text-sm text-zinc-500 mb-6">
+                    Please click the link in the email to activate your account. You won't be able to log in until you verify.
+                </div>
+                <button onClick={onClose} className="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-zinc-200 transition-colors">
+                    Got it
+                </button>
+            </div>
+        </div>
+      );
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
@@ -141,6 +174,23 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onAuth 
                 </div>
                 
                 <div className="space-y-4">
+                    {/* Username Input (Signup Only) */}
+                    {authMode === 'signup' && (
+                        <div className="space-y-2 animate-slide-up">
+                            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Username</label>
+                            <div className="relative group">
+                                <Fingerprint className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-brand-400 transition-colors" size={18} />
+                                <input 
+                                    type="text" 
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    placeholder="studio_name"
+                                    className="w-full bg-black border border-zinc-800 rounded-xl py-3 pl-10 pr-4 text-white focus:outline-none focus:border-brand-500 transition-colors"
+                                />
+                            </div>
+                        </div>
+                    )}
+
                     {/* Email Input */}
                     <div className="space-y-2">
                         <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Email Address</label>
