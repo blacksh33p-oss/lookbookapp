@@ -37,7 +37,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
       <div className="h-full w-full bg-zinc-900/20 border border-white/5 flex flex-col items-center justify-center relative overflow-hidden">
         <div className="absolute inset-0 bg-noise opacity-20"></div>
         <div className="w-full h-1 absolute top-0 bg-zinc-800 overflow-hidden">
-             <div className="h-full bg-white animate-[progress_2s_ease-in-out_infinite]"></div>
+             <div className="h-full bg-white animate-progress"></div>
         </div>
         
         <div className="relative z-10 flex flex-col items-center animate-fade-in gap-6">
@@ -49,14 +49,6 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
                 <span className="font-mono text-[10px] text-zinc-500">Calculating Lighting Physics...</span>
             </div>
         </div>
-        
-        <style>{`
-            @keyframes progress {
-                0% { width: 0%; transform: translateX(-100%); }
-                50% { width: 50%; }
-                100% { width: 100%; transform: translateX(100%); }
-            }
-        `}</style>
       </div>
     );
   }
