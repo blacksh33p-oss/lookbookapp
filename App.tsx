@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, GeneratedImage, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.4.9-Stable"; 
+const APP_VERSION = "v1.4.10-Stable"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -822,7 +822,8 @@ const App: React.FC = () => {
                  {session ? (
                      <>
                         {/* Desktop Upgrade Button */}
-                        {userProfile?.tier !== SubscriptionTier.Studio && (
+                        {/* Ensure button is visible if profile is loading (null) OR if not Studio */}
+                        {(!userProfile || userProfile.tier !== SubscriptionTier.Studio) && (
                            <button
                              onClick={() => setShowUpgradeModal(true)}
                              className="hidden sm:flex items-center gap-1.5 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(124,58,237,0.3)] hover:shadow-[0_0_20px_rgba(124,58,237,0.5)] mr-2"
@@ -887,7 +888,7 @@ const App: React.FC = () => {
                         )}
                         
                         {/* Mobile Controls */}
-                        {userProfile?.tier !== SubscriptionTier.Studio && (
+                        {(!userProfile || userProfile.tier !== SubscriptionTier.Studio) && (
                              <button 
                                 onClick={() => setShowUpgradeModal(true)}
                                 className="h-8 w-8 bg-brand-900/50 rounded-full flex items-center justify-center border border-brand-500/30 hover:bg-brand-900 transition-colors cursor-pointer z-50 pointer-events-auto sm:hidden"
