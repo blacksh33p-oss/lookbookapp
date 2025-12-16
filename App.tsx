@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.4.21-SchemaFix"; 
+const APP_VERSION = "v1.4.22-RaceFix"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -320,7 +320,6 @@ const App: React.FC = () => {
           attempts++;
           setSyncAttempts(attempts);
           
-          // V14: Only fetch tier/credits.
           const { data } = await supabase
               .from('profiles')
               .select('tier, credits')
@@ -407,8 +406,7 @@ const App: React.FC = () => {
         
         // Handle "Row not found" - Auto Create
         if (error && error.code === 'PGRST116') {
-             // Attempt Insert with STRICTLY VALID columns from screenshot
-             // id, email, credits, tier. NOTHING ELSE.
+             // Attempt Insert with STRICTLY VALID columns
              const { data: newProfile, error: createError } = await supabase
                 .from('profiles')
                 .insert([{
@@ -423,12 +421,27 @@ const App: React.FC = () => {
              if (!createError && newProfile) {
                  data = newProfile;
                  error = null;
+             } else if (createError?.code === '23505') {
+                 // 23505 = Unique Violation (Duplicate Key)
+                 // This means the row actually EXISTS (created by webhook race condition), but the SELECT missed it.
+                 // RETRY SELECT
+                 const { data: retryData, error: retryError } = await supabase
+                    .from('profiles')
+                    .select('tier, credits')
+                    .eq('id', userId)
+                    .single();
+                 
+                 if (!retryError && retryData) {
+                     data = retryData;
+                     error = null;
+                 }
              } else {
-                 console.error("Profile creation failed. Check DB schema matches code.", createError);
+                 console.error("Profile creation failed.", createError);
              }
         }
 
         // Auto-Repair 0 Credit Glitch for Free Users
+        // We only do this if Tier is explicitly Free. We trust 'Creator/Studio' tiers from webhook.
         if (data && data.tier === SubscriptionTier.Free && (data.credits === 0 || data.credits === null)) {
             const { error: repairError } = await supabase
                 .from('profiles')
@@ -485,8 +498,6 @@ const App: React.FC = () => {
       if (!password) throw new Error("Password is required.");
 
       if (isSignUp) {
-          // Note: we pass username in metadata, but our profile table won't store it 
-          // because the column doesn't exist. That's fine, we derive it from email.
           const { data, error } = await supabase.auth.signUp({
               email,
               password,
