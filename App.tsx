@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.4.25-RealtimeSync"; 
+const APP_VERSION = "v1.4.26-OptimisticCredits"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -370,7 +370,7 @@ const App: React.FC = () => {
           fetchProfile(session.user.id, session.user.email);
           checkPendingPlan(session);
           
-          // --- REALTIME SUBSCRIPTION (The Fix for Sync Issues) ---
+          // --- REALTIME SUBSCRIPTION ---
           const channel = supabase.channel(`profile:${session.user.id}`)
               .on(
                   'postgres_changes',
@@ -381,11 +381,10 @@ const App: React.FC = () => {
                       filter: `id=eq.${session.user.id}`
                   },
                   (payload: any) => {
-                      // REALTIME SYNC: Force update local state when DB changes
+                      // REALTIME SYNC: Keeps state consistent if updated from other tabs/server
                       if (payload.new && typeof payload.new.credits === 'number') {
-                          console.log("Realtime Update Received:", payload.new);
+                          // console.log("Realtime Update Received:", payload.new); // Quiet log
                           setUserProfile((prev) => {
-                              // Preserve existing profile data, only update what changed
                               if (!prev) return { 
                                   tier: payload.new.tier as SubscriptionTier || SubscriptionTier.Free, 
                                   credits: payload.new.credits, 
@@ -685,19 +684,22 @@ const App: React.FC = () => {
                 setGuestCredits(newGuestCredits);
                 localStorage.setItem('fashion_guest_credits', newGuestCredits.toString());
             } else {
-                // Deduct via DB. Realtime subscription will handle the UI update.
+                // 1. Optimistic Update (Immediate Feedback for User)
+                const newBalance = actualCredits - cost;
+                setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
+
+                // 2. Deduct via DB (Authoritative)
                 const { error } = await supabase
                     .from('profiles')
-                    .update({ credits: actualCredits - cost })
+                    .update({ credits: newBalance })
                     .eq('id', session.user.id);
                 
                 if (error) {
-                    // Fallback local update if DB update fails (rare)
-                    console.error("DB Update failed, falling back to local state");
-                    setUserProfile(prev => prev ? ({ ...prev, credits: Math.max(0, actualCredits - cost) }) : null);
+                    console.error("DB Update failed", error);
+                    // Revert if DB fails
+                    setUserProfile(prev => prev ? ({ ...prev, credits: actualCredits }) : null);
+                    showToast("Failed to sync credits with server.", 'error');
                 }
-                // Note: We don't manually setUserProfile here because the Realtime Subscription 
-                // configured in useEffect will catch the UPDATE event and set it automatically.
             }
 
           } catch (err: any) {
