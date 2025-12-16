@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, GeneratedImage, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.4.12-Live"; 
+const APP_VERSION = "v1.4.13-Fix"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -260,9 +260,8 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // --- URL ERROR HANDLING (Fixes "Refusing to login") ---
+  // --- URL ERROR HANDLING ---
   useEffect(() => {
-      // Supabase returns errors in the hash, e.g., #error=access_denied&error_description=...
       const hash = window.location.hash;
       if (hash && hash.includes('error=')) {
           const params = new URLSearchParams(hash.substring(1));
@@ -270,11 +269,8 @@ const App: React.FC = () => {
           
           if (errorDescription) {
               console.error("Auth URL Error:", errorDescription);
-              // Convert spaces to pluses sometimes happens in decoding
               const cleanMsg = errorDescription.replace(/\+/g, ' ');
               showToast(cleanMsg, 'error');
-              
-              // Clear the URL so we don't keep hitting the error state
               window.history.replaceState(null, '', window.location.pathname);
           }
       }
@@ -284,26 +280,21 @@ const App: React.FC = () => {
   const checkPendingPlan = async (userSession: any) => {
     if (!userSession) return;
     
-    // 1. Check for SUCCESSFUL return from FastSpring via URL param
     const params = new URLSearchParams(window.location.search);
     if (params.get('success') === 'true') {
-        // Activate the Overlay
         setIsSyncingPayment(true);
         setSyncAttempts(0);
         window.history.replaceState({}, '', window.location.pathname);
-        
-        // Start Polling
         pollForCredits(userSession.user.id);
     } else {
-        // Safety check if they just came back without the param
         const pendingPlan = localStorage.getItem('pending_plan');
         if (pendingPlan && pendingPlan !== SubscriptionTier.Free) {
-            fetchProfile(userSession.user.id).then(data => {
-                if (data && data.tier === pendingPlan) {
-                    localStorage.removeItem('pending_plan');
-                    showToast(`You are now on the ${pendingPlan} plan.`, 'success');
-                }
-            });
+            // Re-fetch to see if upgrade already happened
+            const fresh = await fetchProfile(userSession.user.id);
+            if (fresh && fresh.tier === pendingPlan) {
+                localStorage.removeItem('pending_plan');
+                showToast(`You are now on the ${pendingPlan} plan.`, 'success');
+            }
         }
     }
   };
@@ -312,27 +303,22 @@ const App: React.FC = () => {
       let attempts = 0;
       const pendingPlan = localStorage.getItem('pending_plan');
       
-      // Initial profile to compare against
       const { data: initialData } = await supabase.from('profiles').select('credits').eq('id', userId).single();
       const startCredits = initialData?.credits || 0;
 
       const interval = setInterval(async () => {
           attempts++;
           setSyncAttempts(attempts);
-          console.log(`Syncing purchase (Attempt ${attempts})...`);
           
-          // Re-fetch profile
           const { data } = await supabase
               .from('profiles')
               .select('tier, credits, username')
               .eq('id', userId)
               .single();
               
-          // Success Criteria
           const tierMatch = pendingPlan ? data?.tier === pendingPlan : false;
           const creditBump = data && data.credits > startCredits;
           
-          // Max attempts: 60 (2 minutes)
           if (data && (tierMatch || creditBump || attempts >= 60)) {
               clearInterval(interval);
               
@@ -351,17 +337,15 @@ const App: React.FC = () => {
                       showToast('Purchase synced successfully!', 'success');
                   }, 1500);
               } else {
-                  // Timed out.
                   setIsSyncingPayment(false);
                   showToast("Sync timed out. Server might be slow. Check back later.", "info");
               }
           }
-      }, 2000); // Check every 2 seconds
+      }, 2000);
   };
 
   // --- SUPABASE INITIALIZATION & AUTH ---
   useEffect(() => {
-    // 1. Check active session on load
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session) {
@@ -372,9 +356,7 @@ const App: React.FC = () => {
       }
     });
 
-    // 2. Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth Event:", event);
       setSession(session);
       
       if (event === 'SIGNED_IN' && session) {
@@ -387,6 +369,9 @@ const App: React.FC = () => {
          setSession(null);
          localStorage.removeItem('pending_plan');
          showToast('Signed out successfully', 'info');
+      } else if (event === 'TOKEN_REFRESHED' && session) {
+         // Silently refresh profile on token refresh to keep credits in sync
+         fetchProfile(session.user.id);
       }
     });
 
@@ -401,9 +386,8 @@ const App: React.FC = () => {
             .eq('id', userId)
             .single();
         
-        // Handle "Row not found" (PGRST116)
+        // Handle "Row not found"
         if (error && error.code === 'PGRST116') {
-             console.log("Profile missing for user, creating default profile...");
              const { data: newProfile, error: createError } = await supabase
                 .from('profiles')
                 .insert([{
@@ -424,7 +408,7 @@ const App: React.FC = () => {
         if (data) {
             setUserProfile({
                 tier: data.tier as SubscriptionTier || SubscriptionTier.Free,
-                credits: data.credits !== undefined ? data.credits : 0,
+                credits: typeof data.credits === 'number' ? data.credits : 0,
                 username: data.username
             });
             return data;
@@ -443,7 +427,6 @@ const App: React.FC = () => {
         const freshData = await fetchProfile(session.user.id);
         setIsRefreshingProfile(false);
 
-        // Smart Check: Did they just buy something?
         const pendingPlan = localStorage.getItem('pending_plan');
         if (pendingPlan && freshData) {
             if (freshData.tier === pendingPlan) {
@@ -452,12 +435,10 @@ const App: React.FC = () => {
                 return;
             }
         }
-
         showToast("Profile synced.", "info");
     }
   };
 
-  // --- Handlers ---
   const handleAuth = async (email: string, password?: string, isSignUp?: boolean, username?: string) => {
       if (!isConfigured) {
           showToast("Database not configured. Check settings.", 'error');
@@ -492,29 +473,22 @@ const App: React.FC = () => {
       }
   };
 
-  // AGGRESSIVE LOGOUT TO FIX "CAN'T LOG OUT"
   const handleLogout = async (e?: React.MouseEvent) => {
       if (e) e.preventDefault();
-      
-      // 1. Clear Local State & Storage Immediately
       setSession(null);
       setUserProfile(null);
       localStorage.removeItem('pending_plan');
-      localStorage.removeItem('supabase.auth.token'); // Attempt to clear persisted token
+      localStorage.removeItem('supabase.auth.token');
       setShowProfileMenu(false);
 
-      // 2. Attempt Supabase SignOut (Fire and Forget)
       try {
           await supabase.auth.signOut();
       } catch (err) {
           console.error("Supabase signout warning:", err);
       } 
-
-      // 3. Force Reload to guarantee clean slate
       window.location.reload();
   };
 
-  // FastSpring Payment Integration (ROBUST)
   const handleUpgrade = async (tier: SubscriptionTier, explicitSession?: any) => {
      setIsRedirecting(true);
 
@@ -553,14 +527,10 @@ const App: React.FC = () => {
              return;
          }
 
-         // GENERATE ROBUST TAGS
-         // Use encodeURIComponent to ensure special characters (like @ or :) don't break the URL parameters
-         const tags = encodeURIComponent(`userId:${activeSession.user.id},userEmail:${activeSession.user.email}`);
-         
+         // Pass clean parameters
+         const tags = encodeURIComponent(`userId:${activeSession.user.id}`);
          const separator = checkoutUrl.includes('?') ? '&' : '?';
-         
-         // We pass userId and userEmail as explicit params AND as tags to be double safe
-         const finalUrl = `${checkoutUrl}${separator}tags=${tags}&userId=${activeSession.user.id}&userEmail=${encodeURIComponent(activeSession.user.email)}`;
+         const finalUrl = `${checkoutUrl}${separator}tags=${tags}&email=${encodeURIComponent(activeSession.user.email)}`;
 
          window.location.href = finalUrl;
          
@@ -596,15 +566,19 @@ const App: React.FC = () => {
 
       if (isGuest) {
           if (guestCredits < cost) {
-              showToast(guestCredits < 1 ? "Daily limit reached! Credits refill tomorrow." : "Not enough guest credits for this operation.", "info");
+              showToast(guestCredits < 1 ? "Daily limit reached! Credits refill tomorrow." : "Not enough guest credits.", "info");
               setLoginModalView('pricing'); 
               setShowLoginModal(true);
               return;
           }
       } else {
           if (!userProfile) return;
-          if (userProfile.credits < cost) {
-              showToast(`Insufficient credits. This job requires ${cost} credits.`, "info");
+          // IMPORTANT: Check DB again before deducting to prevent client-side desync
+          const { data: checkData } = await supabase.from('profiles').select('credits').eq('id', session.user.id).single();
+          const actualCredits = checkData?.credits || 0;
+
+          if (actualCredits < cost) {
+              showToast(`Insufficient credits. You have ${actualCredits}, need ${cost}.`, "info");
               setShowUpgradeModal(true);
               return;
           }
@@ -632,15 +606,15 @@ const App: React.FC = () => {
             
             const currentDbCredits = freshProfile?.credits || 0;
             
-            if (currentDbCredits >= cost) {
-                 const { error } = await supabase
-                    .from('profiles')
-                    .update({ credits: currentDbCredits - cost })
-                    .eq('id', session.user.id);
-                
-                if (!error) {
-                     setUserProfile(prev => prev ? ({ ...prev, credits: currentDbCredits - cost }) : null);
-                }
+            // Deduct
+            const { error } = await supabase
+                .from('profiles')
+                .update({ credits: currentDbCredits - cost })
+                .eq('id', session.user.id);
+            
+            if (!error) {
+                 // Update local state immediately for UI responsiveness
+                 setUserProfile(prev => prev ? ({ ...prev, credits: currentDbCredits - cost }) : null);
             }
         }
 
@@ -826,8 +800,6 @@ const App: React.FC = () => {
               <div className="glass-panel rounded-full px-2 py-2 flex items-center gap-3 relative">
                  {session ? (
                      <>
-                        {/* Desktop Upgrade Button */}
-                        {/* Ensure button is visible if profile is loading (null) OR if not Studio */}
                         {(!userProfile || userProfile.tier !== SubscriptionTier.Studio) && (
                            <button
                              onClick={() => setShowUpgradeModal(true)}
@@ -846,7 +818,7 @@ const App: React.FC = () => {
                                 {userProfile?.username || 'Studio User'}
                             </span>
                             <div className="text-xs font-mono font-bold text-white tabular-nums flex items-center gap-1 group-hover:text-brand-300 transition-colors">
-                                {userProfile?.credits || 0} <Zap size={10} className="text-brand-400 fill-brand-400" />
+                                {userProfile?.credits !== undefined ? userProfile.credits : 0} <Zap size={10} className="text-brand-400 fill-brand-400" />
                             </div>
                         </div>
 

@@ -15,7 +15,7 @@ const readStream = async (req) => {
 };
 
 export default async function handler(req, res) {
-  const LOG_PREFIX = '[FastSpring V7-Verifier]'; 
+  const LOG_PREFIX = '[FastSpring V8-EmailPriority]'; 
   const trace = []; 
 
   const log = (msg) => {
@@ -39,7 +39,7 @@ export default async function handler(req, res) {
       const { check_email } = req.query;
       const status = {
           status: 'Active',
-          version: 'v7-Verifier',
+          version: 'v8-EmailPriority',
           config: {
               hasUrl: !!supabaseUrl,
               hasKey: !!serviceRoleKey,
@@ -56,10 +56,9 @@ export default async function handler(req, res) {
                   status.userFound = !!match;
                   status.userId = match ? match.id : null;
                   
-                  // V7 Check: Also check profile
                   if (match) {
-                      const { data: profile } = await supabase.from('profiles').select('credits').eq('id', match.id).single();
-                      status.currentCredits = profile ? profile.credits : 'No Profile Row';
+                      const { data: profile } = await supabase.from('profiles').select('credits, tier').eq('id', match.id).single();
+                      status.profile = profile || 'No Profile Row';
                   }
               }
           } catch(e) { status.exception = e.message; }
@@ -111,61 +110,64 @@ export default async function handler(req, res) {
           let userId = null;
           let emailFound = null;
 
-          // STEP A: Look for Tags
-          const tags = data.tags || (data.order && data.order.tags) || (data.subscription && data.subscription.tags);
-          if (tags) {
-              log(`Tags found: ${JSON.stringify(tags)}`);
-              let decodedTags = tags;
-              if (typeof tags === 'string' && tags.includes('%')) {
-                   try { decodedTags = decodeURIComponent(tags); } catch(e) {}
-              }
+          // STEP A: Extract Email Candidates
+          const candidates = [
+              data.email, 
+              data.customer?.email, 
+              data.account?.contact?.email, 
+              data.contact?.email, 
+              data.recipient?.email
+          ];
+          if (Array.isArray(data.recipients)) {
+              data.recipients.forEach(r => {
+                  if (r.recipient?.email) candidates.push(r.recipient.email);
+                  if (r.recipient?.account?.contact?.email) candidates.push(r.recipient.account.contact.email);
+              });
+          }
+          const uniqueEmails = [...new Set(candidates.filter(Boolean))];
+          if (uniqueEmails.length > 0) emailFound = uniqueEmails[0];
 
-              if (typeof decodedTags === 'object' && decodedTags.userId) userId = decodedTags.userId;
-              else if (typeof decodedTags === 'string') {
-                  const match = decodedTags.match(/userId:([a-f0-9-]{36})/i);
-                  if (match) userId = match[1];
+          // STEP B: PRIORITY 1 - Email Lookup (The Source of Truth)
+          if (emailFound) {
+              log(`Lookup by Email: ${emailFound}`);
+              const { data: userResult } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+              if (userResult && userResult.users) {
+                  const cleanEmail = emailFound.toLowerCase().trim();
+                  // Strict match
+                  const match = userResult.users.find(u => u.email?.toLowerCase().trim() === cleanEmail);
+                  if (match) {
+                      userId = match.id;
+                      log(`Match Found via Email: ${userId}`);
+                  }
               }
           }
 
-          // STEP B: Look for Email (Fallback)
+          // STEP C: PRIORITY 2 - Tags (Fallback only if Email failed)
           if (!userId) {
-              const candidates = [
-                  data.email, 
-                  data.customer?.email, 
-                  data.account?.contact?.email, 
-                  data.contact?.email, 
-                  data.recipient?.email
-              ];
-              if (Array.isArray(data.recipients)) {
-                  data.recipients.forEach(r => {
-                      if (r.recipient?.email) candidates.push(r.recipient.email);
-                      if (r.recipient?.account?.contact?.email) candidates.push(r.recipient.account.contact.email);
-                  });
-              }
+              const tags = data.tags || (data.order && data.order.tags) || (data.subscription && data.subscription.tags);
+              if (tags) {
+                  log(`Attempting Tag Fallback: ${JSON.stringify(tags)}`);
+                  let decodedTags = tags;
+                  if (typeof tags === 'string' && tags.includes('%')) {
+                       try { decodedTags = decodeURIComponent(tags); } catch(e) {}
+                  }
 
-              const uniqueEmails = [...new Set(candidates.filter(Boolean))];
-              if (uniqueEmails.length > 0) {
-                  emailFound = uniqueEmails[0]; 
-                  log(`Email Lookup: ${emailFound}`);
-
-                  const { data: userResult } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-                  
-                  if (userResult && userResult.users) {
-                      const cleanEmail = emailFound.toLowerCase().trim();
-                      const match = userResult.users.find(u => u.email?.toLowerCase().trim() === cleanEmail);
-                      if (match) userId = match.id;
+                  if (typeof decodedTags === 'object' && decodedTags.userId) userId = decodedTags.userId;
+                  else if (typeof decodedTags === 'string') {
+                      const match = decodedTags.match(/userId:([a-f0-9-]{36})/i);
+                      if (match) userId = match[1];
                   }
               }
           }
 
           if (!userId) {
-              log("SKIPPING: User ID could not be resolved.");
+              log("SKIPPING: User ID could not be resolved by Email OR Tags.");
               continue;
           }
 
-          log(`Target User ID: ${userId}`);
+          log(`FINAL TARGET USER ID: ${userId}`);
 
-          // STEP C: Determine Plan
+          // STEP D: Determine Plan
           const itemsJSON = JSON.stringify(data.items || []).toLowerCase();
           let tier = 'Creator';
           let creditsToAdd = 500;
@@ -176,7 +178,7 @@ export default async function handler(req, res) {
           }
           log(`Tier: ${tier} | Adding: ${creditsToAdd} credits`);
 
-          // STEP D: PRE-FLIGHT CHECK
+          // STEP E: DB UPDATE
           const { data: preProfile, error: preError } = await supabase
             .from('profiles')
             .select('*')
@@ -184,21 +186,19 @@ export default async function handler(req, res) {
             .single();
           
           let currentCredits = 0;
-          let username = emailFound?.split('@')[0] || 'Studio User';
+          // Use existing username if present, otherwise fallback to email handle
+          let username = preProfile?.username || (emailFound ? emailFound.split('@')[0] : 'Studio User');
 
           if (preError) {
-              log(`Profile Missing (New User): ${preError.message}`);
+              log(`Profile Missing (Creating New): ${preError.message}`);
           } else {
               currentCredits = preProfile.credits || 0;
-              username = preProfile.username || username;
-              log(`PRE-UPDATE DB VALUE: ${currentCredits}`);
+              log(`PRE-UPDATE CREDITS: ${currentCredits}`);
           }
 
           const newCredits = currentCredits + creditsToAdd;
           log(`CALCULATION: ${currentCredits} + ${creditsToAdd} = ${newCredits}`);
 
-          // STEP E: FORCE UPDATE
-          // We use upsert with select() to verify the return
           const payload = {
               id: userId,
               tier: tier,
@@ -210,21 +210,14 @@ export default async function handler(req, res) {
           const { data: updatedRow, error: upsertErr } = await supabase
             .from('profiles')
             .upsert(payload)
-            .select(); // IMPORTANT: Request the written row back
+            .select();
 
           if (upsertErr) {
               log(`CRITICAL DB ERROR: ${upsertErr.message}`);
           } else {
-              // Verify what actually happened in the DB
               if (updatedRow && updatedRow.length > 0) {
-                  log(`POST-UPDATE DB VALUE: ${updatedRow[0].credits}`);
-                  if (updatedRow[0].credits === newCredits) {
-                       log("VERIFICATION: SUCCESS - Database updated correctly.");
-                  } else {
-                       log("VERIFICATION: FAILED - Database returned different value.");
-                  }
-              } else {
-                  log("WARNING: Operation successful but no data returned.");
+                  log(`POST-UPDATE VERIFIED CREDITS: ${updatedRow[0].credits}`);
+                  log(`POST-UPDATE VERIFIED TIER: ${updatedRow[0].tier}`);
               }
               processedCount++;
           }
