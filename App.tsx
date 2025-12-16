@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, Clock } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -43,6 +43,21 @@ const getRandomFeatures = (): string => {
     return `${eyeColor} eyes, ${faceShape}, ${skinDetail}`;
 }
 
+// Helper to calculate cost dynamically
+const getGenerationCost = (options: PhotoshootOptions): number => {
+    let cost = 1; // Base cost for Flash
+    
+    if (options.modelVersion === ModelVersion.Pro) {
+        cost = 10; // Pro is expensive ($0.24/img approx)
+    }
+    
+    if (options.enable4K) {
+        cost += 5; // 4K adds overhead
+    }
+    
+    return cost;
+};
+
 // Reusable Section Component
 interface ConfigSectionProps {
   title: string;
@@ -78,13 +93,46 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({ title, icon: Icon, childr
   );
 };
 
+// --- Toast Component ---
+interface ToastProps {
+    message: string;
+    type: 'success' | 'error' | 'info';
+    onClose: () => void;
+}
+const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
+    useEffect(() => {
+        const timer = setTimeout(onClose, 5000);
+        return () => clearTimeout(timer);
+    }, [onClose]);
+
+    const bgColors = {
+        success: 'bg-emerald-950/90 border-emerald-900',
+        error: 'bg-red-950/90 border-red-900',
+        info: 'bg-zinc-900/90 border-zinc-800'
+    };
+    const iconColors = {
+        success: 'text-emerald-400',
+        error: 'text-red-400',
+        info: 'text-brand-400'
+    };
+    const Icon = type === 'success' ? CheckCircle : type === 'error' ? XCircle : Info;
+
+    return (
+        <div className={`fixed bottom-6 right-6 z-[100] flex items-center gap-3 px-4 py-3 rounded-lg border shadow-2xl backdrop-blur-md animate-slide-up ${bgColors[type]}`}>
+            <Icon size={18} className={iconColors[type]} />
+            <span className="text-sm font-medium text-white">{message}</span>
+            <button onClick={onClose} className="ml-2 text-zinc-500 hover:text-white"><XCircle size={14} /></button>
+        </div>
+    );
+};
+
 const App: React.FC = () => {
   
   // User State
   const [session, setSession] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<{tier: SubscriptionTier, credits: number, username?: string} | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const [isRedirecting, setIsRedirecting] = useState(false); // New state for payment redirect UI
+  const [isRedirecting, setIsRedirecting] = useState(false); 
 
   // Guest State (LocalStorage)
   const [guestCredits, setGuestCredits] = useState<number>(() => {
@@ -97,6 +145,7 @@ const App: React.FC = () => {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [appMode, setAppMode] = useState<'single' | 'batch'>('single');
   const [autoPose, setAutoPose] = useState(true);
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
 
   // Input State
   const [options, setOptions] = useState<PhotoshootOptions>({
@@ -131,10 +180,43 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const showToast = (message: string, type: 'success' | 'error' | 'info') => {
+      setToast({ message, type });
+  };
+
+  // --- DAILY RESET LOGIC (Client Side) ---
+  useEffect(() => {
+    // Guest Daily Reset
+    const today = new Date().toDateString();
+    const lastReset = localStorage.getItem('fashion_guest_date');
+    
+    // Initialize date if first visit
+    if (!lastReset) {
+         localStorage.setItem('fashion_guest_date', today);
+    } 
+    // If it's a new day, refill credits
+    else if (lastReset !== today) {
+        setGuestCredits(5);
+        localStorage.setItem('fashion_guest_credits', '5');
+        localStorage.setItem('fashion_guest_date', today);
+        showToast("New Day! Guest credits refilled to 5.", "success");
+    }
+  }, []);
+
   // --- HELPER: Handle Payment Redirect Logic ---
   const checkPendingPlan = async (userSession: any) => {
     if (!userSession) return;
     
+    // Check URL parameters for successful payment return
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('success') === 'true') {
+        showToast('Payment successful! Your credits have been updated.', 'success');
+        // Clean up URL
+        window.history.replaceState({}, '', window.location.pathname);
+        localStorage.removeItem('pending_plan');
+        return;
+    }
+
     const pendingPlan = localStorage.getItem('pending_plan');
     if (pendingPlan && pendingPlan !== SubscriptionTier.Free) {
         console.log("Found pending plan, initiating checkout...", pendingPlan);
@@ -169,9 +251,11 @@ const App: React.FC = () => {
       if (event === 'SIGNED_IN' && session) {
          await fetchProfile(session.user.id);
          await checkPendingPlan(session);
-         setShowLoginModal(false); // Close modal on success
+         setShowLoginModal(false);
+         showToast(`Welcome back!`, 'success');
       } else if (event === 'SIGNED_OUT') {
          setUserProfile(null);
+         showToast('Signed out successfully', 'info');
       }
     });
 
@@ -180,16 +264,39 @@ const App: React.FC = () => {
 
   const fetchProfile = async (userId: string) => {
     try {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
             .from('profiles')
             .select('tier, credits, username')
             .eq('id', userId)
             .single();
         
+        // Handle "Row not found" (PGRST116) by creating a profile manually
+        if (error && error.code === 'PGRST116') {
+             console.log("Profile missing for user, creating default profile...");
+             const { data: newProfile, error: createError } = await supabase
+                .from('profiles')
+                .insert([{
+                    id: userId,
+                    tier: SubscriptionTier.Free,
+                    credits: 5,
+                    username: 'Studio User'
+                }])
+                .select()
+                .single();
+
+             if (!createError && newProfile) {
+                 data = newProfile;
+                 error = null;
+             } else {
+                 console.error("Failed to create default profile:", createError);
+                 showToast("Error initializing profile", 'error');
+             }
+        }
+
         if (data) {
             setUserProfile({
                 tier: data.tier as SubscriptionTier || SubscriptionTier.Free,
-                credits: data.credits || 0,
+                credits: data.credits !== undefined ? data.credits : 0,
                 username: data.username
             });
         }
@@ -203,34 +310,30 @@ const App: React.FC = () => {
   // --- Handlers ---
   const handleAuth = async (email: string, password?: string, isSignUp?: boolean, username?: string) => {
       if (!isConfigured) {
-          alert("Database not connected.\n\nPlease go to Vercel > Settings > Environment Variables and add:\n- VITE_SUPABASE_URL\n- VITE_SUPABASE_ANON_KEY");
+          showToast("Database not configured. Check settings.", 'error');
           return;
       }
       
       if (!password) throw new Error("Password is required.");
 
       if (isSignUp) {
-          // Sign Up with Meta Data
           const { data, error } = await supabase.auth.signUp({
               email,
               password,
               options: {
+                emailRedirectTo: window.location.origin, 
                 data: {
-                    username: username, // Pass username to metadata
+                    username: username,
                     full_name: username
                 }
               }
           });
           if (error) throw error;
           
-          // Check for existing user identity if Supabase didn't throw error but returned empty user
           if (data.user && data.user.identities && data.user.identities.length === 0) {
               throw new Error("User already exists. Please sign in.");
           }
-
-          // Note: The UI for success is handled in LoginModal
       } else {
-          // Sign In
           const { error } = await supabase.auth.signInWithPassword({
               email,
               password,
@@ -246,79 +349,76 @@ const App: React.FC = () => {
       } catch (err) {
           console.error("Supabase signout error:", err);
       } finally {
-          // Force state clear regardless of network result
           setUserProfile(null);
           setSession(null);
           localStorage.removeItem('pending_plan');
       }
   };
 
-  const createCheckoutSession = async (priceId: string, currentSession: any) => {
-      try {
-        const response = await fetch('/api/create-checkout', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                priceId,
-                userId: currentSession?.user?.id,
-                email: currentSession?.user?.email,
-            }),
-        });
-
-        if (!response.ok) throw new Error('Network response was not ok');
-
-        const { url } = await response.json();
-        
-        if (url) {
-            window.location.href = url;
-        } else {
-            throw new Error("Unable to initiate checkout.");
-        }
-
-      } catch (err: any) {
-        console.error("Checkout Error:", err);
-        alert(err.message || "Payment System Unavailable");
-      }
-  };
-
+  // Lemon Squeezy Integration
   const handleUpgrade = async (tier: SubscriptionTier, explicitSession?: any) => {
-     // Use passed session or state session
      const activeSession = explicitSession || session;
 
      if (!activeSession) {
-         // Store intent and show login
          localStorage.setItem('pending_plan', tier);
          setShowLoginModal(true);
          return;
      }
 
-     // Mapping Tiers to Stripe Price IDs (Replace with your real Price IDs from Stripe Dashboard)
-     const PRICE_IDS = {
-         [SubscriptionTier.Creator]: 'price_1234_creator', 
-         [SubscriptionTier.Studio]: 'price_5678_studio'
-     };
-
      if (tier === SubscriptionTier.Free) return;
 
-     await createCheckoutSession(PRICE_IDS[tier], activeSession);
-     setShowUpgradeModal(false);
+     // Get Checkout URL from Environment Variables
+     // FORMAT: VITE_LEMON_SQUEEZY_CREATOR_URL=https://store.lemonsqueezy.com/checkout/buy/variant_...
+     const checkoutUrl = tier === SubscriptionTier.Creator 
+        ? import.meta.env.VITE_LEMON_SQUEEZY_CREATOR_URL 
+        : import.meta.env.VITE_LEMON_SQUEEZY_STUDIO_URL;
+
+     if (!checkoutUrl) {
+         showToast("Checkout configuration missing. Contact support.", "error");
+         console.error("Missing VITE_LEMON_SQUEEZY URL for tier:", tier);
+         return;
+     }
+
+     // Construct URL with Custom Data for Webhook
+     // We pass user_id so the webhook knows who to credit
+     // We pass email to pre-fill the checkout form
+     // We pass redirect_url to bring them back here
+     const redirectUrl = `${window.location.origin}/?success=true`;
+     const finalUrl = `${checkoutUrl}?checkout[email]=${activeSession.user.email}&checkout[custom][user_id]=${activeSession.user.id}&checkout[redirect_url]=${redirectUrl}`;
+
+     // Redirect
+     window.location.href = finalUrl;
   };
 
   const executeGeneration = async (currentOptions: PhotoshootOptions) => {
-      // 1. Determine Usage Mode (Guest vs User)
+      // 1. Calculate Cost
+      const cost = getGenerationCost(currentOptions);
+      
+      // 2. Determine Usage Mode (Guest vs User)
       const isGuest = !session;
+      const isFreeTier = session && userProfile?.tier === SubscriptionTier.Free;
 
+      // 3. Enforce Free/Guest Restrictions strictly
+      if (isGuest || isFreeTier) {
+          if (currentOptions.modelVersion === ModelVersion.Pro) {
+              showToast("Gemini 3 Pro is available on Creator plans.", "info");
+              setShowUpgradeModal(true);
+              return;
+          }
+      }
+
+      // 4. Check Credits based on Cost
       if (isGuest) {
-          if (guestCredits < 1) {
+          if (guestCredits < cost) {
+              showToast(guestCredits < 1 ? "Daily limit reached! Credits refill tomorrow." : "Not enough guest credits for this operation.", "info");
               setShowLoginModal(true);
               return;
           }
       } else {
           // Logged in user checks - recheck latest state
           if (!userProfile) return;
-          if (userProfile.credits < 1) {
+          if (userProfile.credits < cost) {
+              showToast(`Insufficient credits. This job requires ${cost} credits.`, "info");
               setShowUpgradeModal(true);
               return;
           }
@@ -336,11 +436,11 @@ const App: React.FC = () => {
 
         // Deduct Credits
         if (isGuest) {
-            const newGuestCredits = guestCredits - 1;
+            const newGuestCredits = guestCredits - cost;
             setGuestCredits(newGuestCredits);
             localStorage.setItem('fashion_guest_credits', newGuestCredits.toString());
         } else {
-            // Fetch fresh credits first to ensure atomic-like decrement
+            // Fetch fresh credits first
             const { data: freshProfile } = await supabase
                 .from('profiles')
                 .select('credits')
@@ -349,14 +449,14 @@ const App: React.FC = () => {
             
             const currentDbCredits = freshProfile?.credits || 0;
             
-            if (currentDbCredits > 0) {
+            if (currentDbCredits >= cost) {
                  const { error } = await supabase
                     .from('profiles')
-                    .update({ credits: currentDbCredits - 1 })
+                    .update({ credits: currentDbCredits - cost })
                     .eq('id', session.user.id);
                 
                 if (!error) {
-                     setUserProfile(prev => prev ? ({ ...prev, credits: currentDbCredits - 1 }) : null);
+                     setUserProfile(prev => prev ? ({ ...prev, credits: currentDbCredits - cost }) : null);
                 } else {
                     console.error("Failed to update credits in DB", error);
                 }
@@ -365,6 +465,7 @@ const App: React.FC = () => {
 
       } catch (err: any) {
         setError(err.message || 'Something went wrong during generation.');
+        showToast("Generation failed", 'error');
       } finally {
         setIsLoading(false);
       }
@@ -394,6 +495,7 @@ const App: React.FC = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      showToast("Image saved!", 'success');
     }
   };
 
@@ -401,11 +503,29 @@ const App: React.FC = () => {
     item.images.length > 0 || (item.description && item.description.trim().length > 0) || (item.garmentType && item.garmentType.trim().length > 0)
   );
 
-  // Allow premium features if session exists AND not free tier, OR just visually lock them
   const isPremium = session ? userProfile?.tier !== SubscriptionTier.Free : false;
   const isStudio = session ? userProfile?.tier === SubscriptionTier.Studio : false;
 
-  // --- Redirect Overlay ---
+  const handleModelSelect = (version: ModelVersion) => {
+      if (version === ModelVersion.Pro && !isPremium) {
+          setShowUpgradeModal(true);
+          return;
+      }
+      setOptions({ ...options, modelVersion: version });
+  };
+
+  const handleStyleSelect = (newStyle: string) => {
+      // Check if style is PRO
+      const isProStyle = PRO_STYLES.includes(newStyle as PhotoStyle);
+      if (isProStyle && !isPremium) {
+          setShowUpgradeModal(true);
+          return;
+      }
+      setOptions({ ...options, style: newStyle as PhotoStyle });
+  };
+
+  const currentCost = getGenerationCost(options);
+
   if (isRedirecting) {
       return (
         <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center">
@@ -421,7 +541,14 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen text-zinc-200 font-sans selection:bg-brand-500/99 selection:text-white">
       
-      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onAuth={handleAuth} />
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)} 
+        onAuth={handleAuth} 
+        showToast={showToast}
+      />
       <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} onUpgrade={(tier) => handleUpgrade(tier)} />
 
       <header className="fixed top-0 left-0 right-0 z-40 px-6 py-4 pointer-events-none">
@@ -493,28 +620,31 @@ const App: React.FC = () => {
                 </ConfigSection>
                 
                 <ConfigSection title="02 // Model & Set" icon={UserCircle} defaultOpen={true}>
-                    {/* Model Version Selector */}
                     <div className="mb-6 space-y-2">
                         <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1">
                             Model Engine
                         </label>
                         <div className="grid grid-cols-2 gap-2 bg-black p-1 rounded-lg border border-zinc-800">
                             <button
-                                onClick={() => setOptions({ ...options, modelVersion: ModelVersion.Flash })}
+                                onClick={() => handleModelSelect(ModelVersion.Flash)}
                                 className={`flex flex-col items-center justify-center py-3 px-2 rounded-md transition-all ${options.modelVersion === ModelVersion.Flash ? 'bg-zinc-800 border border-zinc-600 shadow-md ring-1 ring-white/10' : 'hover:bg-zinc-900 border border-transparent opacity-60 hover:opacity-100'}`}
                             >
                                 <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Flash ? 'text-white' : 'text-zinc-500'}`}>Flash</span>
-                                <span className="text-[8px] text-zinc-400 font-mono">Fast / Std</span>
+                                <span className="text-[8px] text-zinc-400 font-mono">1 Credit</span>
                             </button>
                             <button
-                                onClick={() => setOptions({ ...options, modelVersion: ModelVersion.Pro })}
+                                onClick={() => handleModelSelect(ModelVersion.Pro)}
                                 className={`flex flex-col items-center justify-center py-3 px-2 rounded-md transition-all relative overflow-hidden ${options.modelVersion === ModelVersion.Pro ? 'bg-brand-900/40 border border-brand-500 shadow-md ring-1 ring-brand-400/50' : 'hover:bg-zinc-900 border border-transparent opacity-60 hover:opacity-100'}`}
                             >
                                 <div className="absolute top-0 right-0 p-1">
-                                    <Star size={6} className="text-brand-400 fill-brand-400" />
+                                    {isPremium ? (
+                                        <Star size={6} className="text-brand-400 fill-brand-400" />
+                                    ) : (
+                                        <Lock size={8} className="text-zinc-500" />
+                                    )}
                                 </div>
                                 <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Pro ? 'text-brand-200' : 'text-zinc-500'}`}>Pro</span>
-                                <span className="text-[8px] text-zinc-500 font-mono">High Quality</span>
+                                <span className="text-[8px] text-zinc-500 font-mono">10 Credits</span>
                             </button>
                         </div>
                     </div>
@@ -531,14 +661,14 @@ const App: React.FC = () => {
                       <div className="relative group">
                         <select
                           value={options.style}
-                          onChange={(e) => setOptions({ ...options, style: e.target.value as PhotoStyle })}
+                          onChange={(e) => handleStyleSelect(e.target.value)}
                           className="w-full appearance-none bg-black border border-zinc-800 text-white text-xs font-mono uppercase rounded-none px-4 py-3 focus:border-brand-500 focus:outline-none transition-all cursor-pointer group-hover:border-zinc-700"
                         >
                           <optgroup label="Standard">
                             {STANDARD_STYLES.map(style => (<option key={style} value={style}>{style}</option>))}
                           </optgroup>
                           <optgroup label="Editorial (Pro)">
-                            {PRO_STYLES.map(style => (<option key={style} value={style}>{!isStudio ? '🔒 ' : ''} {style}</option>))}
+                            {PRO_STYLES.map(style => (<option key={style} value={style}>{!isPremium ? '🔒 ' : ''} {style}</option>))}
                           </optgroup>
                         </select>
                         <div className="absolute right-0 top-0 bottom-0 w-8 flex items-center justify-center pointer-events-none border-l border-zinc-800 bg-zinc-900/50">
@@ -581,8 +711,11 @@ const App: React.FC = () => {
                         </>
                     )}
                 </button>
-                <div className="text-center mt-2">
-                    <span className="text-[10px] text-zinc-600 font-mono">Cost: 1 Credit</span>
+                <div className="flex justify-between items-center mt-2 px-1">
+                    <span className="text-[10px] text-zinc-600 font-mono">Est. Time: {options.modelVersion === ModelVersion.Pro ? '15s' : '4s'}</span>
+                    <span className="text-[10px] font-bold text-zinc-400 font-mono flex items-center gap-1">
+                        Cost: {currentCost} Credit{currentCost > 1 ? 's' : ''}
+                    </span>
                 </div>
             </div>
 

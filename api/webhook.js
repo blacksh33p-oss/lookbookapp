@@ -1,10 +1,6 @@
-
-import Stripe from 'stripe';
+import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { buffer } from 'micro';
-
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // Initialize Supabase (Service Role)
 // We need the SERVICE_ROLE_KEY to bypass Row Level Security and write credits
@@ -24,47 +20,81 @@ export default async function handler(req, res) {
     return res.status(405).send('Method Not Allowed');
   }
 
-  const buf = await buffer(req);
-  const sig = req.headers['stripe-signature'];
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-  let event;
-
   try {
-    event = stripe.webhooks.constructEvent(buf, sig, webhookSecret);
+    const rawBody = await buffer(req);
+    const signature = req.headers['x-signature'];
+    const secret = process.env.LEMONSQUEEZY_WEBHOOK_SECRET;
+
+    // 1. Verify Signature
+    const hmac = crypto.createHmac('sha256', secret);
+    const digest = hmac.update(rawBody).digest('hex');
+
+    if (digest !== signature) {
+      return res.status(401).send('Invalid signature');
+    }
+
+    const payload = JSON.parse(rawBody.toString());
+    const eventName = payload.meta.event_name;
+    
+    // 2. Process Order Creation
+    if (eventName === 'order_created' || eventName === 'subscription_created') {
+        const { attributes } = payload.data;
+        
+        // Extract the Custom Data we sent from the frontend
+        // Format: { user_id: "...", ... }
+        const customData = payload.meta.custom_data;
+        const userId = customData?.user_id;
+        
+        if (!userId) {
+            console.error('Webhook Error: No user_id found in custom_data');
+            return res.status(200).send('No user_id provided, ignoring.');
+        }
+
+        // Determine Plan & Credits
+        // In a real app, map the 'variant_id' to specific credit amounts
+        const variantId = attributes.variant_id;
+        
+        // Example mapping logic (customize based on your actual Variant IDs from Lemon Squeezy)
+        // You can also check attributes.first_order_item.product_name
+        let newCredits = 0;
+        let newTier = 'Free';
+        
+        const productName = attributes.first_order_item.product_name.toLowerCase();
+        
+        if (productName.includes('creator')) {
+            newCredits = 500;
+            newTier = 'Creator';
+        } else if (productName.includes('studio')) {
+            newCredits = 2000;
+            newTier = 'Studio';
+        }
+
+        // 3. Update Supabase
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('credits')
+            .eq('id', userId)
+            .single();
+        
+        const currentCredits = profile?.credits || 0;
+        
+        const { error } = await supabase
+            .from('profiles')
+            .update({ 
+                credits: currentCredits + newCredits,
+                tier: newTier
+            })
+            .eq('id', userId);
+
+        if (error) {
+            console.error('Supabase Update Error:', error);
+            return res.status(500).send('Database Update Failed');
+        }
+    }
+
+    res.status(200).json({ received: true });
   } catch (err) {
     console.error(`Webhook Error: ${err.message}`);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+    res.status(500).send(`Webhook Error: ${err.message}`);
   }
-
-  // Handle the event
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
-    const userId = session.metadata.userId;
-
-    if (userId) {
-      // 1. Fetch current credits
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('credits')
-        .eq('id', userId)
-        .single();
-
-      const currentCredits = profile?.credits || 0;
-      
-      // 2. Add 100 credits (simplified for demo)
-      // In a real app, you'd lookup the priceId to decide how many credits to add
-      const { error } = await supabase
-        .from('profiles')
-        .update({ credits: currentCredits + 100, tier: 'Creator' })
-        .eq('id', userId);
-
-      if (error) {
-        console.error('Error updating credits:', error);
-        return res.status(500).send('Database Update Failed');
-      }
-    }
-  }
-
-  res.status(200).json({ received: true });
 }
