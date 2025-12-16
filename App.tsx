@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.4.31-TrueBalance"; 
+const APP_VERSION = "v1.4.32-SessionFix"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -348,12 +348,11 @@ const App: React.FC = () => {
       setSession(session);
       if (event === 'SIGNED_IN' && session) {
          setShowLoginModal(false);
-         // REMOVED: No optimistic update to "5". 
-         // We simply wait for fetchProfile to get the true DB value.
-         // This ensures users with 464 credits don't see "5" flash.
-         
-         await fetchProfile(session.user.id, session.user.email);
-         await checkPendingPlan(session);
+         // DELAY FIX: Small delay to ensure session is fully propagated for RLS policies
+         setTimeout(() => {
+             fetchProfile(session.user.id, session.user.email);
+             checkPendingPlan(session);
+         }, 300);
          showToast(`Welcome back!`, 'success');
       } else if (event === 'SIGNED_OUT') {
          setUserProfile(null);
@@ -406,10 +405,20 @@ const App: React.FC = () => {
     };
   }, [session?.user?.id]); 
 
-  const fetchProfile = async (userId: string, email?: string) => {
+  const fetchProfile = async (userId: string, email?: string, retry = true) => {
     try {
         let { data, error } = await supabase.from('profiles').select('tier, credits').eq('id', userId).single();
         
+        // RETRY LOGIC: If network error or unknown, try once more
+        if (error && retry) {
+            await new Promise(r => setTimeout(r, 500));
+            const retryResult = await supabase.from('profiles').select('tier, credits').eq('id', userId).single();
+            if (!retryResult.error) {
+                data = retryResult.data;
+                error = null;
+            }
+        }
+
         if (error && error.code === 'PGRST116') {
              // Profile doesn't exist - Create it (Default to 5 for new users)
              const { data: newProfile, error: createError } = await supabase
@@ -441,9 +450,14 @@ const App: React.FC = () => {
         }
     } catch (e) {
         console.error("Profile fetch error", e);
-        // On error, do NOT force 5. Keep previous state or let it be null (loading)
-        // This prevents overwriting valid cached data with a default "5"
-        setUserProfile(prev => prev || null);
+        // CRITICAL FIX: If all fetches fail, DO NOT leave userProfile as null (infinite spinner).
+        // Set a fallback state so the app is usable, even if credits might be out of sync temporarily.
+        setUserProfile(prev => prev || {
+            tier: SubscriptionTier.Free,
+            credits: 0, // Fallback to 0 if we can't connect, better than spinning.
+            username: email ? email.split('@')[0] : 'Studio User'
+        });
+        showToast("Connection issue. Showing cached/default credits.", "info");
     } finally {
         setIsAuthLoading(false);
     }
