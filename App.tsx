@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.4.29-StableCredits"; 
+const APP_VERSION = "v1.4.30-CreditLock"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -348,11 +348,18 @@ const App: React.FC = () => {
       setSession(session);
       if (event === 'SIGNED_IN' && session) {
          setShowLoginModal(false);
-         // 1. Optimistic Set: Default to 5 credits so UI isn't empty/zero
-         setUserProfile({ 
-            tier: SubscriptionTier.Free, 
-            credits: 5, 
-            username: session.user.email?.split('@')[0] || 'User' 
+         
+         // Fix: Only optimistic set if we don't have a profile yet (avoid flashing 5 if we have 464 in cache)
+         setUserProfile((prev) => {
+             // If we already have a loaded profile, do NOT overwrite it with default 5
+             // This prevents the "464 -> 5 -> 464" flash/corruption
+             if (prev && prev.credits !== undefined) return prev;
+             
+             return { 
+                tier: SubscriptionTier.Free, 
+                credits: 5, 
+                username: session.user.email?.split('@')[0] || 'User' 
+             };
          });
          
          // 2. Real Fetch
@@ -427,17 +434,15 @@ const App: React.FC = () => {
         }
 
         // Auto-Repair 0 Credit Glitch for Free Users
-        // If DB has 0 or null, attempt update. Even if update fails (RLS), Force 5 locally.
         if (data && data.tier === SubscriptionTier.Free && (data.credits === 0 || data.credits === null)) {
             await supabase.from('profiles').update({ credits: 5 }).eq('id', userId);
-            // Force local override to 5 regardless of DB response (in case RLS blocks update)
             data.credits = 5;
         }
 
         if (data) {
             const finalProfile = {
                 tier: data.tier as SubscriptionTier || SubscriptionTier.Free,
-                credits: data.credits ?? 5, // Fallback to 5 if still null
+                credits: data.credits ?? 5, 
                 username: email ? email.split('@')[0] : 'Studio User'
             };
             setUserProfile(finalProfile);
@@ -445,8 +450,8 @@ const App: React.FC = () => {
         }
     } catch (e) {
         console.error("Profile fetch error", e);
-        // CRITICAL: Do NOT overwrite valid state with an error state (0)
-        // Only set fallback if we have NO data at all.
+        // CRITICAL: Do NOT overwrite valid state with an error state
+        // Use functional update to ensure we keep existing credits if possible
         setUserProfile(prev => prev ? prev : {
             tier: SubscriptionTier.Free,
             credits: 5,
