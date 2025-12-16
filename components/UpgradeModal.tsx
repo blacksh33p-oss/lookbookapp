@@ -219,6 +219,11 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                     <div className="text-[10px] uppercase tracking-widest text-zinc-500">Expert Support</div>
                  </div>
             </div>
+
+            <p className="text-center text-xs text-zinc-600 mt-8">
+                Enterprise Batch API available for volume &gt;1000/mo. Contact sales.
+            </p>
+
         </div>
       </div>
     </div>
