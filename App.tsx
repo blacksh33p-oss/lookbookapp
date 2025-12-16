@@ -465,7 +465,7 @@ const App: React.FC = () => {
                     <OutfitControl outfit={options.outfit} onChange={(newOutfit) => setOptions({ ...options, outfit: newOutfit })} />
                 </ConfigSection>
                 
-                <ConfigSection title="02 // Model & Set" icon={UserCircle}>
+                <ConfigSection title="02 // Model & Set" icon={UserCircle} defaultOpen={true}>
                     {/* Model Version Selector */}
                     <div className="mb-6 space-y-2">
                         <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1">
@@ -474,14 +474,14 @@ const App: React.FC = () => {
                         <div className="grid grid-cols-2 gap-2 bg-black p-1 rounded-lg border border-zinc-800">
                             <button
                                 onClick={() => setOptions({ ...options, modelVersion: ModelVersion.Flash })}
-                                className={`flex flex-col items-center justify-center py-2 px-2 rounded-md transition-all ${options.modelVersion === ModelVersion.Flash ? 'bg-zinc-800 border border-zinc-700 shadow-sm' : 'hover:bg-zinc-900 border border-transparent'}`}
+                                className={`flex flex-col items-center justify-center py-3 px-2 rounded-md transition-all ${options.modelVersion === ModelVersion.Flash ? 'bg-zinc-800 border border-zinc-700 shadow-sm' : 'hover:bg-zinc-900 border border-transparent opacity-60 hover:opacity-100'}`}
                             >
                                 <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Flash ? 'text-white' : 'text-zinc-500'}`}>Flash</span>
                                 <span className="text-[8px] text-zinc-600 font-mono">Fast / Std</span>
                             </button>
                             <button
                                 onClick={() => setOptions({ ...options, modelVersion: ModelVersion.Pro })}
-                                className={`flex flex-col items-center justify-center py-2 px-2 rounded-md transition-all relative overflow-hidden ${options.modelVersion === ModelVersion.Pro ? 'bg-brand-900/20 border border-brand-500/50 shadow-sm' : 'hover:bg-zinc-900 border border-transparent'}`}
+                                className={`flex flex-col items-center justify-center py-3 px-2 rounded-md transition-all relative overflow-hidden ${options.modelVersion === ModelVersion.Pro ? 'bg-brand-900/20 border border-brand-500/50 shadow-sm' : 'hover:bg-zinc-900 border border-transparent opacity-60 hover:opacity-100'}`}
                             >
                                 <div className="absolute top-0 right-0 p-1">
                                     <Star size={6} className="text-brand-400 fill-brand-400" />

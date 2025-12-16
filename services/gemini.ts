@@ -211,8 +211,12 @@ export const generatePhotoshootImage = async (
     
     let msg = error.message || "Failed to generate image.";
     
+    // Handle Permission Denied (403) explicitly
+    if (msg.includes('403') || msg.includes('PERMISSION_DENIED')) {
+        msg = `PERMISSION DENIED (403): The API Key does not have access to the selected model (${options.modelVersion === ModelVersion.Pro ? 'Gemini 3 Pro' : 'Gemini 2.5 Flash'}).\n\nPOSSIBLE FIXES:\n1. Ensure 'Generative Language API' is enabled in Google Cloud Console.\n2. Verify your API Key is valid.\n3. Try switching to the 'Flash' model if 'Pro' is restricted.`;
+    }
     // Enhance Error Message for Leaked Keys
-    if (msg.includes('leaked') || msg.includes('Permission denied')) {
+    else if (msg.includes('leaked') || msg.includes('Permission denied')) {
         msg = "ACCESS DENIED: Your API Key has been blocked by Google because it was detected in a public environment.\n\nACTION REQUIRED:\n1. Go to Google AI Studio\n2. Generate a NEW API Key\n3. Update your Vercel Environment Variables\n4. Redeploy.";
     } 
     // Handle JSON error messages
@@ -220,7 +224,9 @@ export const generatePhotoshootImage = async (
         try {
             const parsed = JSON.parse(msg);
             if (parsed.error && parsed.error.message) {
-                if (parsed.error.message.includes('leaked')) {
+                 if (parsed.error.code === 403) {
+                      msg = `PERMISSION DENIED (403): API Key access restricted for model ${options.modelVersion === ModelVersion.Pro ? 'Gemini 3 Pro' : 'Gemini 2.5 Flash'}. Check Google Cloud Console settings.`;
+                 } else if (parsed.error.message.includes('leaked')) {
                      msg = "ACCESS DENIED: Your API Key has been blocked by Google because it was detected in a public environment.\n\nACTION REQUIRED:\n1. Go to Google AI Studio\n2. Generate a NEW API Key\n3. Update your Vercel Environment Variables\n4. Redeploy.";
                 } else {
                     msg = parsed.error.message;
