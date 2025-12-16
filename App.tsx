@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, Clock, GitCommit, Crown, RotateCw, X, Loader2 } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, Clock, GitCommit, Crown, RotateCw, X, Loader2, Palette } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -59,6 +59,8 @@ const getGenerationCost = (options: PhotoshootOptions): number => {
     return cost;
 };
 
+// --- Sub-Components ---
+
 // Reusable Section Component
 interface ConfigSectionProps {
   title: string;
@@ -92,6 +94,53 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({ title, icon: Icon, childr
       )}
     </div>
   );
+};
+
+// Style Button for "Peek-a-boo" UI
+interface StyleButtonProps {
+    label: string;
+    isSelected: boolean;
+    isLocked?: boolean;
+    onClick: () => void;
+}
+const StyleButton: React.FC<StyleButtonProps> = ({ label, isSelected, isLocked, onClick }) => {
+    // Extract simple name from enum string "Name (Description)"
+    const simpleName = label.split('(')[0].trim();
+    
+    return (
+        <button
+            onClick={onClick}
+            className={`relative p-3 rounded-lg border text-left transition-all group overflow-hidden min-h-[3.5rem] flex flex-col justify-center
+            ${isSelected 
+                ? 'bg-brand-500/10 border-brand-500 text-white ring-1 ring-brand-500' 
+                : 'bg-zinc-900/40 border-zinc-800'
+            }
+            ${isLocked && !isSelected ? 'opacity-80 hover:opacity-100 hover:border-brand-500/40' : 'hover:border-zinc-600'}
+            `}
+        >
+            {/* Label */}
+            <span className={`text-[9px] font-bold uppercase tracking-widest z-10 relative ${isSelected ? 'text-brand-300' : 'text-zinc-400 group-hover:text-zinc-200'}`}>
+                {simpleName}
+            </span>
+            
+            {/* Locked Overlay - The "Peek-a-boo" Glass Effect */}
+            {isLocked && !isSelected && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/40 backdrop-blur-sm">
+                    <div className="bg-black/90 px-2 py-1 rounded-full border border-brand-500/30 shadow-[0_0_15px_rgba(139,92,246,0.3)] flex items-center gap-1.5 transform scale-90 group-hover:scale-100 transition-transform">
+                        <Lock size={10} className="text-brand-400" />
+                        <span className="text-[8px] font-bold text-white uppercase tracking-wider">Unlock</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Static Lock Icon (when not hovering) */}
+            {isLocked && (
+                <div className="absolute top-1.5 right-1.5 opacity-40 group-hover:opacity-0 transition-opacity">
+                    <Lock size={10} className="text-zinc-500" />
+                </div>
+            )}
+        </button>
+    );
 };
 
 // --- Toast Component ---
@@ -871,25 +920,37 @@ const App: React.FC = () => {
                         <Dropdown label="Ethnicity" value={options.ethnicity} options={Object.values(ModelEthnicity)} onChange={(val) => setOptions({ ...options, ethnicity: val })} />
                         <Dropdown label="Mood" value={options.facialExpression} options={Object.values(FacialExpression)} onChange={(val) => setOptions({ ...options, facialExpression: val })} />
                     </div>
+                    
+                    {/* Updated Art Direction Section with Visual Selectors */}
                     <div className="border-t border-dashed border-zinc-800 my-4"></div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Art Direction</label>
-                      <div className="relative group">
-                        <select
-                          value={options.style}
-                          onChange={(e) => handleStyleSelect(e.target.value)}
-                          className="w-full appearance-none bg-black border border-zinc-800 text-white text-xs font-mono uppercase rounded-none px-4 py-3 focus:border-brand-500 focus:outline-none transition-all cursor-pointer group-hover:border-zinc-700"
-                        >
-                          <optgroup label="Standard">
-                            {STANDARD_STYLES.map(style => (<option key={style} value={style}>{style}</option>))}
-                          </optgroup>
-                          <optgroup label="Editorial (Pro)">
-                            {PRO_STYLES.map(style => (<option key={style} value={style}>{!isPremium ? '🔒 ' : ''} {style}</option>))}
-                          </optgroup>
-                        </select>
-                        <div className="absolute right-0 top-0 bottom-0 w-8 flex items-center justify-center pointer-events-none border-l border-zinc-800 bg-zinc-900/50">
-                            <ChevronDown size={14} className="text-zinc-500" />
-                        </div>
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                        <Palette size={12} /> Art Direction
+                      </label>
+                      <div className="grid grid-cols-2 gap-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                         {STANDARD_STYLES.map(style => (
+                            <StyleButton 
+                                key={style}
+                                label={style}
+                                isSelected={options.style === style}
+                                onClick={() => handleStyleSelect(style)}
+                            />
+                         ))}
+                         
+                         {/* Divider */}
+                         <div className="col-span-2 text-[9px] font-bold text-zinc-600 uppercase tracking-widest mt-2 mb-1 pl-1 flex items-center gap-2">
+                            Pro Styles <div className="h-px bg-zinc-800 flex-1"></div>
+                         </div>
+
+                         {PRO_STYLES.map(style => (
+                            <StyleButton 
+                                key={style}
+                                label={style}
+                                isSelected={options.style === style}
+                                isLocked={!isPremium}
+                                onClick={() => handleStyleSelect(style)}
+                            />
+                         ))}
                       </div>
                     </div>
                 </ConfigSection>

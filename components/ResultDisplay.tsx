@@ -10,6 +10,15 @@ interface ResultDisplayProps {
   error: string | null;
 }
 
+const LOADING_STATES = [
+    { text: "INITIALIZING_TENSORS", sub: "Allocating GPU Memory..." },
+    { text: "ANALYZING_GEOMETRY", sub: "Mapping Cloth Physics..." },
+    { text: "CALCULATING_LIGHT_BOUNCE", sub: "Raytracing Global Illumination..." },
+    { text: "SYNTHESIZING_TEXTURES", sub: "Generating High-Fidelity Details..." },
+    { text: "REFINING_DETAILS", sub: "Applying Tyndall Effect..." },
+    { text: "FINALIZING_OUTPUT", sub: "Compositing Final Frame..." }
+];
+
 export const ResultDisplay: React.FC<ResultDisplayProps> = ({ 
     isLoading, 
     image, 
@@ -19,6 +28,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
     error 
 }) => {
   const [showMenu, setShowMenu] = useState(false);
+  const [loadingIndex, setLoadingIndex] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -31,8 +41,20 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Semantic Loading Loop
+  useEffect(() => {
+    if (isLoading) {
+        setLoadingIndex(0); // Reset on start
+        const interval = setInterval(() => {
+            setLoadingIndex((prev) => (prev + 1) % LOADING_STATES.length);
+        }, 1200); // Change state every 1.2s
+        return () => clearInterval(interval);
+    }
+  }, [isLoading]);
+
   // --- Loading State ---
   if (isLoading) {
+    const currentStep = LOADING_STATES[loadingIndex];
     return (
       <div className="h-full w-full bg-zinc-900/20 border border-white/5 flex flex-col items-center justify-center relative overflow-hidden">
         <div className="absolute inset-0 bg-noise opacity-20"></div>
@@ -40,13 +62,24 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
              <div className="h-full bg-white animate-progress"></div>
         </div>
         
-        <div className="relative z-10 flex flex-col items-center animate-fade-in gap-6">
-            <div className="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-zinc-600 tracking-tighter opacity-50">
-                RENDERING
+        <div className="relative z-10 flex flex-col items-center animate-fade-in gap-8 max-w-xs text-center">
+            <div className="relative">
+                 <div className="absolute inset-0 bg-brand-500 blur-3xl opacity-20 animate-pulse-slow"></div>
+                 <div className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-zinc-600 tracking-tighter opacity-80 animate-pulse">
+                    RENDERING
+                 </div>
             </div>
-            <div className="flex flex-col items-center gap-2">
-                <span className="font-mono text-xs text-brand-400">/// PROCESSING_TENSORS</span>
-                <span className="font-mono text-[10px] text-zinc-500">Calculating Lighting Physics...</span>
+            
+            <div className="flex flex-col items-center gap-3 w-full">
+                <div className="h-px w-12 bg-zinc-800"></div>
+                <div className="flex flex-col gap-1 items-center">
+                    <span className="font-mono text-xs text-brand-400 font-bold tracking-wider">
+                        /// {currentStep.text}
+                    </span>
+                    <span className="font-mono text-[10px] text-zinc-500">
+                        {currentStep.sub}
+                    </span>
+                </div>
             </div>
         </div>
       </div>

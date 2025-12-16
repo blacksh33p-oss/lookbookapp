@@ -221,7 +221,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
             </div>
 
             <p className="text-center text-xs text-zinc-600 mt-8">
-                Enterprise Batch API available for volume over 1,000/mo. Contact sales.
+                Enterprise Batch API available for volume exceeding 1,000/mo. Contact sales.
             </p>
 
         </div>
