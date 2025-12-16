@@ -25,8 +25,6 @@ export const generatePhotoshootImage = async (
   options: PhotoshootOptions
 ): Promise<string> => {
   
-  // Usage of process.env.API_KEY is mandatory.
-  // We strictly rely on the bundler (Vite) to inject this via the 'define' config.
   const API_KEY = process.env.API_KEY;
 
   if (!API_KEY) {
@@ -37,7 +35,7 @@ export const generatePhotoshootImage = async (
 
   const ai = new GoogleGenAI({ apiKey: API_KEY });
 
-  // 1. Model & Body Prompt
+  // 1. Prompt Construction
   const unit = options.measurementUnit;
   const heightStr = options.height ? `Model Height: ${options.height} ${unit}` : 'Height: Standard Model Height';
   const bodyTypeStr = `Body Type: ${options.bodyType}`;
@@ -52,17 +50,12 @@ export const generatePhotoshootImage = async (
     ? `Measurements: ${measureList.join(', ')}` 
     : '';
 
-  // 2. Outfit Composition Strategy
+  // 2. Outfit Strategy
   const outfitParts: string[] = [];
   const imageInputs: { type: string; data: string }[] = [];
 
-  // Helper to process each outfit slot
   const processSlot = (role: string, item: OutfitItem) => {
-    // Check if we have images (array) or manual description
     const hasImages = item.images && item.images.length > 0;
-    
-    // Valid if it has images OR visual description OR specific garment type
-    // If it's just an empty slot with no info, skip it.
     if (!item.garmentType && !hasImages && !item.description) return;
 
     const label = item.garmentType || role;
@@ -71,22 +64,14 @@ export const generatePhotoshootImage = async (
     if (item.description) description += `. Visuals: ${item.description}`;
     if (item.fitNotes) description += `. Fit: ${item.fitNotes}`;
     
-    // Add multiple product images
     if (hasImages) {
       item.images.forEach((img: string, idx: number) => {
           imageInputs.push({ type: `${role} Reference ${idx + 1}`, data: img });
       });
     }
     
-    // Add Size Chart Image
-    if (item.sizeChart) {
-      imageInputs.push({ type: `${role} Size Chart`, data: item.sizeChart });
-    }
-    
-    // Add Manual Size Details
-    if (item.sizeChartDetails) {
-        description += `. Specs: ${item.sizeChartDetails}`;
-    }
+    if (item.sizeChart) imageInputs.push({ type: `${role} Size Chart`, data: item.sizeChart });
+    if (item.sizeChartDetails) description += `. Specs: ${item.sizeChartDetails}`;
 
     outfitParts.push(description);
   };
@@ -100,7 +85,6 @@ export const generatePhotoshootImage = async (
     throw new Error("Please configure at least one item in the Outfit Composition section.");
   }
 
-  // Handle Character Reference Image (for "Same Model" consistency)
   if (options.referenceModelImage) {
       imageInputs.push({ type: 'CHARACTER_REFERENCE', data: options.referenceModelImage });
   }
@@ -109,21 +93,12 @@ export const generatePhotoshootImage = async (
     ? `SCENE: ${options.sceneDetails}`
     : `SCENE: Professional ${options.style} setting.`;
 
-  // 3. Construct the Master Prompt
   const hasImages = imageInputs.length > 0;
   const hasRefImage = !!options.referenceModelImage;
   
   const taskInstructions = hasImages 
     ? "Composite a photorealistic full-body fashion image. Use the provided product images. Dress the model in these exact items. For items described only by text, generate them photorealistically."
     : "Generate a photorealistic full-body fashion image based on the text descriptions. Create high-fidelity garments.";
-
-  const criticalInstructions = `
-    1. **Product Fidelity**: Match provided reference images exactly (Color, Texture, Shape).
-    2. **Model**: ${hasRefImage ? 'Use the provided CHARACTER_REFERENCE image for the face/body identity. Keep identity consistent.' : 'Create the model based on the specifications.'}
-    3. **Fit**: Adhere to fit requirements.
-    4. **Composition**: Full body shot unless specified otherwise.
-    5. **Format**: OUTPUT ONLY THE IMAGE. NO TEXT.
-  `;
 
   const prompt = `
     Create a high-fashion lookbook image.
@@ -150,91 +125,92 @@ export const generatePhotoshootImage = async (
 
     TASK:
     ${taskInstructions}
-    ${criticalInstructions}
+    1. **Product Fidelity**: Match provided reference images exactly (Color, Texture, Shape).
+    2. **Model**: ${hasRefImage ? 'Use the provided CHARACTER_REFERENCE image for the face/body identity.' : 'Create the model based on the specifications.'}
+    3. **Format**: OUTPUT ONLY THE IMAGE. NO TEXT.
 
     IMPORTANT: Do not output any text. Just generate the image.
   `;
 
-  try {
-    const modelName = getModelName(options.modelVersion);
-    
-    // 4. Prepare Content Parts
-    const parts: any[] = [{ text: prompt }];
+  // 4. Execution Helper with Fallback
+  const executeGeneration = async (modelName: string, config: any) => {
+      const parts: any[] = [{ text: prompt }];
+      imageInputs.forEach(img => {
+        parts.push({
+          inlineData: {
+            mimeType: getMimeType(img.data),
+            data: extractBase64(img.data)
+          }
+        });
+      });
 
-    // Append All Images (Product Shots + Size Charts + Reference Model)
-    imageInputs.forEach(img => {
-      parts.push({
-        inlineData: {
-          mimeType: getMimeType(img.data),
-          data: extractBase64(img.data)
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: { parts },
+        config: {
+          imageConfig: config,
+          seed: options.seed
         }
       });
-    });
 
-    // Configure Image Options
-    const imageConfig: any = {
-      aspectRatio: options.aspectRatio
-    };
+      if (response.candidates && response.candidates[0].content && response.candidates[0].content.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData && part.inlineData.data) {
+            return `data:image/png;base64,${part.inlineData.data}`;
+          }
+        }
+      }
+      
+      if (response.text) {
+          throw new Error(`Model returned text instead of image: ${response.text.substring(0, 100)}...`);
+      }
+      throw new Error("No image generated in response.");
+  };
 
-    // Only enable 4K if explicitly requested AND using Pro model
+  try {
+    const targetModel = getModelName(options.modelVersion);
+    
+    const imageConfig: any = { aspectRatio: options.aspectRatio };
     if (options.modelVersion === ModelVersion.Pro && options.enable4K) {
       imageConfig.imageSize = '4K';
     }
 
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: { parts },
-      config: {
-        imageConfig,
-        seed: options.seed
-      }
-    });
-
-    if (response.candidates && response.candidates[0].content && response.candidates[0].content.parts) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData && part.inlineData.data) {
-          return `data:image/png;base64,${part.inlineData.data}`;
+    // ATTEMPT 1: Target Model
+    try {
+        return await executeGeneration(targetModel, imageConfig);
+    } catch (err: any) {
+        // Check for Permission/Existence errors to trigger fallback
+        const errMsg = JSON.stringify(err);
+        const isPermissionError = errMsg.includes('403') || errMsg.includes('PERMISSION_DENIED') || errMsg.includes('not found');
+        
+        // If it failed and we were trying to use Pro, fallback to Flash
+        if (isPermissionError && options.modelVersion === ModelVersion.Pro) {
+            console.warn("Pro model failed (403/404). Falling back to Flash model automatically.");
+            
+            // Remove 4K config as Flash doesn't support it in the same way or might handle it differently
+            const fallbackConfig = { aspectRatio: options.aspectRatio }; 
+            return await executeGeneration(getModelName(ModelVersion.Flash), fallbackConfig);
         }
-      }
+        
+        throw err; // Re-throw if it's not a recoverable permission error or already using Flash
     }
-    
-    const textOutput = response.text;
-    if (textOutput) {
-       console.warn("Model returned text instead of image:", textOutput);
-       throw new Error(`Generation failed (Model returned text). Try again or adjust prompt.`);
-    }
-    
-    throw new Error("No image generated.");
 
   } catch (error: any) {
     console.error("Gemini API Error:", error);
     
     let msg = error.message || "Failed to generate image.";
     
-    // Handle Permission Denied (403) explicitly
-    if (msg.includes('403') || msg.includes('PERMISSION_DENIED')) {
-        msg = `PERMISSION DENIED (403): The API Key does not have access to the selected model (${options.modelVersion === ModelVersion.Pro ? 'Gemini 3 Pro' : 'Gemini 2.5 Flash'}).\n\nPOSSIBLE FIXES:\n1. Ensure 'Generative Language API' is enabled in Google Cloud Console.\n2. Verify your API Key is valid.\n3. Try switching to the 'Flash' model if 'Pro' is restricted.`;
-    }
-    // Enhance Error Message for Leaked Keys
-    else if (msg.includes('leaked') || msg.includes('Permission denied')) {
-        msg = "ACCESS DENIED: Your API Key has been blocked by Google because it was detected in a public environment.\n\nACTION REQUIRED:\n1. Go to Google AI Studio\n2. Generate a NEW API Key\n3. Update your Vercel Environment Variables\n4. Redeploy.";
-    } 
-    // Handle JSON error messages
-    else if (msg.includes('{')) {
-        try {
-            const parsed = JSON.parse(msg);
-            if (parsed.error && parsed.error.message) {
-                 if (parsed.error.code === 403) {
-                      msg = `PERMISSION DENIED (403): API Key access restricted for model ${options.modelVersion === ModelVersion.Pro ? 'Gemini 3 Pro' : 'Gemini 2.5 Flash'}. Check Google Cloud Console settings.`;
-                 } else if (parsed.error.message.includes('leaked')) {
-                     msg = "ACCESS DENIED: Your API Key has been blocked by Google because it was detected in a public environment.\n\nACTION REQUIRED:\n1. Go to Google AI Studio\n2. Generate a NEW API Key\n3. Update your Vercel Environment Variables\n4. Redeploy.";
-                } else {
-                    msg = parsed.error.message;
-                }
-            }
-        } catch (e) {
-            // keep original msg
+    // Attempt to parse JSON error message from Google
+    try {
+        if (msg.includes('{')) {
+             const parsed = JSON.parse(msg);
+             if (parsed.error && parsed.error.message) msg = parsed.error.message;
         }
+    } catch(e) {}
+
+    // Final user-friendly message formatting
+    if (msg.includes('403') || msg.includes('PERMISSION_DENIED')) {
+        msg = `ACCESS DENIED (403): Your API Key cannot access the Gemini Model. \n\n1. Enable "Generative Language API" in Google Cloud Console.\n2. Ensure your API Key is valid.\n3. Note: We attempted to fallback to Flash, but that also failed.`;
     }
 
     throw new Error(msg);

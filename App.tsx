@@ -474,20 +474,20 @@ const App: React.FC = () => {
                         <div className="grid grid-cols-2 gap-2 bg-black p-1 rounded-lg border border-zinc-800">
                             <button
                                 onClick={() => setOptions({ ...options, modelVersion: ModelVersion.Flash })}
-                                className={`flex flex-col items-center justify-center py-3 px-2 rounded-md transition-all ${options.modelVersion === ModelVersion.Flash ? 'bg-zinc-800 border border-zinc-700 shadow-sm' : 'hover:bg-zinc-900 border border-transparent opacity-60 hover:opacity-100'}`}
+                                className={`flex flex-col items-center justify-center py-3 px-2 rounded-md transition-all ${options.modelVersion === ModelVersion.Flash ? 'bg-zinc-800 border border-zinc-600 shadow-md ring-1 ring-white/10' : 'hover:bg-zinc-900 border border-transparent opacity-60 hover:opacity-100'}`}
                             >
                                 <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Flash ? 'text-white' : 'text-zinc-500'}`}>Flash</span>
-                                <span className="text-[8px] text-zinc-600 font-mono">Fast / Std</span>
+                                <span className="text-[8px] text-zinc-400 font-mono">Fast / Std</span>
                             </button>
                             <button
                                 onClick={() => setOptions({ ...options, modelVersion: ModelVersion.Pro })}
-                                className={`flex flex-col items-center justify-center py-3 px-2 rounded-md transition-all relative overflow-hidden ${options.modelVersion === ModelVersion.Pro ? 'bg-brand-900/20 border border-brand-500/50 shadow-sm' : 'hover:bg-zinc-900 border border-transparent opacity-60 hover:opacity-100'}`}
+                                className={`flex flex-col items-center justify-center py-3 px-2 rounded-md transition-all relative overflow-hidden ${options.modelVersion === ModelVersion.Pro ? 'bg-brand-900/40 border border-brand-500 shadow-md ring-1 ring-brand-400/50' : 'hover:bg-zinc-900 border border-transparent opacity-60 hover:opacity-100'}`}
                             >
                                 <div className="absolute top-0 right-0 p-1">
                                     <Star size={6} className="text-brand-400 fill-brand-400" />
                                 </div>
-                                <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Pro ? 'text-brand-300' : 'text-zinc-500'}`}>Pro</span>
-                                <span className="text-[8px] text-zinc-600 font-mono">High Quality</span>
+                                <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Pro ? 'text-brand-200' : 'text-zinc-500'}`}>Pro</span>
+                                <span className="text-[8px] text-zinc-500 font-mono">High Quality</span>
                             </button>
                         </div>
                     </div>
