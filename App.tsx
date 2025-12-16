@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, Clock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -10,10 +10,10 @@ import { UpgradeModal } from './components/UpgradeModal';
 import { BatchMode } from './components/BatchMode';
 import { generatePhotoshootImage } from './services/gemini';
 import { supabase, isConfigured } from './lib/supabase';
-import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, GeneratedImage, BodyType, OutfitItem, SubscriptionTier } from './types';
+import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants for Random Generation
-const APP_VERSION = "v1.4.15-SyncFix"; 
+const APP_VERSION = "v1.4.17-FinalFix"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -293,12 +293,12 @@ const App: React.FC = () => {
         setIsSyncingPayment(true);
         setSyncAttempts(0);
         window.history.replaceState({}, '', window.location.pathname);
-        pollForCredits(userSession.user.id);
+        pollForCredits(userSession.user.id, userSession.user.email);
     } else {
         const pendingPlan = localStorage.getItem('pending_plan');
         if (pendingPlan && pendingPlan !== SubscriptionTier.Free) {
             // Re-fetch to see if upgrade already happened
-            const fresh = await fetchProfile(userSession.user.id);
+            const fresh = await fetchProfile(userSession.user.id, userSession.user.email);
             if (fresh && fresh.tier === pendingPlan) {
                 localStorage.removeItem('pending_plan');
                 showToast(`You are now on the ${pendingPlan} plan.`, 'success');
@@ -307,7 +307,7 @@ const App: React.FC = () => {
     }
   };
 
-  const pollForCredits = async (userId: string) => {
+  const pollForCredits = async (userId: string, email?: string) => {
       let attempts = 0;
       const pendingPlan = localStorage.getItem('pending_plan');
       
@@ -320,10 +320,10 @@ const App: React.FC = () => {
           attempts++;
           setSyncAttempts(attempts);
           
-          // FIX: Select email as well so we don't lose the username
+          // V10: Only fetch tier/credits. NO email/username query.
           const { data } = await supabase
               .from('profiles')
-              .select('tier, credits, email')
+              .select('tier, credits')
               .eq('id', userId)
               .single();
               
@@ -337,8 +337,8 @@ const App: React.FC = () => {
                   setUserProfile((prev) => ({
                       tier: data.tier as SubscriptionTier,
                       credits: data.credits,
-                      // Derived username logic, fall back to previous state if email missing, or default
-                      username: data.email ? data.email.split('@')[0] : (prev?.username || 'Studio User')
+                      // Username strictly from session email (passed argument)
+                      username: email ? email.split('@')[0] : (prev?.username || 'Studio User')
                   }));
               }
               
@@ -361,7 +361,7 @@ const App: React.FC = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session) {
-          fetchProfile(session.user.id);
+          fetchProfile(session.user.id, session.user.email);
           checkPendingPlan(session);
       } else {
           setIsAuthLoading(false);
@@ -373,7 +373,7 @@ const App: React.FC = () => {
       
       if (event === 'SIGNED_IN' && session) {
          setShowLoginModal(false);
-         await fetchProfile(session.user.id);
+         await fetchProfile(session.user.id, session.user.email);
          await checkPendingPlan(session);
          showToast(`Welcome back!`, 'success');
       } else if (event === 'SIGNED_OUT') {
@@ -383,19 +383,20 @@ const App: React.FC = () => {
          showToast('Signed out successfully', 'info');
       } else if (event === 'TOKEN_REFRESHED' && session) {
          // Silently refresh profile on token refresh to keep credits in sync
-         fetchProfile(session.user.id);
+         fetchProfile(session.user.id, session.user.email);
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string, email?: string) => {
     try {
-        // FIX: Removed 'username' from selection as it causes errors if column missing
+        // V10: Completely decoupled. We do NOT ask for 'email' or 'username' from the DB table.
+        // We only get credits and tier.
         let { data, error } = await supabase
             .from('profiles')
-            .select('tier, credits, email')
+            .select('tier, credits')
             .eq('id', userId)
             .single();
         
@@ -421,7 +422,8 @@ const App: React.FC = () => {
             setUserProfile({
                 tier: data.tier as SubscriptionTier || SubscriptionTier.Free,
                 credits: typeof data.credits === 'number' ? data.credits : 0,
-                username: data.email ? data.email.split('@')[0] : 'Studio User'
+                // Username derived strictly from session email
+                username: email ? email.split('@')[0] : 'Studio User'
             });
             return data;
         }
@@ -436,7 +438,8 @@ const App: React.FC = () => {
   const handleManualRefresh = async () => {
     if (session) {
         setIsRefreshingProfile(true);
-        const freshData = await fetchProfile(session.user.id);
+        // Pass email from session to ensure username persists
+        const freshData = await fetchProfile(session.user.id, session.user.email);
         setIsRefreshingProfile(false);
 
         const pendingPlan = localStorage.getItem('pending_plan');
@@ -751,7 +754,7 @@ const App: React.FC = () => {
                 )}
                 {syncAttempts > 10 && (
                      <button 
-                        onClick={() => pollForCredits(session?.user?.id)}
+                        onClick={() => pollForCredits(session?.user?.id, session?.user?.email)}
                         className="mt-2 text-xs text-brand-400 hover:text-brand-300 underline"
                      >
                         Force Check Again
@@ -851,7 +854,7 @@ const App: React.FC = () => {
                                 </button>
                                 
                                 <button 
-                                    onClick={() => { setIsSyncingPayment(true); pollForCredits(session.user.id); setShowProfileMenu(false); }}
+                                    onClick={() => { setIsSyncingPayment(true); pollForCredits(session.user.id, session.user.email); setShowProfileMenu(false); }}
                                     className="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:text-white hover:bg-zinc-900 rounded-lg transition-colors flex items-center gap-2"
                                 >
                                     <RefreshCcw size={14} className="text-zinc-500" />

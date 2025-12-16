@@ -15,7 +15,7 @@ const readStream = async (req) => {
 };
 
 export default async function handler(req, res) {
-  const LOG_PREFIX = '[FastSpring V9-SchemaFix]'; 
+  const LOG_PREFIX = '[FastSpring V10-Decoupled]'; 
   const trace = []; 
 
   const log = (msg) => {
@@ -39,7 +39,7 @@ export default async function handler(req, res) {
       const { check_email } = req.query;
       const status = {
           status: 'Active',
-          version: 'v9-SchemaFix',
+          version: 'v10-Decoupled',
           config: {
               hasUrl: !!supabaseUrl,
               hasKey: !!serviceRoleKey,
@@ -57,8 +57,8 @@ export default async function handler(req, res) {
                   status.userId = match ? match.id : null;
                   
                   if (match) {
-                      // V9: Removed username from select
-                      const { data: profile, error: profileError } = await supabase.from('profiles').select('credits, tier, email').eq('id', match.id).single();
+                      // V10: Only check credits/tier, ignore everything else
+                      const { data: profile, error: profileError } = await supabase.from('profiles').select('credits, tier').eq('id', match.id).single();
                       status.profile = profile || 'No Profile Row';
                       if (profileError) status.profileError = profileError.message;
                   }
@@ -147,7 +147,6 @@ export default async function handler(req, res) {
           if (!userId) {
               const tags = data.tags || (data.order && data.order.tags) || (data.subscription && data.subscription.tags);
               if (tags) {
-                  log(`Attempting Tag Fallback: ${JSON.stringify(tags)}`);
                   let decodedTags = tags;
                   if (typeof tags === 'string' && tags.includes('%')) {
                        try { decodedTags = decodeURIComponent(tags); } catch(e) {}
@@ -166,8 +165,6 @@ export default async function handler(req, res) {
               continue;
           }
 
-          log(`FINAL TARGET USER ID: ${userId}`);
-
           // STEP D: Determine Plan
           const itemsJSON = JSON.stringify(data.items || []).toLowerCase();
           let tier = 'Creator';
@@ -180,7 +177,6 @@ export default async function handler(req, res) {
           log(`Tier: ${tier} | Adding: ${creditsToAdd} credits`);
 
           // STEP E: DB UPDATE
-          // V9 CHANGE: Do NOT select 'username' as it causes crashes if column missing
           const { data: preProfile, error: preError } = await supabase
             .from('profiles')
             .select('*')
@@ -190,22 +186,21 @@ export default async function handler(req, res) {
           let currentCredits = 0;
 
           if (preError) {
-              log(`Profile Missing or Read Error: ${preError.message}`);
+              log(`Profile Missing/New: ${preError.message}`);
           } else {
               currentCredits = preProfile.credits || 0;
-              log(`PRE-UPDATE CREDITS: ${currentCredits}`);
           }
 
           const newCredits = currentCredits + creditsToAdd;
-          log(`CALCULATION: ${currentCredits} + ${creditsToAdd} = ${newCredits}`);
+          log(`UPDATE: ${currentCredits} -> ${newCredits} (${tier})`);
 
-          // V9 CHANGE: Do NOT include 'username' in payload. Only standard fields.
+          // V10 CRITICAL: WE ONLY UPDATE CREDITS AND TIER.
+          // We DO NOT touch email or username to avoid schema errors.
           const payload = {
               id: userId,
               tier: tier,
               credits: newCredits,
-              updated_at: new Date().toISOString(),
-              email: emailFound || undefined // Sync email if we have it
+              updated_at: new Date().toISOString()
           };
 
           const { data: updatedRow, error: upsertErr } = await supabase
@@ -214,18 +209,10 @@ export default async function handler(req, res) {
             .select();
 
           if (upsertErr) {
-              log(`CRITICAL DB ERROR: ${upsertErr.message}`);
-              // If error is about email column missing, try one last fallback without email
-              if (upsertErr.message.includes('email') && upsertErr.message.includes('column')) {
-                 log("RETRYING without email column...");
-                 delete payload.email;
-                 const { error: retryErr } = await supabase.from('profiles').upsert(payload);
-                 if (retryErr) log(`RETRY FAILED: ${retryErr.message}`);
-                 else log("RETRY SUCCESS");
-              }
+              log(`DB ERROR: ${upsertErr.message}`);
           } else {
               if (updatedRow && updatedRow.length > 0) {
-                  log(`POST-UPDATE VERIFIED CREDITS: ${updatedRow[0].credits}`);
+                  log(`SUCCESS: Credits=${updatedRow[0].credits}`);
               }
               processedCount++;
           }
