@@ -13,7 +13,7 @@ import { generatePhotoshootImage } from './services/gemini';
 import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier, Project, Generation } from './types';
 
-const APP_VERSION = "v1.9.0"; 
+const APP_VERSION = "v1.9.1"; 
 
 const POSES = [
     "Standing naturally, arms relaxed", "Walking towards camera, confident stride", "Leaning slightly against a wall", 
@@ -126,6 +126,8 @@ const App: React.FC = () => {
   const [autoPose, setAutoPose] = useState(true);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
 
+  const saveMenuRef = useRef<HTMLDivElement>(null);
+
   const [options, setOptions] = useState<PhotoshootOptions>({
     sex: ModelSex.Female, ethnicity: ModelEthnicity.Mixed, age: ModelAge.YoungAdult,
     facialExpression: FacialExpression.Neutral, hairColor: "Dark Brown", hairStyle: "Straight & Loose",
@@ -149,6 +151,16 @@ const App: React.FC = () => {
   const isFormValid = Object.values(options.outfit).some((item: OutfitItem) => 
     item.images.length > 0 || (item.description && item.description.trim().length > 0) || (item.garmentType && item.garmentType.trim().length > 0)
   );
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (saveMenuRef.current && !saveMenuRef.current.contains(event.target as Node)) {
+        setShowSaveMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (session?.user) {
@@ -300,7 +312,6 @@ const App: React.FC = () => {
             const newBalance = userProfile.credits - cost;
             setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
             supabase.from('profiles').update({ credits: newBalance }).eq('id', session.user.id);
-            // Auto save for premium users to their active folder
             if (userProfile.tier !== SubscriptionTier.Free) saveToLibrary(result, activeProjectId);
           } catch (err: any) { setError(err.message || 'Error'); } finally { setIsLoading(false); }
       }
@@ -336,6 +347,8 @@ const App: React.FC = () => {
   const isPremium = session ? userProfile?.tier !== SubscriptionTier.Free : false;
   const isStudio = session ? userProfile?.tier === SubscriptionTier.Studio : false;
   const hasProAccess = session ? (userProfile?.tier === SubscriptionTier.Creator || userProfile?.tier === SubscriptionTier.Studio) : false;
+
+  const activeProjectName = activeProjectId === null ? "Default Archive" : projects.find(p => p.id === activeProjectId)?.name || "Folder";
 
   return (
     <div className="min-h-screen text-zinc-300 font-sans bg-black relative overflow-hidden">
@@ -403,19 +416,29 @@ const App: React.FC = () => {
           <div className="order-2 lg:order-1 lg:col-span-4 flex flex-col gap-4 relative z-20 pb-32 lg:pb-0">
             
             {session && (
-                <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-3 flex items-center justify-between group hover:border-zinc-600 transition-colors">
-                    <div className="flex items-center gap-2 flex-1 overflow-hidden">
-                        <Folder size={14} className="text-zinc-500 shrink-0" />
-                        <select 
-                            value={activeProjectId || ''} 
-                            onChange={(e) => setActiveProjectId(e.target.value || null)}
-                            className="bg-transparent border-none text-[10px] font-bold text-white p-0 focus:ring-0 cursor-pointer flex-1 uppercase tracking-widest truncate"
-                        >
-                            <option value="">Default Archive</option>
-                            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                        </select>
+                <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Working Folder</label>
+                    <div className="bg-zinc-950 border border-zinc-800 rounded-md p-1 flex items-center gap-1 group transition-all hover:border-zinc-600 focus-within:border-zinc-500">
+                        <div className="relative flex-1">
+                            <select 
+                                value={activeProjectId || ''} 
+                                onChange={(e) => setActiveProjectId(e.target.value || null)}
+                                className="w-full bg-transparent border-none text-[11px] font-mono font-bold text-white pl-8 pr-8 py-2.5 focus:ring-0 cursor-pointer appearance-none uppercase tracking-wide truncate"
+                            >
+                                <option value="" className="bg-black text-white">Default Archive</option>
+                                {projects.map(p => <option key={p.id} value={p.id} className="bg-black text-white">{p.name}</option>)}
+                            </select>
+                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none group-focus-within:text-white transition-colors">
+                                <Folder size={14} />
+                            </div>
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none group-focus-within:text-white transition-colors">
+                                <ChevronDown size={14} />
+                            </div>
+                        </div>
+                        <button onClick={() => createProject()} className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-900 rounded-md transition-all shrink-0" title="New Folder">
+                            <Plus size={16}/>
+                        </button>
                     </div>
-                    <button onClick={() => createProject()} className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-900 rounded-md transition-colors"><Plus size={14}/></button>
                 </div>
             )}
 
@@ -479,50 +502,71 @@ const App: React.FC = () => {
              }} isPremium={isPremium} error={error} />
              
              {generatedImage && session && (
-                <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex flex-col items-end gap-2">
+                <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex flex-col items-end gap-2" ref={saveMenuRef}>
                     <div className="relative">
                         <button 
                           onClick={() => setShowSaveMenu(!showSaveMenu)} 
                           disabled={isSaving || justSaved} 
-                          className={`backdrop-blur px-3 py-2 sm:px-5 sm:py-2.5 rounded-md transition-all duration-300 flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-2xl transform active:scale-90 touch-none
+                          className={`backdrop-blur px-3 py-2 sm:px-5 sm:py-2.5 rounded-md transition-all duration-300 flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-2xl transform active:scale-95 group
                             ${justSaved 
                                 ? 'bg-emerald-500 text-white border-emerald-400 scale-105' 
-                                : 'bg-black/90 text-white border border-zinc-800 hover:border-zinc-400 hover:bg-black'}`}
+                                : 'bg-black/90 text-white border border-zinc-800 hover:border-white hover:bg-black'}`}
                         >
-                          {isSaving ? <Loader2 size={14} className="animate-spin" /> : justSaved ? <Check size={14} className="animate-fade-in" /> : <Save size={14} />}
+                          {isSaving ? <Loader2 size={14} className="animate-spin" /> : justSaved ? <Check size={14} className="animate-fade-in" /> : <Save size={14} className="group-hover:translate-y-[-1px] transition-transform" />}
                           {isSaving ? "Saving..." : justSaved ? "Saved" : "Save to Archive"}
+                          <ChevronDown size={12} className={`transition-transform duration-300 ${showSaveMenu ? 'rotate-180' : ''}`} />
                         </button>
 
                         {showSaveMenu && (
-                            <div className="absolute top-full right-0 mt-2 w-56 bg-black border border-zinc-800 rounded-lg shadow-2xl z-50 overflow-hidden animate-fade-in py-1">
-                                <div className="px-3 py-2 text-[8px] font-bold text-zinc-600 uppercase tracking-widest border-b border-zinc-900 mb-1">Select Destination</div>
+                            <div className="absolute top-full right-0 mt-3 w-64 bg-black border border-zinc-800 rounded-lg shadow-2xl z-50 overflow-hidden animate-fade-in py-1">
+                                <div className="px-4 py-3 text-[9px] font-black text-zinc-600 uppercase tracking-[0.2em] border-b border-zinc-900 mb-1 flex justify-between">
+                                    Destination <span>Cloud</span>
+                                </div>
+                                
                                 <button 
                                     onClick={() => saveToLibrary(generatedImage, null)}
-                                    className="w-full text-left px-3 py-2.5 text-[10px] text-zinc-300 hover:bg-zinc-900 flex items-center gap-3 transition-colors uppercase font-bold"
+                                    className="w-full text-left px-4 py-3 text-[10px] text-zinc-300 hover:bg-zinc-900 flex items-center gap-3 transition-colors uppercase font-bold group"
                                 >
-                                    <Hexagon size={12} className="text-zinc-600" /> General Archive
+                                    <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                                        <Hexagon size={12} className="text-zinc-600 group-hover:text-white group-hover:scale-110 transition-all" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <span className="block text-white">General Archive</span>
+                                        <span className="text-[8px] text-zinc-600 lowercase font-mono">/root</span>
+                                    </div>
+                                    {activeProjectId === null && <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />}
                                 </button>
-                                {projects.map(p => (
-                                    <button 
-                                        key={p.id}
-                                        onClick={() => saveToLibrary(generatedImage, p.id)}
-                                        className="w-full text-left px-3 py-2.5 text-[10px] text-zinc-300 hover:bg-zinc-900 flex items-center justify-between transition-colors uppercase font-bold group"
-                                    >
-                                        <div className="flex items-center gap-3 truncate pr-2">
-                                            <Folder size={12} className="text-zinc-600 group-hover:text-white" /> {p.name}
-                                        </div>
-                                        {activeProjectId === p.id && <span className="text-[8px] bg-zinc-800 text-zinc-400 px-1 rounded shrink-0">Default</span>}
-                                    </button>
-                                ))}
+
+                                <div className="max-h-[200px] overflow-y-auto custom-scrollbar">
+                                    {projects.map(p => (
+                                        <button 
+                                            key={p.id}
+                                            onClick={() => saveToLibrary(generatedImage, p.id)}
+                                            className="w-full text-left px-4 py-3 text-[10px] text-zinc-300 hover:bg-zinc-900 flex items-center justify-between transition-colors uppercase font-bold group"
+                                        >
+                                            <div className="flex items-center gap-3 truncate pr-2">
+                                                <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                                                    <Folder size={12} className="text-zinc-600 group-hover:text-white transition-all" />
+                                                </div>
+                                                <span className="truncate">{p.name}</span>
+                                            </div>
+                                            {activeProjectId === p.id && <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />}
+                                        </button>
+                                    ))}
+                                </div>
+
                                 <div className="border-t border-zinc-900 mt-1 pt-1">
                                     <button 
                                         onClick={async () => {
                                             const newId = await createProject();
                                             if (newId) saveToLibrary(generatedImage, newId);
                                         }}
-                                        className="w-full text-left px-3 py-2.5 text-[10px] text-white hover:bg-zinc-900 flex items-center gap-3 transition-colors uppercase font-bold"
+                                        className="w-full text-left px-4 py-3 text-[10px] text-white hover:bg-zinc-900 flex items-center gap-3 transition-colors uppercase font-bold group"
                                     >
-                                        <FolderPlus size={12} className="text-emerald-500" /> New Folder...
+                                        <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                                            <FolderPlus size={14} className="text-emerald-500 group-hover:scale-110 transition-transform" />
+                                        </div>
+                                        <span>Create New Folder</span>
                                     </button>
                                 </div>
                             </div>
