@@ -15,6 +15,9 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
   if (!isOpen) return null;
 
   const isPaidUser = currentTier !== SubscriptionTier.Free;
+  // If the user is on the Studio plan, we make that the "Hero" card to avoid downgrade confusion.
+  // Otherwise, we highlight Creator as the "Most Popular" upsell.
+  const isStudioUser = currentTier === SubscriptionTier.Studio;
 
   const getButtonContent = (tier: SubscriptionTier, defaultText: string) => {
       // 1. Current Plan
@@ -124,24 +127,30 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                     )}
                 </div>
 
-                {/* CREATOR - HERO */}
-                <div className="bg-white border border-transparent rounded-lg p-6 flex flex-col relative shadow-2xl shadow-white/10 transform scale-105 z-10 h-full justify-between">
-                    <div className="absolute top-0 inset-x-0 h-1 bg-zinc-200 rounded-t-lg"></div>
+                {/* CREATOR (Dynamic Hero) */}
+                <div className={`rounded-lg p-6 flex flex-col h-full justify-between transition-all duration-300 ${isStudioUser ? 'bg-black border border-zinc-800 hover:border-zinc-500' : 'bg-white border border-transparent relative shadow-2xl shadow-white/10 transform scale-105 z-10'}`}>
+                    {!isStudioUser && <div className="absolute top-0 inset-x-0 h-1 bg-zinc-200 rounded-t-lg"></div>}
                     <div>
                         <div className="flex justify-between items-start mb-2 mt-2">
                             <div>
-                                <div className="text-black font-extrabold uppercase text-[10px] tracking-widest mb-1">Most Popular</div>
-                                <div className="text-3xl font-black text-black tracking-tight">$29<span className="text-sm text-zinc-600 font-medium">/mo</span></div>
+                                <div className={`${isStudioUser ? 'text-zinc-400 font-bold' : 'text-black font-extrabold tracking-widest'} uppercase text-[10px] mb-1`}>
+                                    {isStudioUser ? 'Creator' : 'Most Popular'}
+                                </div>
+                                <div className={`text-3xl font-black ${isStudioUser ? 'text-white' : 'text-black'} tracking-tight`}>
+                                    $29<span className={`text-sm font-medium ${isStudioUser ? 'text-zinc-500' : 'text-zinc-600'}`}>/mo</span>
+                                </div>
                             </div>
-                            <Crown size={20} className="text-black fill-black/10" />
+                            {!isStudioUser && <Crown size={20} className="text-black fill-black/10" />}
                         </div>
-                        <div className="h-px bg-zinc-200 w-full my-4"></div>
-                        <ul className="space-y-3 mb-8 text-sm text-zinc-800">
-                             <li className="flex items-center gap-2"><Check size={14} className="text-black stroke-[3px]" /> <span className="font-bold">500 Credits</span></li>
-                             <li className="flex items-center gap-2"><Check size={14} className="text-black" /> 50 Studio Quality</li>
-                             <li className="flex items-center gap-2"><Check size={14} className="text-black" /> <span className="text-zinc-600">or 500 Fast Drafts</span></li>
-                             <li className="flex items-center gap-2"><Check size={14} className="text-black" /> Gemini Pro V3</li>
-                             <li className="flex items-center gap-2"><Check size={14} className="text-black" /> 2K Resolution</li>
+                        
+                        {!isStudioUser && <div className="h-px bg-zinc-200 w-full my-4"></div>}
+                        
+                        <ul className={`space-y-3 mb-8 text-sm ${isStudioUser ? 'text-zinc-400' : 'text-zinc-800'}`}>
+                             <li className="flex items-center gap-2"><Check size={14} className={isStudioUser ? "text-zinc-500" : "text-black stroke-[3px]"} /> <span className={isStudioUser ? "text-zinc-200" : "font-bold"}>500 Credits</span></li>
+                             <li className="flex items-center gap-2"><Check size={14} className={isStudioUser ? "text-zinc-500" : "text-black"} /> 50 Studio Quality</li>
+                             <li className="flex items-center gap-2"><Check size={14} className={isStudioUser ? "text-zinc-500" : "text-black"} /> <span className={isStudioUser ? "text-zinc-500" : "text-zinc-600"}>or 500 Fast Drafts</span></li>
+                             <li className="flex items-center gap-2"><Check size={14} className={isStudioUser ? "text-zinc-500" : "text-black"} /> Gemini Pro V3</li>
+                             <li className="flex items-center gap-2"><Check size={14} className={isStudioUser ? "text-zinc-500" : "text-black"} /> 2K Resolution</li>
                         </ul>
                     </div>
                     {/* BUTTON */}
@@ -149,9 +158,9 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                         <button 
                             onClick={() => !creatorProps.disabled && onUpgrade(SubscriptionTier.Creator)}
                             disabled={creatorProps.disabled}
-                            className={`w-full font-bold py-3.5 rounded-md text-xs transition-all flex items-center justify-center gap-2 shadow-lg ${creatorProps.style || 'bg-black text-white hover:bg-zinc-800'}`}
+                            className={`w-full font-bold py-3.5 rounded-md text-xs transition-all flex items-center justify-center gap-2 shadow-lg ${creatorProps.style || (isStudioUser ? 'bg-zinc-900 text-white hover:bg-zinc-800 border border-zinc-700' : 'bg-black text-white hover:bg-zinc-800')}`}
                         >
-                            {creatorProps.text} {creatorProps.text === "Get Creator Access" && <ArrowRight size={12} />}
+                            {creatorProps.text} {(creatorProps.text === "Get Creator Access" || creatorProps.text === "Upgrade") && !isStudioUser && <ArrowRight size={12} />}
                         </button>
                     )}
                     {currentTier === SubscriptionTier.Creator && (
@@ -159,31 +168,38 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                     )}
                 </div>
 
-                {/* STUDIO */}
-                <div className="bg-black border border-zinc-800 rounded-lg p-6 flex flex-col hover:border-zinc-500 transition-colors h-full">
-                     <div className="mb-6">
-                        <div className="text-zinc-400 font-bold uppercase text-[10px] mb-1">Agency</div>
-                        <div className="text-2xl font-bold text-white">$99<span className="text-sm text-zinc-500 font-normal">/mo</span></div>
+                {/* STUDIO (Dynamic Hero) */}
+                <div className={`rounded-lg p-6 flex flex-col h-full justify-between transition-all duration-300 ${isStudioUser ? 'bg-white border border-transparent relative shadow-2xl shadow-white/10 transform scale-105 z-10' : 'bg-black border border-zinc-800 hover:border-zinc-500'}`}>
+                     {isStudioUser && <div className="absolute top-0 inset-x-0 h-1 bg-zinc-200 rounded-t-lg"></div>}
+                     <div>
+                        <div className="mb-6 mt-2">
+                            <div className={`${isStudioUser ? 'text-black font-extrabold tracking-widest' : 'text-zinc-400 font-bold'} uppercase text-[10px] mb-1`}>Agency</div>
+                            <div className={`text-2xl font-bold ${isStudioUser ? 'text-black text-3xl' : 'text-white'}`}>
+                                $99<span className={`text-sm font-normal ${isStudioUser ? 'text-zinc-600' : 'text-zinc-500'}`}>/mo</span>
+                            </div>
+                        </div>
+                        {isStudioUser && <div className="h-px bg-zinc-200 w-full my-4"></div>}
+
+                        <ul className={`space-y-3 mb-8 flex-1 text-sm ${isStudioUser ? 'text-zinc-800' : 'text-zinc-400'}`}>
+                            <li className="flex items-center gap-2"><Check size={12} className={isStudioUser ? "text-black" : "text-zinc-500"} /> <span className={isStudioUser ? "font-bold" : "text-zinc-200"}>2000 Credits</span></li>
+                            <li className="flex items-center gap-2"><Check size={12} className={isStudioUser ? "text-black" : "text-zinc-500"} /> 200 Studio Quality</li>
+                            <li className="flex items-center gap-2"><Check size={12} className={isStudioUser ? "text-black" : "text-zinc-500"} /> <span className={isStudioUser ? "text-zinc-600" : "text-zinc-500"}>or 2000 Fast Drafts</span></li>
+                            <li className="flex items-center gap-2"><Check size={12} className={isStudioUser ? "text-black" : "text-zinc-500"} /> Gemini Pro V3</li>
+                            <li className="flex items-center gap-2"><Check size={12} className={isStudioUser ? "text-black" : "text-zinc-500"} /> 4K Resolution Available</li>
+                        </ul>
                     </div>
-                    <ul className="space-y-3 mb-8 flex-1 text-sm text-zinc-400">
-                        <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> <span className="text-zinc-200">2000 Credits</span></li>
-                        <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> 200 Studio Quality</li>
-                        <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> <span className="text-zinc-500">or 2000 Fast Drafts</span></li>
-                        <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> Gemini Pro V3</li>
-                        <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> 4K Resolution Available</li>
-                    </ul>
                     {/* BUTTON */}
                     {(!isPaidUser || currentTier !== SubscriptionTier.Studio) && (
                         <button 
                             onClick={() => !studioProps.disabled && onUpgrade(SubscriptionTier.Studio)}
                             disabled={studioProps.disabled}
-                            className={`w-full font-bold py-3 rounded-md border border-zinc-700 text-xs transition-all ${studioProps.style || 'bg-zinc-900 hover:bg-zinc-800 text-white'}`}
+                            className={`w-full font-bold py-3 rounded-md border text-xs transition-all ${studioProps.style || (isStudioUser ? 'bg-black text-white hover:bg-zinc-800' : 'bg-zinc-900 border-zinc-700 hover:bg-zinc-800 text-white')}`}
                         >
                             {studioProps.text}
                         </button>
                     )}
                     {currentTier === SubscriptionTier.Studio && (
-                        <div className="w-full py-3 rounded-md border border-zinc-700 text-xs font-medium bg-zinc-900 text-zinc-500 text-center cursor-default">Current Plan</div>
+                        <div className="w-full py-3 rounded-md text-xs font-medium bg-zinc-200 text-zinc-500 text-center cursor-default">Current Plan</div>
                     )}
                 </div>
             </div>
