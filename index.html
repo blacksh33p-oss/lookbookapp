@@ -8,6 +8,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     
+    <!-- Runtime Environment Shim -->
+    <script type="text/javascript">
+        window.process = window.process || { env: {} };
+    </script>
+
     <!-- FastSpring Global Callback -->
     <script type="text/javascript">
         window.onPopupClosed = function(data) {
@@ -38,7 +43,6 @@
               mono: ['JetBrains Mono', 'monospace'],
             },
             colors: {
-              // Redefine brand to fit monochrome theme for easier migration
               brand: {
                 50: '#fafafa',
                 100: '#f4f4f5',
@@ -82,7 +86,6 @@
         -moz-osx-font-smoothing: grayscale;
       }
 
-      /* Custom scrollbar - Increased Contrast */
       ::-webkit-scrollbar {
         width: 8px;
         height: 8px;
@@ -93,15 +96,14 @@
       ::-webkit-scrollbar-thumb {
         background: #3f3f46; 
         border-radius: 4px;
-        border: 2px solid #09090b; /* Padding effect */
+        border: 2px solid #09090b;
       }
       ::-webkit-scrollbar-thumb:hover {
         background: #52525b; 
       }
 
-      /* Geist Utilities */
       .geist-border {
-        border: 1px solid #27272a; /* zinc-800 */
+        border: 1px solid #27272a;
       }
       
       .geist-card {
@@ -110,7 +112,7 @@
       }
 
       .geist-hover:hover {
-        background-color: #18181b; /* zinc-900 */
+        background-color: #18181b;
       }
       
       .text-gradient {
@@ -128,8 +130,6 @@
         font-size: 12px !important;
       }
       
-      /* Accessibility: High Contrast Focus Ring (WCAG 2.1) */
-      /* Changed from box-shadow to outline for better High Contrast Mode support */
       input:focus, select:focus, textarea:focus, button:focus-visible {
         outline: 2px solid #fff !important;
         outline-offset: 1px !important;

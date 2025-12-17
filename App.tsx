@@ -13,7 +13,7 @@ import { generatePhotoshootImage } from './services/gemini';
 import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier, Project, Generation } from './types';
 
-const APP_VERSION = "v1.9.3"; 
+const APP_VERSION = "v1.9.4"; 
 
 const POSES = [
     "Standing naturally, arms relaxed", "Walking towards camera, confident stride", "Leaning slightly against a wall", 
@@ -267,14 +267,13 @@ const App: React.FC = () => {
       showToast('Signed out successfully', 'info');
   };
 
-  // handleGenerate includes logic for mandatory API key selection for Gemini Pro models as per guidelines
   const handleGenerate = async () => {
-      // Check for mandatory API key selection for Pro models (gemini-3-pro-image-preview)
+      // Mandatory API key selection for Pro model
       if (options.modelVersion === ModelVersion.Pro) {
         const hasKey = await (window as any).aistudio.hasSelectedApiKey();
         if (!hasKey) {
           await (window as any).aistudio.openSelectKey();
-          // Assume success following triggering openSelectKey() as per race condition rules in guidelines
+          // Proceed immediately per guidelines
         }
       }
 
@@ -293,36 +292,38 @@ const App: React.FC = () => {
 
   const executeGeneration = async (currentOptions: PhotoshootOptions) => {
       const cost = getGenerationCost(currentOptions);
-      if (!session) {
-          if (guestCredits < cost) { handleSignup(); return; }
-          setIsLoading(true); setError(null); setGeneratedImage(null);
-          try {
-            const result = await generatePhotoshootImage(currentOptions);
-            setGeneratedImage(result);
-            setGuestCredits(prev => prev - cost);
-          } catch (err: any) { 
-            // If the request fails with this specific message for Pro model, re-prompt for API key selection
-            if (err.message?.includes("Requested entity was not found.") && currentOptions.modelVersion === ModelVersion.Pro) {
-                await (window as any).aistudio.openSelectKey();
-            }
-            setError(err.message || 'Error'); 
-          } finally { setIsLoading(false); }
-      } else {
-          if (!userProfile || userProfile.credits < cost) { setShowUpgradeModal(true); return; }
-          setIsLoading(true); setError(null); setGeneratedImage(null);
-          try {
-            const result = await generatePhotoshootImage(currentOptions);
-            setGeneratedImage(result);
-            const newBalance = userProfile.credits - cost;
-            setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
-            supabase.from('profiles').update({ credits: newBalance }).eq('id', session.user.id);
-          } catch (err: any) { 
-            // If the request fails with this specific message for Pro model, re-prompt for API key selection
-            if (err.message?.includes("Requested entity was not found.") && currentOptions.modelVersion === ModelVersion.Pro) {
-                await (window as any).aistudio.openSelectKey();
-            }
-            setError(err.message || 'Error'); 
-          } finally { setIsLoading(false); }
+      setIsLoading(true); 
+      setError(null); 
+      setGeneratedImage(null);
+
+      try {
+          if (!session) {
+              if (guestCredits < cost) { handleSignup(); return; }
+              const result = await generatePhotoshootImage(currentOptions);
+              setGeneratedImage(result);
+              setGuestCredits(prev => {
+                  const val = prev - cost;
+                  localStorage.setItem('fashion_guest_credits', val.toString());
+                  return val;
+              });
+          } else {
+              if (!userProfile || userProfile.credits < cost) { setShowUpgradeModal(true); return; }
+              const result = await generatePhotoshootImage(currentOptions);
+              setGeneratedImage(result);
+              const newBalance = userProfile.credits - cost;
+              setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
+              supabase.from('profiles').update({ credits: newBalance }).eq('id', session.user.id);
+          }
+      } catch (err: any) { 
+          // Per guidelines: handle requested entity not found by re-triggering key selection
+          if (err.message?.includes("Requested entity was not found.") && currentOptions.modelVersion === ModelVersion.Pro) {
+              await (window as any).aistudio.openSelectKey();
+              setError("Please select a valid paid project key to continue.");
+          } else {
+              setError(err.message || 'Generation failed. Please check your garment photos and try again.');
+          }
+      } finally { 
+          setIsLoading(false); 
       }
   }
 
@@ -512,7 +513,6 @@ const App: React.FC = () => {
                     <PoseControl selectedPose={options.pose} onPoseChange={(p) => setOptions({ ...options, pose: p })} isAutoMode={autoPose} onToggleAutoMode={setAutoPose} isPremium={isPremium} onUpgrade={() => handleProFeatureClick(() => {})} />
                 </ConfigSection>
                 <ConfigSection title="Model Specs" icon={Ruler}>
-                    {/* Fix for Error on line 493: replaced undefined variable 'isStudio' with existing 'isPremium' */}
                     <SizeControl options={options} onChange={setOptions} isPremium={isPremium} onUpgradeRequest={() => handleProFeatureClick(() => {})} />
                 </ConfigSection>
             </div>

@@ -42,8 +42,11 @@ const getModelName = (version: ModelVersion): string => {
 };
 
 export const generatePhotoshootImage = async (options: PhotoshootOptions): Promise<string> => {
-  const API_KEY = process.env.API_KEY;
-  if (!API_KEY) throw new Error("API Key is missing.");
+  // Always fetch dynamic API key from runtime environment
+  const API_KEY = (globalThis as any).process?.env?.API_KEY;
+  if (!API_KEY) throw new Error("API Key is missing or not yet selected.");
+  
+  // Create fresh instance to ensure up-to-date key
   const ai = new GoogleGenAI({ apiKey: API_KEY });
 
   const heightStr = options.height ? `Model Height: ${options.height} ${options.measurementUnit}` : 'Height: Standard Model Height';
@@ -105,31 +108,37 @@ export const generatePhotoshootImage = async (options: PhotoshootOptions): Promi
     3. **Format**: OUTPUT ONLY THE IMAGE.
   `;
 
-  const executeGeneration = async (modelName: string, config: any) => {
-      const parts: any[] = [{ text: prompt }];
-      imageInputs.forEach(img => {
-        parts.push({
-          inlineData: { mimeType: getMimeType(img.data), data: extractBase64(img.data) }
-        });
-      });
-
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: { parts },
-        config: { imageConfig: config, seed: options.seed }
-      });
-
-      if (response.candidates && response.candidates[0].content && response.candidates[0].content.parts) {
-        for (const part of response.candidates[0].content.parts) {
-          if (part.inlineData && part.inlineData.data) return `data:image/png;base64,${part.inlineData.data}`;
-        }
-      }
-      throw new Error("No image generated.");
-  };
-
   const targetModel = getModelName(options.modelVersion);
   const imageConfig: any = { aspectRatio: options.aspectRatio };
-  if (options.modelVersion === ModelVersion.Pro) imageConfig.imageSize = options.enable4K ? '4K' : '2K';
+  const tools: any[] = [];
 
-  return await executeGeneration(targetModel, imageConfig);
+  if (options.modelVersion === ModelVersion.Pro) {
+    imageConfig.imageSize = options.enable4K ? '4K' : '2K';
+    // Search grounding is recommended for the Pro model to ensure high-quality, up-to-date fashion styles
+    tools.push({ googleSearch: {} });
+  }
+
+  const parts: any[] = [{ text: prompt }];
+  imageInputs.forEach(img => {
+    parts.push({
+      inlineData: { mimeType: getMimeType(img.data), data: extractBase64(img.data) }
+    });
+  });
+
+  const response = await ai.models.generateContent({
+    model: targetModel,
+    contents: { parts },
+    config: { 
+      imageConfig: imageConfig, 
+      seed: options.seed,
+      tools: tools.length > 0 ? tools : undefined
+    }
+  });
+
+  if (response.candidates && response.candidates[0].content && response.candidates[0].content.parts) {
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData && part.inlineData.data) return `data:image/png;base64,${part.inlineData.data}`;
+    }
+  }
+  throw new Error("Generation failed. Please try a different pose or style.");
 };
