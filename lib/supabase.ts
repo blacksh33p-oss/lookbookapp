@@ -1,35 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Safe environment variable accessor that checks multiple sources
-const getEnvVar = (key: string): string => {
+/**
+ * Safely resolves environment variables from Vite's import.meta.env.
+ * Prevents crashes if the environment is not standard Vite or missing vars.
+ */
+const getSafeEnv = () => {
   try {
-    // Check Vite's import.meta.env first
-    if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
-      const val = (import.meta as any).env[key];
-      if (val) return val;
+    const meta = import.meta as any;
+    if (meta && meta.env) {
+      return meta.env;
     }
   } catch (e) {}
-
-  try {
-    // Fallback to process.env (for environments that shim it or SSR)
-    if (typeof process !== 'undefined' && process.env && process.env[key]) {
-      return process.env[key] || '';
-    }
-  } catch (e) {}
-
-  // Also check window.process for browser shims
-  try {
-    const win = window as any;
-    if (win.process?.env?.[key]) {
-      return win.process.env[key];
-    }
-  } catch (e) {}
-
-  return '';
+  return {};
 };
 
-const supabaseUrl = getEnvVar('VITE_SUPABASE_URL').trim();
-const supabaseAnonKey = getEnvVar('VITE_SUPABASE_ANON_KEY').trim();
+const env = getSafeEnv();
+const supabaseUrl = (env.VITE_SUPABASE_URL || '').trim();
+const supabaseAnonKey = (env.VITE_SUPABASE_ANON_KEY || '').trim();
 
 export const isConfigured = !!supabaseUrl && 
   !!supabaseAnonKey && 
@@ -37,11 +24,11 @@ export const isConfigured = !!supabaseUrl &&
   !supabaseUrl.includes('placeholder') &&
   supabaseUrl.length > 0;
 
-if (!isConfigured) {
-  console.warn('FashionStudio: Missing or invalid Supabase Environment Variables (VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY). Authentication features will be disabled.');
+if (!isConfigured && typeof window !== 'undefined') {
+  console.warn('FashionStudio: Missing or invalid Supabase Environment Variables (VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY).');
 }
 
-// Initialize with safe fallbacks to prevent client-side crashes
+// Initialize with safe fallbacks to prevent "Cannot read properties of undefined"
 export const supabase: any = createClient(
   supabaseUrl || 'https://placeholder.supabase.co', 
   supabaseAnonKey || 'placeholder'
