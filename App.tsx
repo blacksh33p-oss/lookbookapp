@@ -13,7 +13,7 @@ import { generatePhotoshootImage } from './services/gemini';
 import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier, Project, Generation } from './types';
 
-const APP_VERSION = "v1.9.9"; 
+const APP_VERSION = "v2.0.0"; 
 
 const POSES = [
     "Standing naturally, arms relaxed", "Walking towards camera, confident stride", "Leaning slightly against a wall", 
@@ -481,7 +481,7 @@ const App: React.FC = () => {
                                     <button 
                                         key={p.id}
                                         onClick={() => { setActiveProjectId(p.id); setShowProjectSelector(false); }}
-                                        className={`w-full text-left px-4 py-2.5 text-[10px] font-bold transition-colors uppercase tracking-widest flex items-center gap-3 ${activeProjectId === p.id ? 'bg-[#0051e0] text-white' : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'}`}
+                                        className={`w-full text-left px-4 py-3 text-[10px] font-bold transition-colors uppercase tracking-widest flex items-center gap-3 ${activeProjectId === p.id ? 'bg-[#0051e0] text-white' : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'}`}
                                     >
                                         <Folder size={12} className={activeProjectId === p.id ? 'text-white' : 'text-zinc-600'} /> {p.name}
                                     </button>
