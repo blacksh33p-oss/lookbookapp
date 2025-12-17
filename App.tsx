@@ -37,6 +37,14 @@ const SKIN_DETAILS = ["Freckles", "Clear complexion", "Sun-kissed skin", "Dewy s
 const STANDARD_STYLES = [ PhotoStyle.Studio, PhotoStyle.Urban, PhotoStyle.Nature, PhotoStyle.Coastal ];
 const PRO_STYLES = [ PhotoStyle.Luxury, PhotoStyle.Chromatic, PhotoStyle.Minimalist, PhotoStyle.Film, PhotoStyle.Newton, PhotoStyle.Lindbergh, PhotoStyle.Leibovitz, PhotoStyle.Avedon, PhotoStyle.LaChapelle, PhotoStyle.Testino ];
 
+// FASTSPRING PRODUCT MAPPING
+// IMPORTANT: These paths must match the "Product Path" in your FastSpring Store Dashboard
+const PRODUCT_PATHS: Record<string, string> = {
+    [SubscriptionTier.Starter]: 'starter',
+    [SubscriptionTier.Creator]: 'creator',
+    [SubscriptionTier.Studio]: 'studio'
+};
+
 const getRandomPose = () => POSES[Math.floor(Math.random() * POSES.length)];
 const getRandomSeed = () => Math.floor(Math.random() * 1000000000);
 const getRandomFeatures = (): string => {
@@ -253,6 +261,27 @@ const App: React.FC = () => {
         showToast("New Day! Guest credits refilled to 5.", "success");
     }
   }, []);
+
+  // --- FASTSPRING POPUP HANDLER ---
+  useEffect(() => {
+      // Define the callback globally so FastSpring SBL can call it
+      window.onPopupClosed = (data: any) => {
+          if (data && data.id) {
+              // Order Reference present implies purchase (or intent)
+              // We trigger sync to check if Webhook has processed
+              setIsSyncingPayment(true);
+              setSyncAttempts(0);
+              
+              // If we have a session, poll for credits
+              if (session?.user) {
+                   pollForCredits(session.user.id, session.user.email);
+              } else {
+                  // If user bought as guest (unlikely with our logic, but possible)
+                  setIsSyncingPayment(false); 
+              }
+          }
+      };
+  }, [session]); // Depend on session to have up-to-date user info for polling
 
   // --- ERROR HANDLING ---
   useEffect(() => {
@@ -512,14 +541,13 @@ const App: React.FC = () => {
   };
 
   const handleUpgrade = async (tier: SubscriptionTier) => {
-     setIsRedirecting(true);
      try {
          const { data } = await supabase.auth.getSession();
          const activeSession = data.session;
 
+         // If not logged in, prompt login
          if (!activeSession) {
              localStorage.setItem('pending_plan', tier);
-             setIsRedirecting(false);
              setLoginModalView('pricing');
              setShowLoginModal(true);
              setShowUpgradeModal(false);
@@ -528,27 +556,39 @@ const App: React.FC = () => {
 
          if (tier === SubscriptionTier.Free) {
              localStorage.removeItem('pending_plan');
-             setIsRedirecting(false);
              setShowUpgradeModal(false);
              return;
          }
 
-         let checkoutUrl = '';
-         if (tier === SubscriptionTier.Creator) checkoutUrl = import.meta.env.VITE_FASTSPRING_CREATOR_URL;
-         else if (tier === SubscriptionTier.Studio) checkoutUrl = import.meta.env.VITE_FASTSPRING_STUDIO_URL;
-         else if (tier === SubscriptionTier.Starter) checkoutUrl = import.meta.env.VITE_FASTSPRING_STARTER_URL;
+         // FASTSPRING POPUP LOGIC
+         if (window.fastspring && window.fastspring.builder) {
+             const productPath = PRODUCT_PATHS[tier];
+             if (!productPath) {
+                 showToast("Configuration Error: Product path missing.", "error");
+                 return;
+             }
+             
+             // Optimistically close modal
+             setShowUpgradeModal(false);
 
-         if (!checkoutUrl) {
-             showToast("Checkout URL not configured.", "error");
-             setIsRedirecting(false);
-             return;
+             // Open Checkout Popup
+             window.fastspring.builder.push({
+                 products: [
+                     { path: productPath, quantity: 1 }
+                 ],
+                 tags: {
+                     userId: activeSession.user.id,
+                     userEmail: activeSession.user.email
+                 },
+                 email: activeSession.user.email,
+                 firstName: activeSession.user.user_metadata?.full_name || ''
+             });
+
+         } else {
+             showToast("Checkout system loading... please wait a moment.", "info");
          }
 
-         const tags = encodeURIComponent(`userId:${activeSession.user.id}`);
-         const separator = checkoutUrl.includes('?') ? '&' : '?';
-         window.location.href = `${checkoutUrl}${separator}tags=${tags}&email=${encodeURIComponent(activeSession.user.email)}`;
      } catch (err) {
-         setIsRedirecting(false);
          showToast("Failed to initiate checkout.", "error");
      }
   };

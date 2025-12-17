@@ -1,4 +1,5 @@
 
+
 // Removed missing vite/client reference
 
 interface ImportMetaEnv {
@@ -23,4 +24,15 @@ declare namespace NodeJS {
     API_KEY: string;
     [key: string]: string | undefined;
   }
+}
+
+// FastSpring SBL Type Definitions
+interface Window {
+    fastspring: {
+        builder: {
+            push: (session: any) => void;
+            // Add other builder methods if needed
+        };
+    };
+    onPopupClosed: (orderReference: any) => void;
 }
