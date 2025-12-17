@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.7.4"; 
+const APP_VERSION = "v1.7.5"; 
 const ACCOUNT_PORTAL_URL = 'https://lookbook.test.onfastspring.com/account';
 
 const POSES = [
@@ -55,31 +55,23 @@ const getGenerationCost = (options: PhotoshootOptions): number => {
 };
 
 // --- HELPER: Resolve FastSpring Product Path ---
-// Prioritizes Env Vars, cleans URLs to extract slugs, falls back to defaults.
 const getProductPath = (tier: SubscriptionTier): string => {
     let val = '';
-    
-    // 1. Check for explicit path variables
     if (tier === SubscriptionTier.Starter) val = import.meta.env.VITE_FASTSPRING_STARTER_PATH || '';
     if (tier === SubscriptionTier.Creator) val = import.meta.env.VITE_FASTSPRING_CREATOR_PATH || '';
     if (tier === SubscriptionTier.Studio) val = import.meta.env.VITE_FASTSPRING_STUDIO_PATH || '';
 
-    // 2. Check for URL variables (common user mistake, so we handle it)
     if (!val) {
         if (tier === SubscriptionTier.Starter) val = import.meta.env.VITE_FASTSPRING_STARTER_URL || '';
         if (tier === SubscriptionTier.Creator) val = import.meta.env.VITE_FASTSPRING_CREATOR_URL || '';
         if (tier === SubscriptionTier.Studio) val = import.meta.env.VITE_FASTSPRING_STUDIO_URL || '';
-        
-        // Extract slug from URL if present (e.g. ".../products/my-product" -> "my-product")
         if (val && val.includes('/')) {
             const parts = val.split('/');
-            // Remove empty strings from trailing slashes
             const cleanParts = parts.filter(p => p.length > 0);
             val = cleanParts[cleanParts.length - 1];
         }
     }
 
-    // 3. Fallback to defaults
     if (!val) {
          const defaults: Record<string, string> = {
             [SubscriptionTier.Starter]: 'starter',
@@ -88,7 +80,6 @@ const getProductPath = (tier: SubscriptionTier): string => {
         };
         val = defaults[tier];
     }
-    
     return val;
 };
 
@@ -135,7 +126,6 @@ interface StyleButtonProps {
     onClick: () => void;
 }
 const StyleButton: React.FC<StyleButtonProps> = ({ label, isSelected, isLocked, onClick }) => {
-    // Clean label for UI (e.g. "Newton" instead of full name if redundant)
     const simpleName = label; 
     return (
         <button
@@ -151,7 +141,6 @@ const StyleButton: React.FC<StyleButtonProps> = ({ label, isSelected, isLocked, 
             <span className={`text-[10px] font-bold uppercase tracking-wide z-10 relative ${isSelected ? 'text-black' : 'text-zinc-400 group-hover:text-zinc-200'}`}>
                 {simpleName}
             </span>
-            
             {isLocked && !isSelected && <Lock size={10} className="text-zinc-600" />}
         </button>
     );
@@ -185,25 +174,19 @@ const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
 };
 
 const App: React.FC = () => {
-  
-  // CACHED INITIAL STATE
   const [userProfile, setUserProfile] = useState<{tier: SubscriptionTier, credits: number, username?: string} | null>(() => {
       try {
           const cached = localStorage.getItem('fashion_user_profile');
           return cached ? JSON.parse(cached) : null;
-      } catch (e) {
-          return null;
-      }
+      } catch (e) { return null; }
   });
 
-  // Ref to track profile without triggering re-renders in callbacks
   const userProfileRef = useRef(userProfile);
   useEffect(() => { userProfileRef.current = userProfile; }, [userProfile]);
 
   const [session, setSession] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
-  const [isRefreshingProfile, setIsRefreshingProfile] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   
   const [isSyncingPayment, setIsSyncingPayment] = useState(false);
@@ -260,36 +243,26 @@ const App: React.FC = () => {
     item.images.length > 0 || (item.description && item.description.trim().length > 0) || (item.garmentType && item.garmentType.trim().length > 0)
   );
 
-  // --- SHORTCUTS ---
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
         if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-            if (isFormValid && !isLoading) {
-                handleGenerate();
-            } else if (!isFormValid) {
-                showToast("Please add at least one garment description or image.", "info");
-            }
+            if (isFormValid && !isLoading) handleGenerate();
+            else if (!isFormValid) showToast("Please add at least one garment description or image.", "info");
         }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFormValid, isLoading, options]); // Dependencies to ensure fresh state
+  }, [isFormValid, isLoading, options]);
 
-  // --- PERSIST CACHE ---
   useEffect(() => {
-      if (userProfile) {
-          localStorage.setItem('fashion_user_profile', JSON.stringify(userProfile));
-      }
+      if (userProfile) localStorage.setItem('fashion_user_profile', JSON.stringify(userProfile));
   }, [userProfile]);
 
-  // --- DAILY RESET LOGIC ---
   useEffect(() => {
     const today = new Date().toDateString();
     const lastReset = localStorage.getItem('fashion_guest_date');
-    
-    if (!lastReset) {
-         localStorage.setItem('fashion_guest_date', today);
-    } else if (lastReset !== today) {
+    if (!lastReset) localStorage.setItem('fashion_guest_date', today);
+    else if (lastReset !== today) {
         setGuestCredits(5);
         localStorage.setItem('fashion_guest_credits', '5');
         localStorage.setItem('fashion_guest_date', today);
@@ -297,90 +270,31 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // --- FASTSPRING POPUP HANDLER (Via Custom Event) ---
   useEffect(() => {
       const handlePopupClosed = (e: any) => {
           const data = e.detail;
-          console.log("React received popup closed event:", data);
           if (data && data.id) {
-              // Order Reference present implies purchase (or intent)
-              // We trigger sync to check if Webhook has processed
               setIsSyncingPayment(true);
               setSyncAttempts(0);
-              
-              // CRITICAL: We pass the CURRENT known credits (from the ref) as the baseline.
-              // If we fetched from DB here, the DB might already be updated (race condition), 
-              // and we wouldn't see a "difference" in credits.
               const baselineCredits = userProfileRef.current?.credits || 0;
-
-              if (session?.user) {
-                   pollForCredits(session.user.id, session.user.email, baselineCredits);
-              } else {
-                  setIsSyncingPayment(false); 
-              }
+              if (session?.user) pollForCredits(session.user.id, session.user.email, baselineCredits);
+              else setIsSyncingPayment(false); 
           }
       };
-
       window.addEventListener('fastspringPopupClosed', handlePopupClosed);
       return () => window.removeEventListener('fastspringPopupClosed', handlePopupClosed);
   }, [session]);
 
-  // --- ERROR HANDLING ---
-  useEffect(() => {
-      const hash = window.location.hash;
-      if (hash && hash.includes('error=')) {
-          const params = new URLSearchParams(hash.substring(1));
-          const errorDescription = params.get('error_description');
-          if (errorDescription) {
-              showToast(errorDescription.replace(/\+/g, ' '), 'error');
-              window.history.replaceState(null, '', window.location.pathname);
-          }
-      }
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
-    };
-  }, []);
-
-  const checkPendingPlan = async (userSession: any) => {
-    if (!userSession) return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('success') === 'true') {
-        setIsSyncingPayment(true);
-        setSyncAttempts(0);
-        window.history.replaceState({}, '', window.location.pathname);
-        // Use Ref for baseline
-        pollForCredits(userSession.user.id, userSession.user.email, userProfileRef.current?.credits || 0);
-    } else {
-        const pendingPlan = localStorage.getItem('pending_plan');
-        if (pendingPlan && pendingPlan !== SubscriptionTier.Free) {
-            const fresh = await fetchProfile(userSession.user.id, userSession.user.email);
-            if (fresh && fresh.tier === pendingPlan) {
-                localStorage.removeItem('pending_plan');
-                showToast(`You are now on the ${pendingPlan} plan.`, 'success');
-            }
-        }
-    }
-  };
-
   const pollForCredits = async (userId: string, emailArg?: string, knownOldCredits: number = 0) => {
       let attempts = 0;
       const pendingPlan = localStorage.getItem('pending_plan');
-      // NOTE: We do NOT fetch a new baseline here. We compare against knownOldCredits passed from UI state.
-
       if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
-
       syncIntervalRef.current = setInterval(async () => {
           attempts++;
           setSyncAttempts(attempts);
           const { data } = await supabase.from('profiles').select('tier, credits').eq('id', userId).single();
-          
           const tierMatch = pendingPlan ? data?.tier === pendingPlan : false;
-          // Race Condition Fix: If DB already has more credits than what UI had before popup opened, it's a success.
           const creditBump = data && data.credits > knownOldCredits;
-          
           if (data && (tierMatch || creditBump || attempts >= 60)) {
               clearInterval(syncIntervalRef.current);
               if (data) {
@@ -395,40 +309,26 @@ const App: React.FC = () => {
                       username: bestEmail ? bestEmail.split('@')[0] : (prev?.username || 'Studio User')
                   }));
               }
+              setIsSyncingPayment(false);
               if (tierMatch || creditBump) {
                    localStorage.removeItem('pending_plan');
-                   setTimeout(() => {
-                      setIsSyncingPayment(false);
-                      showToast('Purchase synced successfully!', 'success');
-                  }, 1500);
-              } else {
-                  setIsSyncingPayment(false);
-                  showToast("Sync timed out. Server might be slow. Check back later.", "info");
-              }
+                   showToast('Purchase synced successfully!', 'success');
+              } else showToast("Sync timed out. Server might be slow. Check back later.", "info");
           }
       }, 2000);
   };
 
-  // --- AUTH INIT ---
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session) {
-          fetchProfile(session.user.id, session.user.email);
-          checkPendingPlan(session);
-      } else {
-          setIsAuthLoading(false);
-      }
+      if (session) fetchProfile(session.user.id, session.user.email);
+      else setIsAuthLoading(false);
     });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       if (event === 'SIGNED_IN' && session) {
          setShowLoginModal(false);
-         setTimeout(() => {
-             fetchProfile(session.user.id, session.user.email);
-             checkPendingPlan(session);
-         }, 300);
+         setTimeout(() => fetchProfile(session.user.id, session.user.email), 300);
          showToast(`Welcome back!`, 'success');
       } else if (event === 'SIGNED_OUT') {
          setUserProfile(null);
@@ -436,139 +336,38 @@ const App: React.FC = () => {
          setSession(null);
          localStorage.removeItem('pending_plan');
          showToast('Signed out successfully', 'info');
-      } else if (event === 'TOKEN_REFRESHED' && session) {
-         fetchProfile(session.user.id, session.user.email);
       }
     });
-
     return () => subscription.unsubscribe();
   }, []);
-
-  // --- DEDICATED REALTIME SUBSCRIPTION ---
-  useEffect(() => {
-    if (!session?.user?.id) return;
-
-    const channel = supabase.channel(`profile_sync:${session.user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-          filter: `id=eq.${session.user.id}`
-        },
-        (payload: any) => {
-          if (payload.new && typeof payload.new.credits === 'number') {
-            setUserProfile((prev) => {
-               if (!prev) return {
-                   tier: payload.new.tier as SubscriptionTier || SubscriptionTier.Free,
-                   credits: payload.new.credits,
-                   username: session.user.email?.split('@')[0] || 'Studio User'
-               };
-               return {
-                   ...prev,
-                   tier: payload.new.tier as SubscriptionTier || prev.tier,
-                   credits: payload.new.credits
-               };
-            });
-            
-            // Backup: If we are stuck in syncing, and a realtime update comes in, stop syncing.
-            // Using a timeout to allow the polling interval to clear naturally if it can, 
-            // but ensuring the UI unlocks if the polling logic missed it.
-            setTimeout(() => {
-                setIsSyncingPayment(prev => {
-                    if (prev) {
-                        if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
-                        showToast('Purchase synced (realtime)!', 'success');
-                        localStorage.removeItem('pending_plan');
-                        return false;
-                    }
-                    return prev;
-                });
-            }, 2000);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [session?.user?.id]); 
 
   const fetchProfile = async (userId: string, email?: string, retry = true) => {
     try {
         let { data, error } = await supabase.from('profiles').select('tier, credits').eq('id', userId).single();
-        
-        // RETRY LOGIC: If network error or unknown, try once more
-        if (error && retry) {
-            await new Promise(r => setTimeout(r, 500));
-            const retryResult = await supabase.from('profiles').select('tier, credits').eq('id', userId).single();
-            if (!retryResult.error) {
-                data = retryResult.data;
-                error = null;
-            }
-        }
-
         if (error && error.code === 'PGRST116') {
              const { data: newProfile, error: createError } = await supabase
                 .from('profiles')
                 .insert([{ id: userId, email: email || 'unknown', tier: SubscriptionTier.Free, credits: 5 }])
                 .select().single();
              if (!createError && newProfile) { data = newProfile; error = null; }
-             else if (createError?.code === '23505') {
-                 const { data: retryData } = await supabase.from('profiles').select('tier, credits').eq('id', userId).single();
-                 if (retryData) { data = retryData; error = null; }
-             }
         }
-
-        if (data && data.tier === SubscriptionTier.Free && (data.credits === 0 || data.credits === null)) {
-            await supabase.from('profiles').update({ credits: 5 }).eq('id', userId);
-            data.credits = 5;
-        }
-
         if (data) {
-            const finalProfile = {
+            setUserProfile({
                 tier: data.tier as SubscriptionTier || SubscriptionTier.Free,
                 credits: data.credits ?? 5, 
                 username: email ? email.split('@')[0] : 'Studio User'
-            };
-            setUserProfile(finalProfile);
+            });
             return data;
         }
     } catch (e) {
-        console.error("Profile fetch error", e);
-        setUserProfile(prev => prev || {
-            tier: SubscriptionTier.Free,
-            credits: 0,
-            username: email ? email.split('@')[0] : 'Studio User'
-        });
-        showToast("Connection issue. Showing cached/default credits.", "info");
-    } finally {
-        setIsAuthLoading(false);
-    }
+        setUserProfile(prev => prev || { tier: SubscriptionTier.Free, credits: 0, username: email ? email.split('@')[0] : 'Studio User' });
+    } finally { setIsAuthLoading(false); }
     return null;
-  };
-
-  const handleManualRefresh = async () => {
-    if (session) {
-        setIsRefreshingProfile(true);
-        const freshData = await fetchProfile(session.user.id, session.user.email);
-        setIsRefreshingProfile(false);
-        const pendingPlan = localStorage.getItem('pending_plan');
-        if (pendingPlan && freshData && freshData.tier === pendingPlan) {
-            localStorage.removeItem('pending_plan');
-            showToast(`Purchase verified! You are now on the ${pendingPlan} plan.`, 'success');
-        } else {
-            showToast("Profile synced.", "info");
-        }
-    }
   };
 
   const handleAuth = async (email: string, password?: string, isSignUp?: boolean, username?: string) => {
       if (!isConfigured) { showToast("Database not configured.", 'error'); return; }
       if (!password) throw new Error("Password is required.");
-
       if (isSignUp) {
           const { data, error } = await supabase.auth.signUp({
               email, password, options: { emailRedirectTo: window.location.origin, data: { full_name: username } }
@@ -586,16 +385,11 @@ const App: React.FC = () => {
       setSession(null);
       setUserProfile(null);
       localStorage.removeItem('fashion_user_profile');
-      localStorage.removeItem('pending_plan');
       setShowProfileMenu(false);
-      
       try { 
           await supabase.auth.signOut(); 
-          const today = new Date().toDateString();
-          localStorage.setItem('fashion_guest_date', today);
           setGuestCredits(5);
       } catch (err) {} 
-      
       showToast('Signed out successfully', 'info');
   };
 
@@ -603,191 +397,76 @@ const App: React.FC = () => {
      try {
          const { data } = await supabase.auth.getSession();
          const activeSession = data.session;
-
-         // If not logged in, prompt login
          if (!activeSession) {
-             console.log("No session, prompting login");
-             if (tier) localStorage.setItem('pending_plan', tier);
-             setLoginModalView('signup'); // Changed to 'signup' to skip pricing card redundancy
-             setShowLoginModal(true);
-             setShowUpgradeModal(false);
+             handleSignup();
              return;
          }
-
          const currentTier = userProfile?.tier || SubscriptionTier.Free;
-
-         // ---------------------------------------------------------
-         // SCENARIO 1: EXISTING SUBSCRIBER (Manage/Change Plan)
-         // ---------------------------------------------------------
-         // This is triggered by:
-         // A) Clicking "Billing" in Profile Menu
-         // B) Clicking "Manage Subscription" banner in Upgrade Modal
          if (currentTier !== SubscriptionTier.Free && !tier) {
-             console.log("User is existing subscriber. Redirecting to Account Portal.");
-             showToast("Opening account settings...", "info");
              window.open(ACCOUNT_PORTAL_URL, '_blank');
              return;
          }
-
-         // ---------------------------------------------------------
-         // SCENARIO 2: NEW SUBSCRIBER (Purchase)
-         // ---------------------------------------------------------
-         // User is on Free tier. They clicked a specific "Select Plan" button.
-         
          if (window.fastspring && window.fastspring.builder && tier) {
              const productPath = getProductPath(tier);
-             
-             if (!productPath) {
-                 console.error("Product path missing for tier:", tier);
-                 showToast("Configuration Error: Product path missing from .env", "error");
-                 return;
-             }
-             
-             console.log(`Initializing checkout for path: ${productPath}`);
-
-             // Prepare Payload
              const fullName = activeSession.user.user_metadata?.full_name || 'Valued Customer';
              const nameParts = fullName.split(' ');
-             const firstName = nameParts[0];
-             const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : undefined;
-
              const payload = {
-                 products: [
-                     { path: productPath, quantity: 1 }
-                 ],
-                 paymentContact: {
-                    email: activeSession.user.email,
-                    firstName: firstName,
-                    lastName: lastName
-                 },
-                 tags: {
-                     userId: activeSession.user.id,
-                     userEmail: activeSession.user.email
-                 }
+                 products: [{ path: productPath, quantity: 1 }],
+                 paymentContact: { email: activeSession.user.email, firstName: nameParts[0], lastName: nameParts[1] },
+                 tags: { userId: activeSession.user.id, userEmail: activeSession.user.email }
              };
-
-             // Push to FastSpring
-             try {
-                 window.fastspring.builder.push(payload);
-                 
-                 // Force checkout open if needed
-                 if (window.fastspring.builder.checkout) {
-                     setTimeout(() => {
-                         window.fastspring.builder.checkout();
-                     }, 200);
-                 }
-                 
-                 setShowUpgradeModal(false);
-             } catch(err: any) {
-                 console.error("FastSpring Push Error:", err);
-                 showToast("Checkout System Error: " + err.message, "error");
-             }
-
-         } else {
-             if (tier) {
-                console.error("FastSpring script not loaded.");
-                showToast("Checkout system loading... please refresh.", "error");
-             } else if (currentTier !== SubscriptionTier.Free) {
-                 // Fallback for logic if they are paid but accidentally triggered this block
-                 window.open(ACCOUNT_PORTAL_URL, '_blank');
-             }
-         }
-
-     } catch (err) {
-         console.error("HandleUpgrade Error:", err);
-         showToast("Failed to initiate checkout.", "error");
-     }
+             window.fastspring.builder.push(payload);
+             if (window.fastspring.builder.checkout) setTimeout(() => window.fastspring.builder.checkout(), 200);
+             setShowUpgradeModal(false);
+         } else if (tier) showToast("Checkout system loading...", "error");
+     } catch (err) { showToast("Failed to initiate checkout.", "error"); }
   };
 
-  const handleLogin = () => {
-    setLoginModalView('login');
-    setShowLoginModal(true);
-  };
+  const handleLogin = () => { setLoginModalView('login'); setShowLoginModal(true); };
+  const handleSignup = () => { setLoginModalView('signup'); setShowLoginModal(true); };
 
-  const handleSignup = () => {
-    setLoginModalView('signup'); // Changed to direct signup
-    setShowLoginModal(true);
+  // Helper to handle Pro clicks (Engine or Styles)
+  const handleProFeatureClick = (action: () => void) => {
+      if (hasProAccess) action();
+      else if (!session) handleSignup();
+      else setShowUpgradeModal(true);
   };
 
   const executeGeneration = async (currentOptions: PhotoshootOptions) => {
       const cost = getGenerationCost(currentOptions);
       const isGuest = !session;
-      const isFreeTier = session && userProfile?.tier === SubscriptionTier.Free;
-      const isStarterTier = session && userProfile?.tier === SubscriptionTier.Starter;
-      
-      // Pro Model Access Check
-      const hasProAccess = session && (userProfile?.tier === SubscriptionTier.Creator || userProfile?.tier === SubscriptionTier.Studio);
-
-      if (!hasProAccess && currentOptions.modelVersion === ModelVersion.Pro) {
-          showToast("Gemini 3 Pro is available on Creator plans.", "info");
-          setShowUpgradeModal(true);
-          return;
-      }
-
       if (isGuest) {
-          if (guestCredits < cost) {
-              showToast(guestCredits < 1 ? "Daily limit reached!" : "Not enough guest credits.", "info");
-              setLoginModalView('signup'); // Changed to 'signup' to reduce friction
-              setShowLoginModal(true);
-              return;
-          }
-          setIsLoading(true);
-          setError(null);
-          setGeneratedImage(null);
+          if (guestCredits < cost) { handleSignup(); return; }
+          setIsLoading(true); setError(null); setGeneratedImage(null);
           try {
             const result = await generatePhotoshootImage(currentOptions);
             setGeneratedImage(result);
             const newGuestCredits = guestCredits - cost;
             setGuestCredits(newGuestCredits);
             localStorage.setItem('fashion_guest_credits', newGuestCredits.toString());
-          } catch (err: any) {
-            setError(err.message || 'Error');
-            showToast("Generation failed", 'error');
-          } finally { setIsLoading(false); }
+          } catch (err: any) { setError(err.message || 'Error'); } finally { setIsLoading(false); }
       } else {
           if (!userProfile) return;
-          if (userProfile.credits < cost) {
-              showToast(`Insufficient credits. You have ${userProfile.credits}, need ${cost}.`, "info");
-              setShowUpgradeModal(true);
-              return;
-          }
-          
-          setIsLoading(true);
-          setError(null);
-          setGeneratedImage(null);
-
+          if (userProfile.credits < cost) { setShowUpgradeModal(true); return; }
+          setIsLoading(true); setError(null); setGeneratedImage(null);
           try {
             const result = await generatePhotoshootImage(currentOptions);
             setGeneratedImage(result);
-
             const newBalance = userProfile.credits - cost;
             setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
-
-            supabase.from('profiles').update({ credits: newBalance }).eq('id', session.user.id).then(({ error }) => {
-                if (error) { console.error("DB Sync Error:", error); }
-            });
-
-          } catch (err: any) {
-            setError(err.message || 'Error');
-            showToast("Generation failed", 'error');
-          } finally {
-            setIsLoading(false);
-          }
+            supabase.from('profiles').update({ credits: newBalance }).eq('id', session.user.id);
+          } catch (err: any) { setError(err.message || 'Error'); } finally { setIsLoading(false); }
       }
   }
 
   const handleGenerate = () => {
-      const newSeed = getRandomSeed();
-      const newPose = autoPose ? getRandomPose() : (options.pose || getRandomPose());
-      const newFeatures = getRandomFeatures(); 
-      const newOptions = { ...options, seed: newSeed, pose: newPose, modelFeatures: newFeatures };
+      const newOptions = { ...options, seed: getRandomSeed(), pose: autoPose ? getRandomPose() : (options.pose || getRandomPose()), modelFeatures: getRandomFeatures() };
       setOptions(newOptions);
       executeGeneration(newOptions);
   };
   
   const handleRegenerate = (keepModel: boolean) => {
-       const newPose = autoPose ? getRandomPose() : (options.pose || getRandomPose());
-       const newOptions = { ...options, seed: keepModel ? options.seed : getRandomSeed(), pose: newPose };
+       const newOptions = { ...options, seed: keepModel ? options.seed : getRandomSeed(), pose: autoPose ? getRandomPose() : (options.pose || getRandomPose()) };
        setOptions(newOptions);
        executeGeneration(newOptions);
   };
@@ -804,48 +483,28 @@ const App: React.FC = () => {
     }
   };
 
-
   const isPremium = session ? userProfile?.tier !== SubscriptionTier.Free : false;
   const isStudio = session ? userProfile?.tier === SubscriptionTier.Studio : false;
   const hasProAccess = session ? (userProfile?.tier === SubscriptionTier.Creator || userProfile?.tier === SubscriptionTier.Studio) : false;
-  
   const currentCost = getGenerationCost(options);
-
-  if (isRedirecting) {
-      return (
-        <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center p-6">
-            <div className="flex flex-col items-center gap-6 animate-fade-in text-center max-w-md">
-                <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <div>
-                    <h2 className="text-xl font-bold text-white tracking-tight">Redirecting</h2>
-                    <p className="text-zinc-500 text-sm mt-1">Connecting to payment gateway...</p>
-                </div>
-            </div>
-        </div>
-      );
-  }
 
   if (isSyncingPayment) {
     return (
-        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6">
-            <div className="bg-black border border-zinc-800 p-8 rounded-lg max-w-sm w-full text-center">
-                <div className="w-12 h-12 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4 border border-zinc-800">
-                    <Loader2 size={24} className="text-white animate-spin" />
-                </div>
+        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+            <div className="bg-black border border-zinc-800 p-8 rounded-lg max-w-sm w-full">
+                <Loader2 size={24} className="text-white animate-spin mx-auto mb-4" />
                 <h2 className="text-lg font-bold text-white mb-2">Syncing Purchase</h2>
-                <p className="text-zinc-500 text-xs mb-6">This may take a moment while we verify your transaction.</p>
-                <div className="w-full bg-zinc-900 h-1 rounded-full overflow-hidden">
+                <div className="w-full bg-zinc-900 h-1 rounded-full overflow-hidden mt-6">
                     <div className="bg-white h-full animate-progress"></div>
                 </div>
-                <button onClick={() => setIsSyncingPayment(false)} className="mt-6 text-xs text-zinc-500 hover:text-white transition-colors">Cancel</button>
+                <button onClick={() => setIsSyncingPayment(false)} className="mt-6 text-xs text-zinc-500 hover:text-white">Cancel</button>
             </div>
         </div>
     );
   }
 
   return (
-    <div className="min-h-screen text-zinc-300 font-sans selection:bg-white selection:text-black bg-black relative overflow-hidden">
-      {/* BACKGROUND AMBIENCE */}
+    <div className="min-h-screen text-zinc-300 font-sans bg-black relative overflow-hidden">
       <div className="fixed inset-0 pointer-events-none z-0">
          <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-white/5 rounded-full blur-[150px]"></div>
          <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-zinc-900/40 rounded-full blur-[150px]"></div>
@@ -853,14 +512,8 @@ const App: React.FC = () => {
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onAuth={handleAuth} initialView={loginModalView} showToast={showToast} />
-      <UpgradeModal 
-        isOpen={showUpgradeModal} 
-        onClose={() => setShowUpgradeModal(false)} 
-        onUpgrade={(tier) => handleUpgrade(tier)} 
-        currentTier={userProfile?.tier || SubscriptionTier.Free}
-      />
+      <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} onUpgrade={handleUpgrade} currentTier={userProfile?.tier || SubscriptionTier.Free} />
 
-      {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-40 bg-black/80 backdrop-blur-xl border-b border-zinc-800/50 h-14">
           <div className="max-w-[1920px] mx-auto h-full flex justify-between items-center px-4 md:px-6">
               <div className="flex items-center gap-3">
@@ -879,15 +532,10 @@ const App: React.FC = () => {
                              {userProfile?.tier === SubscriptionTier.Free ? 'Guest' : userProfile?.tier}
                            </span>
                         </button>
-                        
-                        <div onClick={() => setShowProfileMenu(!showProfileMenu)} className="flex items-center gap-3 cursor-pointer group px-2 py-1 rounded-md hover:bg-zinc-900 transition-colors">
+                        <div onClick={() => setShowProfileMenu(!showProfileMenu)} className="flex items-center gap-3 cursor-pointer group px-2 py-1 rounded-md hover:bg-zinc-900 transition-colors relative">
                             <div className="text-right hidden sm:block">
-                                <div className="text-[10px] font-bold text-white">
-                                    {userProfile?.username || session.user.email?.split('@')[0]}
-                                </div>
-                                <div className="text-[10px] text-zinc-500 font-mono">
-                                    {userProfile?.credits ?? <Loader2 size={8} className="animate-spin inline" />} Credits
-                                </div>
+                                <div className="text-[10px] font-bold text-white">{userProfile?.username || session.user.email?.split('@')[0]}</div>
+                                <div className="text-[10px] text-zinc-500 font-mono">{userProfile?.credits ?? <Loader2 size={8} className="animate-spin inline" />} Credits</div>
                             </div>
                             <div className="w-6 h-6 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700">
                                 <span className="text-xs font-bold text-white">{session.user.email?.[0].toUpperCase()}</span>
@@ -895,12 +543,9 @@ const App: React.FC = () => {
                         </div>
                         {showProfileMenu && (
                             <div className="absolute top-12 right-4 w-48 bg-black border border-zinc-800 rounded-md shadow-2xl z-50 animate-fade-in overflow-hidden">
-                                <div className="p-3 border-b border-zinc-800">
-                                    <div className="text-xs text-zinc-400 truncate">{session.user.email}</div>
-                                </div>
+                                <div className="p-3 border-b border-zinc-800"><div className="text-xs text-zinc-400 truncate">{session.user.email}</div></div>
                                 <div className="p-1">
                                     <button onClick={() => { handleUpgrade(); setShowProfileMenu(false); }} className="w-full text-left px-3 py-2 text-xs text-white hover:bg-zinc-900 rounded-sm transition-colors flex items-center gap-2"><CreditCard size={12} /> Manage Subscription</button>
-                                    <button onClick={() => { setIsSyncingPayment(true); pollForCredits(session.user.id, session.user.email, userProfile?.credits); setShowProfileMenu(false); }} className="w-full text-left px-3 py-2 text-xs text-white hover:bg-zinc-900 rounded-sm transition-colors flex items-center gap-2"><RefreshCcw size={12} /> Sync Purchase</button>
                                     <button onClick={(e) => handleLogout(e)} className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-zinc-900 rounded-sm transition-colors flex items-center gap-2"><LogOut size={12} /> Sign Out</button>
                                 </div>
                             </div>
@@ -919,8 +564,6 @@ const App: React.FC = () => {
 
       <main className="pt-20 px-4 md:px-6 max-w-[1920px] mx-auto min-h-screen pb-12 relative z-10">
         <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 relative">
-          
-          {/* Controls Column */}
           <div className="order-2 lg:order-1 lg:col-span-4 flex flex-col gap-4 relative z-20 pb-32 lg:pb-0">
             <div className="bg-black/80 backdrop-blur-sm border border-zinc-800 rounded-lg overflow-hidden shadow-lg">
                 <ConfigSection title="Wardrobe" icon={Shirt} defaultOpen={true}>
@@ -932,33 +575,12 @@ const App: React.FC = () => {
                         <div className="grid grid-cols-2 gap-3 mb-2">
                             <button onClick={() => setOptions({...options, modelVersion: ModelVersion.Flash})} className={`flex flex-col items-center justify-center py-3 px-2 rounded-md border transition-all ${options.modelVersion === ModelVersion.Flash ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-600'}`}>
                                 <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Flash ? 'text-black' : 'text-white'}`}>Flash 2.5</span>
-                                <span className={`text-[9px] font-mono mt-0.5 ${options.modelVersion === ModelVersion.Flash ? 'text-zinc-600' : 'text-zinc-500'}`}>1 Credit</span>
                             </button>
-                            <button onClick={() => { if(hasProAccess) setOptions({...options, modelVersion: ModelVersion.Pro}); else setShowUpgradeModal(true); }} className={`flex flex-col items-center justify-center py-3 px-2 rounded-md border transition-all relative ${options.modelVersion === ModelVersion.Pro ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-600'}`}>
+                            <button onClick={() => handleProFeatureClick(() => setOptions({...options, modelVersion: ModelVersion.Pro}))} className={`flex flex-col items-center justify-center py-3 px-2 rounded-md border transition-all relative ${options.modelVersion === ModelVersion.Pro ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-600'}`}>
                                 {!hasProAccess && <Lock size={10} className="absolute top-2 right-2 text-zinc-500" />}
                                 <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Pro ? 'text-black' : 'text-white'}`}>Pro 3</span>
-                                <span className={`text-[9px] font-mono mt-0.5 ${options.modelVersion === ModelVersion.Pro ? 'text-zinc-600' : 'text-zinc-500'}`}>10 Credits</span>
                             </button>
                         </div>
-                        
-                        {/* 4K Toggle - Only visible when Pro is selected AND user is Studio tier */}
-                        {options.modelVersion === ModelVersion.Pro && isStudio && (
-                            <div className="flex items-center justify-between px-3 py-2 bg-zinc-900/30 rounded border border-zinc-800">
-                                <div className="flex items-center gap-2">
-                                    <Monitor size={12} className="text-zinc-400" />
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] font-bold text-white uppercase tracking-wide">4K Resolution</span>
-                                        <span className="text-[9px] text-zinc-500 font-mono">+5 Credits</span>
-                                    </div>
-                                </div>
-                                <button 
-                                    onClick={() => setOptions({...options, enable4K: !options.enable4K})}
-                                    className={`w-8 h-4 rounded-full transition-colors relative ${options.enable4K ? 'bg-white' : 'bg-zinc-700'}`}
-                                >
-                                    <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-black rounded-full transition-transform ${options.enable4K ? 'translate-x-4' : 'translate-x-0'}`}></div>
-                                </button>
-                            </div>
-                        )}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <Dropdown label="Sex" value={options.sex} options={Object.values(ModelSex)} onChange={(val) => setOptions({ ...options, sex: val })} />
@@ -972,49 +594,36 @@ const App: React.FC = () => {
                       <div className="grid grid-cols-2 gap-2 max-h-[240px] overflow-y-auto pr-2 custom-scrollbar">
                          {STANDARD_STYLES.map(style => (<StyleButton key={style} label={style} isSelected={options.style === style} onClick={() => setOptions({...options, style: style as PhotoStyle})} />))}
                          <div className="col-span-2 text-[9px] font-bold text-zinc-500 uppercase tracking-wider mt-2 mb-1 pl-1">Pro Styles</div>
-                         {PRO_STYLES.map(style => (<StyleButton key={style} label={style} isSelected={options.style === style} isLocked={!hasProAccess} onClick={() => { if(hasProAccess) setOptions({...options, style: style as PhotoStyle}); else setShowUpgradeModal(true); }} />))}
+                         {PRO_STYLES.map(style => (<StyleButton key={style} label={style} isSelected={options.style === style} isLocked={!hasProAccess} onClick={() => handleProFeatureClick(() => setOptions({...options, style: style as PhotoStyle}))} />))}
                       </div>
                     </div>
                 </ConfigSection>
                 <ConfigSection title="Pose" icon={Move}>
-                    <PoseControl selectedPose={options.pose} onPoseChange={(p) => setOptions({ ...options, pose: p })} isAutoMode={autoPose} onToggleAutoMode={setAutoPose} isPremium={isPremium} onUpgrade={() => setShowUpgradeModal(true)} />
+                    <PoseControl selectedPose={options.pose} onPoseChange={(p) => setOptions({ ...options, pose: p })} isAutoMode={autoPose} onToggleAutoMode={setAutoPose} isPremium={isPremium} onUpgrade={() => handleProFeatureClick(() => {})} />
                 </ConfigSection>
                 <ConfigSection title="Size" icon={Ruler}>
-                    <SizeControl options={options} onChange={setOptions} isPremium={isStudio} onUpgradeRequest={() => setShowUpgradeModal(true)} />
+                    <SizeControl options={options} onChange={setOptions} isPremium={isStudio} onUpgradeRequest={() => handleProFeatureClick(() => {})} />
                 </ConfigSection>
             </div>
             
             <div className="sticky bottom-4 z-30 lg:bottom-0">
-                {!isFormValid && (
-                    <div className="mb-2 text-[10px] text-amber-500 font-mono text-center bg-black/80 backdrop-blur border border-amber-900/30 py-1.5 rounded flex items-center justify-center gap-2">
-                         <Info size={12} /> Add at least 1 garment to generate
-                    </div>
-                )}
                 <button 
                     onClick={handleGenerate} 
                     disabled={!isFormValid || isLoading} 
                     className={`w-full py-3.5 px-4 rounded-md text-sm font-bold tracking-wide transition-all shadow-xl flex items-center justify-center gap-2 group transform active:scale-[0.99]
-                        ${!isFormValid || isLoading 
-                            ? 'bg-zinc-900 text-zinc-500 cursor-not-allowed border border-zinc-800' 
-                            : 'bg-white text-black hover:bg-zinc-100 hover:shadow-white/10 border border-white'}`}
+                        ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-500 cursor-not-allowed border border-zinc-800' : 'bg-white text-black hover:bg-zinc-100 border border-white'}`}
                 >
                     {isLoading ? (<Loader2 size={16} className="animate-spin" />) : (<><Sparkles size={16} fill="black" /> Generate Shoot</>)}
                 </button>
                 <div className="flex justify-between items-center mt-3 px-1">
-                    <span className="text-[10px] text-zinc-600 font-mono flex items-center gap-1.5">
-                       {APP_VERSION} 
-                       <span className="hidden lg:flex items-center gap-0.5 text-zinc-700 bg-zinc-900/50 px-1 rounded border border-zinc-800"><Command size={8} /> ↵</span>
-                    </span>
+                    <span className="text-[10px] text-zinc-600 font-mono">{APP_VERSION}</span>
                     <span className="text-[10px] font-bold text-zinc-500 font-mono">Cost: {currentCost} Credits</span>
                 </div>
             </div>
           </div>
-          
-          {/* Preview Column */}
           <div className="order-1 lg:order-2 lg:col-span-8 h-[60vh] lg:h-[calc(100vh-8rem)] sticky top-20 bg-black/50 backdrop-blur-sm border border-zinc-800 rounded-lg overflow-hidden shadow-2xl">
              <ResultDisplay isLoading={isLoading} image={generatedImage} onDownload={handleDownload} onRegenerate={handleRegenerate} isPremium={isPremium} error={error} />
           </div>
-
         </div>
       </main>
     </div>
