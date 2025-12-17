@@ -268,13 +268,14 @@ const App: React.FC = () => {
   };
 
   const handleGenerate = async () => {
-      // Mandatory: Check for Gemini Pro API Key Selection
-      if (options.modelVersion === ModelVersion.Pro && (window as any).aistudio) {
+      const aistudio = (window as any).aistudio;
+      // Pro models in AI Studio require explicit key selection
+      if (options.modelVersion === ModelVersion.Pro && aistudio) {
         try {
-          const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+          const hasKey = await aistudio.hasSelectedApiKey();
           if (!hasKey) {
-            await (window as any).aistudio.openSelectKey();
-            // Critical: Assume success after opening dialog to prevent race conditions as per rules.
+            await aistudio.openSelectKey();
+            // Assume success after trigger as per rules
           }
         } catch (e) {
           console.warn("AI Studio key selection failed:", e);
@@ -324,16 +325,16 @@ const App: React.FC = () => {
           const aistudio = (window as any).aistudio;
           const errorMessage = err.message || '';
           
-          // Improved error detection for missing API Key across different SDK versions
+          // Handle specific Gemini SDK errors
           if (errorMessage.includes("Requested entity was not found.") && currentOptions.modelVersion === ModelVersion.Pro && aistudio) {
               await aistudio.openSelectKey();
               setError("Session reset. Please select a valid paid project API key.");
           } else if (errorMessage.includes("API Key must be set") || errorMessage.includes("An API Key must be set")) {
               if (aistudio) {
                   await aistudio.openSelectKey();
-                  setError("API key required. Please select one using the dialog and try again.");
+                  setError("API key required. Please select one using the dialog.");
               } else {
-                  setError("API Key missing. Please ensure it is set in your environment variables.");
+                  setError("API Key missing. Please ensure VITE_API_KEY is correctly set in your Vercel Environment Variables.");
               }
           } else {
               setError(errorMessage || 'Generation failed. Please try again.');
@@ -358,7 +359,7 @@ const App: React.FC = () => {
   const handleProFeatureClick = async (action: () => void) => {
       if (session ? (userProfile?.tier === SubscriptionTier.Creator || userProfile?.tier === SubscriptionTier.Studio) : false) {
           action();
-          // Immediately prompt for key selection when switching to Pro
+          // Immediately prompt for key selection when switching to Pro in AI Studio context
           if ((window as any).aistudio) {
               const hasKey = await (window as any).aistudio.hasSelectedApiKey();
               if (!hasKey) await (window as any).aistudio.openSelectKey();
