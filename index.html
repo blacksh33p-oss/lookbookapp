@@ -10,6 +10,8 @@
     
     <!-- Runtime Environment Shim -->
     <script type="text/javascript">
+        // Shim process.env for the browser to avoid reference errors and 
+        // allow dynamic runtime injection of API keys.
         window.process = window.process || {};
         window.process.env = window.process.env || {};
     </script>

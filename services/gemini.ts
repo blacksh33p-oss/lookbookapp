@@ -42,7 +42,8 @@ const getModelName = (version: ModelVersion): string => {
 };
 
 export const generatePhotoshootImage = async (options: PhotoshootOptions): Promise<string> => {
-  // Always create a new instance using the environment variable as per guidelines
+  // Always use process.env.API_KEY directly as per guidelines.
+  // We create a fresh instance here to ensure we pick up the latest injected key.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const heightStr = options.height ? `Model Height: ${options.height} ${options.measurementUnit}` : 'Height: Standard Model Height';
