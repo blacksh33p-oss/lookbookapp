@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.7.3"; 
+const APP_VERSION = "v1.7.4"; 
 const ACCOUNT_PORTAL_URL = 'https://lookbook.test.onfastspring.com/account';
 
 const POSES = [
@@ -216,7 +216,7 @@ const App: React.FC = () => {
   });
 
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [loginModalView, setLoginModalView] = useState<'pricing' | 'login'>('pricing'); 
+  const [loginModalView, setLoginModalView] = useState<'pricing' | 'login' | 'signup'>('signup'); 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [autoPose, setAutoPose] = useState(true);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
@@ -608,7 +608,7 @@ const App: React.FC = () => {
          if (!activeSession) {
              console.log("No session, prompting login");
              if (tier) localStorage.setItem('pending_plan', tier);
-             setLoginModalView('pricing');
+             setLoginModalView('signup'); // Changed to 'signup' to skip pricing card redundancy
              setShowLoginModal(true);
              setShowUpgradeModal(false);
              return;
@@ -705,7 +705,7 @@ const App: React.FC = () => {
   };
 
   const handleSignup = () => {
-    setLoginModalView('pricing');
+    setLoginModalView('signup'); // Changed to direct signup
     setShowLoginModal(true);
   };
 
@@ -727,7 +727,7 @@ const App: React.FC = () => {
       if (isGuest) {
           if (guestCredits < cost) {
               showToast(guestCredits < 1 ? "Daily limit reached!" : "Not enough guest credits.", "info");
-              setLoginModalView('pricing'); 
+              setLoginModalView('signup'); // Changed to 'signup' to reduce friction
               setShowLoginModal(true);
               return;
           }

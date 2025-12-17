@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect } from 'react';
 import { X, Mail, ArrowRight, Loader2, Check, User, Building2, Lock, Fingerprint, Eye, EyeOff, ExternalLink, RefreshCw, Zap, Crown, Star, ShieldCheck } from 'lucide-react';
 import { SubscriptionTier } from '../types';
@@ -10,7 +8,7 @@ interface LoginModalProps {
   onClose: () => void;
   onAuth: (email: string, password?: string, isSignUp?: boolean, username?: string) => Promise<void>;
   showToast?: (message: string, type: 'success' | 'error' | 'info') => void;
-  initialView?: 'pricing' | 'login';
+  initialView?: 'pricing' | 'login' | 'signup';
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({ 
@@ -40,8 +38,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-        setStep(initialView === 'login' ? 'credentials' : 'selection');
-        setAuthMode(initialView === 'login' ? 'signin' : 'signup');
+        if (initialView === 'pricing') {
+            setStep('selection');
+            // Auth mode defaults to signup, but will be set when they click a card
+            setAuthMode('signup');
+        } else {
+            setStep('credentials');
+            setAuthMode(initialView === 'login' ? 'signin' : 'signup');
+        }
+        
         setError(null); setEmail(''); setPassword(''); setUsername(''); setIsSuccess(false);
     }
   }, [isOpen, initialView]);
@@ -183,7 +188,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
              </div>
         ) : (
              <div className="p-8">
-                <button onClick={() => { setStep('selection'); setAuthMode('signup'); }} className="text-xs text-zinc-500 hover:text-white mb-6">← Back</button>
+                {/* Only show Back button if we started in Pricing view */}
+                {initialView === 'pricing' && (
+                    <button onClick={() => { setStep('selection'); setAuthMode('signup'); }} className="text-xs text-zinc-500 hover:text-white mb-6">← Back</button>
+                )}
+                
                 <h2 className="text-xl font-bold text-white mb-6">
                     {authMode === 'signin' ? 'Sign In' : 'Create Account'}
                 </h2>
