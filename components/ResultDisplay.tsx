@@ -1,5 +1,6 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Download, RefreshCw, Loader2, User, Users, Camera, Lock } from 'lucide-react';
+import { Download, RefreshCw, Loader2, User, Users, Camera, Lock, Sparkles, Shirt, Wand2 } from 'lucide-react';
 
 interface ResultDisplayProps {
   isLoading: boolean;
@@ -86,20 +87,47 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
     );
   }
 
-  // Empty
+  // Empty State / Onboarding Hero
   if (!image) {
     return (
-      <div className="h-full w-full bg-black flex flex-col items-center justify-center relative group">
-        <div className="flex flex-col items-center text-center px-4">
-            <div className="w-16 h-16 rounded-full bg-zinc-900/50 flex items-center justify-center border border-zinc-800 mb-6 group-hover:border-zinc-700 transition-colors">
-                <Camera className="w-6 h-6 text-zinc-700 group-hover:text-zinc-500 transition-colors" />
+      <div className="h-full w-full bg-black flex flex-col items-center justify-center relative overflow-hidden">
+        {/* Background ambient glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-white/5 rounded-full blur-[100px] pointer-events-none"></div>
+
+        <div className="relative z-10 max-w-md text-center px-6">
+            <div className="mb-8 flex justify-center">
+                <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center shadow-2xl shadow-black">
+                    <Sparkles className="w-8 h-8 text-white" strokeWidth={1.5} />
+                </div>
             </div>
-            <p className="text-zinc-500 font-mono text-xs uppercase tracking-widest mb-1">
-                No active session
+            
+            <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-4">
+                Virtual Fashion Studio
+            </h2>
+            <p className="text-zinc-500 text-sm leading-relaxed mb-10 max-w-xs mx-auto">
+                Turn garment photos into professional high-fashion editorials using Generative AI.
             </p>
-            <p className="text-zinc-700 text-[10px]">
-                Configure settings to initialize model
-            </p>
+
+            <div className="grid grid-cols-3 gap-4 border-t border-zinc-800 pt-8">
+                <div className="flex flex-col items-center gap-2 group">
+                    <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:border-zinc-600 transition-colors">
+                        <Shirt size={16} className="text-zinc-400 group-hover:text-white" />
+                    </div>
+                    <span className="text-[10px] uppercase font-bold text-zinc-600 tracking-wider">1. Upload</span>
+                </div>
+                <div className="flex flex-col items-center gap-2 group">
+                    <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:border-zinc-600 transition-colors">
+                        <User size={16} className="text-zinc-400 group-hover:text-white" />
+                    </div>
+                    <span className="text-[10px] uppercase font-bold text-zinc-600 tracking-wider">2. Model</span>
+                </div>
+                <div className="flex flex-col items-center gap-2 group">
+                    <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:border-zinc-600 transition-colors">
+                        <Wand2 size={16} className="text-zinc-400 group-hover:text-white" />
+                    </div>
+                    <span className="text-[10px] uppercase font-bold text-zinc-600 tracking-wider">3. Create</span>
+                </div>
+            </div>
         </div>
       </div>
     );
@@ -112,7 +140,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
         <img 
             src={image} 
             alt="Generated Photoshoot" 
-            className="h-full w-full object-contain z-10"
+            className="h-full w-full object-contain z-10 shadow-2xl"
         />
       </div>
       

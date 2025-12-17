@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.5.3"; 
+const APP_VERSION = "v1.6.0"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -64,10 +64,10 @@ interface ConfigSectionProps {
 const ConfigSection: React.FC<ConfigSectionProps> = ({ title, icon: Icon, children, defaultOpen = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
-    <div className="border-b border-zinc-800 bg-black last:border-b-0">
+    <div className="border-b border-zinc-800 bg-black/50 last:border-b-0">
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-4 text-left focus:outline-none group hover:bg-zinc-900 transition-colors"
+        className="w-full flex items-center justify-between p-4 text-left focus:outline-none group hover:bg-zinc-900/50 transition-colors"
       >
         <div className="flex items-center gap-3">
           <Icon size={14} className={`text-zinc-500 group-hover:text-white transition-colors ${isOpen ? 'text-white' : ''}`} />
@@ -102,7 +102,7 @@ const StyleButton: React.FC<StyleButtonProps> = ({ label, isSelected, isLocked, 
             onClick={onClick}
             className={`relative px-3 py-3 rounded-md border text-left transition-all group overflow-hidden min-h-[3rem] flex items-center justify-between
             ${isSelected 
-                ? 'bg-white border-white text-black' 
+                ? 'bg-white border-white text-black shadow-lg shadow-white/5' 
                 : 'bg-black border-zinc-800 hover:border-zinc-600 text-zinc-400'
             }
             ${isLocked && !isSelected ? 'opacity-60 cursor-not-allowed hover:bg-black hover:border-zinc-800' : ''}
@@ -697,7 +697,13 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen text-zinc-300 font-sans selection:bg-white selection:text-black bg-black">
+    <div className="min-h-screen text-zinc-300 font-sans selection:bg-white selection:text-black bg-black relative overflow-hidden">
+      {/* BACKGROUND AMBIENCE */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+         <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-white/5 rounded-full blur-[150px]"></div>
+         <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-zinc-900/40 rounded-full blur-[150px]"></div>
+      </div>
+
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onAuth={handleAuth} initialView={loginModalView} showToast={showToast} />
       <UpgradeModal 
@@ -708,13 +714,13 @@ const App: React.FC = () => {
       />
 
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-40 bg-black/50 backdrop-blur-xl border-b border-zinc-800 h-14">
+      <header className="fixed top-0 left-0 right-0 z-40 bg-black/80 backdrop-blur-xl border-b border-zinc-800/50 h-14">
           <div className="max-w-[1920px] mx-auto h-full flex justify-between items-center px-4 md:px-6">
               <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 bg-white text-black rounded-sm flex items-center justify-center">
+                  <div className="w-6 h-6 bg-white text-black rounded-sm flex items-center justify-center shadow-lg shadow-white/10">
                      <Hexagon size={14} fill="currentColor" strokeWidth={0} />
                   </div>
-                  <h1 className="text-sm font-bold tracking-tight text-white">FashionStudio</h1>
+                  <h1 className="text-sm font-bold tracking-tight text-white font-mono">FashionStudio<span className="text-zinc-500">.ai</span></h1>
               </div>
 
               <div className="flex items-center gap-4">
@@ -761,12 +767,12 @@ const App: React.FC = () => {
           </div>
       </header>
 
-      <main className="pt-20 px-4 md:px-6 max-w-[1920px] mx-auto min-h-screen pb-12">
+      <main className="pt-20 px-4 md:px-6 max-w-[1920px] mx-auto min-h-screen pb-12 relative z-10">
         <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 relative">
           
           {/* Controls Column */}
           <div className="order-2 lg:order-1 lg:col-span-4 flex flex-col gap-4 relative z-20 pb-20 lg:pb-0">
-            <div className="bg-black border border-zinc-800 rounded-lg overflow-hidden shadow-sm">
+            <div className="bg-black/80 backdrop-blur-sm border border-zinc-800 rounded-lg overflow-hidden shadow-lg">
                 <ConfigSection title="Wardrobe" icon={Shirt} defaultOpen={true}>
                     <OutfitControl outfit={options.outfit} onChange={(newOutfit) => setOptions({ ...options, outfit: newOutfit })} />
                 </ConfigSection>
@@ -837,7 +843,10 @@ const App: React.FC = () => {
                 <button 
                     onClick={handleGenerate} 
                     disabled={!isFormValid || isLoading} 
-                    className={`w-full py-3 px-4 rounded-md text-sm font-medium transition-all shadow-lg flex items-center justify-center gap-2 group ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-500 cursor-not-allowed border border-zinc-800' : 'bg-white text-black hover:bg-zinc-200 border border-white'}`}
+                    className={`w-full py-3.5 px-4 rounded-md text-sm font-bold tracking-wide transition-all shadow-xl flex items-center justify-center gap-2 group transform active:scale-[0.99]
+                        ${!isFormValid || isLoading 
+                            ? 'bg-zinc-900 text-zinc-500 cursor-not-allowed border border-zinc-800' 
+                            : 'bg-white text-black hover:bg-zinc-100 hover:shadow-white/10 border border-white'}`}
                 >
                     {isLoading ? (<Loader2 size={16} className="animate-spin" />) : (<><Sparkles size={16} fill="black" /> Generate Shoot</>)}
                 </button>
@@ -852,7 +861,7 @@ const App: React.FC = () => {
           </div>
           
           {/* Preview Column */}
-          <div className="order-1 lg:order-2 lg:col-span-8 h-[60vh] lg:h-[calc(100vh-8rem)] sticky top-20 bg-black border border-zinc-800 rounded-lg overflow-hidden">
+          <div className="order-1 lg:order-2 lg:col-span-8 h-[60vh] lg:h-[calc(100vh-8rem)] sticky top-20 bg-black/50 backdrop-blur-sm border border-zinc-800 rounded-lg overflow-hidden shadow-2xl">
              <ResultDisplay isLoading={isLoading} image={generatedImage} onDownload={handleDownload} onRegenerate={handleRegenerate} isPremium={isPremium} error={error} />
           </div>
 
