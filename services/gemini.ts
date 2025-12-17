@@ -37,13 +37,13 @@ const getModelName = (version: ModelVersion): string => {
   switch (version) {
     case ModelVersion.Pro: return 'gemini-3-pro-image-preview';
     case ModelVersion.Flash:
-    default: return 'gemini-3-flash-preview';
+    default: return 'gemini-2.5-flash-image';
   }
 };
 
 export const generatePhotoshootImage = async (options: PhotoshootOptions): Promise<string> => {
-  // Always use process.env.API_KEY directly as per guidelines.
-  // We create a fresh instance here to ensure we pick up the latest injected key.
+  // Always use process.env.API_KEY directly.
+  // In a Vite environment, we rely on the index.html shim to ensure process.env.API_KEY is available at runtime.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const heightStr = options.height ? `Model Height: ${options.height} ${options.measurementUnit}` : 'Height: Standard Model Height';

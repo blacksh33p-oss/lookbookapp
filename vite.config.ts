@@ -9,8 +9,8 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     // We only define specific environment variables for Supabase.
-    // We do NOT define process.env.API_KEY here to avoid esbuild syntax errors.
-    // The runtime environment will provide process.env.API_KEY via the index.html shim.
+    // We do NOT define process.env.API_KEY here to avoid esbuild syntax errors during deployment.
+    // This allows the browser to fall back to the runtime 'process' object defined in index.html.
     define: {
       'process.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
       'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),

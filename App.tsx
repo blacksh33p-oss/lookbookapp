@@ -13,7 +13,7 @@ import { generatePhotoshootImage } from './services/gemini';
 import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier, Project, Generation } from './types';
 
-const APP_VERSION = "v1.9.6"; 
+const APP_VERSION = "v1.9.7"; 
 
 const POSES = [
     "Standing naturally, arms relaxed", "Walking towards camera, confident stride", "Leaning slightly against a wall", 
@@ -99,7 +99,7 @@ interface StyleButtonProps {
 const StyleButton: React.FC<StyleButtonProps> = ({ label, isSelected, isLocked, onClick }) => (
     <button onClick={onClick} className={`relative px-3 py-3 rounded-md border text-left transition-all group overflow-hidden min-h-[3rem] flex items-center justify-between ${isSelected ? 'bg-white border-white text-black shadow-lg shadow-white/5' : 'bg-black border-zinc-800 hover:border-zinc-600 text-zinc-400'} ${isLocked && !isSelected ? 'opacity-60 cursor-not-allowed hover:bg-black hover:border-zinc-800' : ''}`}>
         <span className={`text-[10px] font-bold uppercase tracking-wide z-10 relative ${isSelected ? 'text-black' : 'text-zinc-400 group-hover:text-zinc-200'}`}>{label}</span>
-        {isLocked && !isSelected && <Lock size={10} className="text-zinc-600" />}
+        {isLocked && !isSelected ? <Lock size={10} className="text-zinc-600" /> : null}
     </button>
 );
 
@@ -268,17 +268,16 @@ const App: React.FC = () => {
   };
 
   const handleGenerate = async () => {
-      // Safety guard for window.aistudio which is only available in specific environments
-      const aistudio = (window as any).aistudio;
-      
-      if (options.modelVersion === ModelVersion.Pro && aistudio) {
+      // Mandatory: Check for Gemini Pro API Key Selection
+      if (options.modelVersion === ModelVersion.Pro && (window as any).aistudio) {
         try {
-          const hasKey = await aistudio.hasSelectedApiKey();
+          const hasKey = await (window as any).aistudio.hasSelectedApiKey();
           if (!hasKey) {
-            await aistudio.openSelectKey();
+            await (window as any).aistudio.openSelectKey();
+            // Critical: Assume success after opening dialog to prevent race conditions as per rules.
           }
         } catch (e) {
-          console.warn("AI Studio key selection failed or not supported in this context:", e);
+          console.warn("AI Studio key selection failed:", e);
         }
       }
 
@@ -325,9 +324,9 @@ const App: React.FC = () => {
           const aistudio = (window as any).aistudio;
           if (err.message?.includes("Requested entity was not found.") && currentOptions.modelVersion === ModelVersion.Pro && aistudio) {
               await aistudio.openSelectKey();
-              setError("API Key verification failed. Please ensure you select a key from a paid GCP project.");
+              setError("Session reset. Please select a valid paid project API key.");
           } else {
-              setError(err.message || 'Generation failed. Please check your garment photos and try again.');
+              setError(err.message || 'Generation failed. Please try again.');
           }
       } finally { 
           setIsLoading(false); 
@@ -488,7 +487,7 @@ const App: React.FC = () => {
                                 onClick={() => setOptions({...options, modelVersion: ModelVersion.Flash})} 
                                 className={`flex flex-col items-center justify-center py-3 rounded-md border transition-all ${options.modelVersion === ModelVersion.Flash ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-700'}`}
                             >
-                                <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Flash ? 'text-black' : 'text-zinc-400'}`}>Flash 3</span>
+                                <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Flash ? 'text-black' : 'text-zinc-400'}`}>Flash 2.5</span>
                             </button>
                             <button 
                                 onClick={() => handleProFeatureClick(() => setOptions({...options, modelVersion: ModelVersion.Pro}))} 
