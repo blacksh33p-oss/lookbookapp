@@ -14,7 +14,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.6.2"; 
+const APP_VERSION = "v1.6.3"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -38,9 +38,6 @@ const STANDARD_STYLES = [ PhotoStyle.Studio, PhotoStyle.Urban, PhotoStyle.Nature
 const PRO_STYLES = [ PhotoStyle.Luxury, PhotoStyle.Chromatic, PhotoStyle.Minimalist, PhotoStyle.Film, PhotoStyle.Newton, PhotoStyle.Lindbergh, PhotoStyle.Leibovitz, PhotoStyle.Avedon, PhotoStyle.LaChapelle, PhotoStyle.Testino ];
 
 // FASTSPRING PRODUCT MAPPING
-// These match the "Path" column in your FastSpring Dashboard.
-// Since these are simple IDs, we hardcode them here for simplicity.
-// No environment variables are required for these paths.
 const PRODUCT_PATHS: Record<string, string> = {
     [SubscriptionTier.Starter]: 'starter',
     [SubscriptionTier.Creator]: 'creator',
@@ -264,10 +261,11 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // --- FASTSPRING POPUP HANDLER ---
+  // --- FASTSPRING POPUP HANDLER (Via Custom Event) ---
   useEffect(() => {
-      // Define the callback globally so FastSpring SBL can call it
-      window.onPopupClosed = (data: any) => {
+      const handlePopupClosed = (e: any) => {
+          const data = e.detail;
+          console.log("React received popup closed event:", data);
           if (data && data.id) {
               // Order Reference present implies purchase (or intent)
               // We trigger sync to check if Webhook has processed
@@ -278,12 +276,14 @@ const App: React.FC = () => {
               if (session?.user) {
                    pollForCredits(session.user.id, session.user.email);
               } else {
-                  // If user bought as guest (unlikely with our logic, but possible)
                   setIsSyncingPayment(false); 
               }
           }
       };
-  }, [session]); // Depend on session to have up-to-date user info for polling
+
+      window.addEventListener('fastspringPopupClosed', handlePopupClosed);
+      return () => window.removeEventListener('fastspringPopupClosed', handlePopupClosed);
+  }, [session]);
 
   // --- ERROR HANDLING ---
   useEffect(() => {
@@ -544,11 +544,13 @@ const App: React.FC = () => {
 
   const handleUpgrade = async (tier: SubscriptionTier) => {
      try {
+         console.log("handleUpgrade called for tier:", tier);
          const { data } = await supabase.auth.getSession();
          const activeSession = data.session;
 
          // If not logged in, prompt login
          if (!activeSession) {
+             console.log("No session, prompting login");
              localStorage.setItem('pending_plan', tier);
              setLoginModalView('pricing');
              setShowLoginModal(true);
@@ -557,6 +559,7 @@ const App: React.FC = () => {
          }
 
          if (tier === SubscriptionTier.Free) {
+             console.log("Downgrading to Free (local only)");
              localStorage.removeItem('pending_plan');
              setShowUpgradeModal(false);
              return;
@@ -566,6 +569,7 @@ const App: React.FC = () => {
          if (window.fastspring && window.fastspring.builder) {
              const productPath = PRODUCT_PATHS[tier];
              if (!productPath) {
+                 console.error("Product path missing for tier:", tier);
                  showToast("Configuration Error: Product path missing.", "error");
                  return;
              }
@@ -573,8 +577,10 @@ const App: React.FC = () => {
              // Optimistically close modal
              setShowUpgradeModal(false);
 
+             console.log("Pushing FastSpring session...", { path: productPath, email: activeSession.user.email });
+
              // Open Checkout Popup
-             // Updated SBL 1.0.6 session object structure
+             // Updated to use paymentContact per SBL docs
              window.fastspring.builder.push({
                  products: [
                      { path: productPath, quantity: 1 }
@@ -583,17 +589,19 @@ const App: React.FC = () => {
                      userId: activeSession.user.id,
                      userEmail: activeSession.user.email
                  },
-                 contact: {
+                 paymentContact: {
                     email: activeSession.user.email,
                     firstName: activeSession.user.user_metadata?.full_name || ''
                  }
              });
 
          } else {
+             console.error("FastSpring script not loaded or builder undefined");
              showToast("Checkout system loading... please wait a moment.", "info");
          }
 
      } catch (err) {
+         console.error("HandleUpgrade Error:", err);
          showToast("Failed to initiate checkout.", "error");
      }
   };

@@ -6,6 +6,19 @@
     <title>FashionStudio AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- FastSpring Global Callback - Must be defined before SBL script -->
+    <script type="text/javascript">
+        window.onPopupClosed = function(data) {
+            console.log("FastSpring Popup Closed:", data);
+            // Dispatch event for React to handle
+            if (data) {
+                const event = new CustomEvent('fastspringPopupClosed', { detail: data });
+                window.dispatchEvent(event);
+            }
+        };
+    </script>
+
     <!-- FastSpring Store Builder Library -->
     <script 
         id="fsc-api" 
@@ -15,6 +28,7 @@
         data-popup-closed="onPopupClosed"
     >
     </script>
+
     <script>
       tailwind.config = {
         theme: {
