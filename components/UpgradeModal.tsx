@@ -1,6 +1,8 @@
 
 
 
+
+
 import React from 'react';
 import { X, Check, Zap, Crown, Building2, User, ArrowRight } from 'lucide-react';
 import { SubscriptionTier } from '../types';
@@ -28,7 +30,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
       const level = tierOrder[tier];
       if (level === currentLevel) return { text: "Current Plan", disabled: true, style: "cursor-default opacity-50 bg-zinc-800 text-zinc-400 border-zinc-700 hover:bg-zinc-800 hover:text-zinc-400" };
       if (level > currentLevel) return { text: "Upgrade", disabled: false, style: "" };
-      return { text: "Downgrade", disabled: false, style: "bg-zinc-900 text-zinc-500 hover:text-white border-zinc-800" };
+      return { text: "Manage Subscription", disabled: false, style: "bg-zinc-900 text-zinc-500 hover:text-white border-zinc-800" };
   };
 
   const starterProps = getButtonProps(SubscriptionTier.Starter, "Select Starter");
@@ -65,7 +67,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                             ? 'bg-zinc-900/50 text-zinc-500 cursor-default' 
                             : 'bg-zinc-900 text-zinc-500 hover:text-white hover:bg-zinc-800 cursor-pointer'}`}
                     >
-                        {currentTier === SubscriptionTier.Free ? "Active" : "Downgrade"}
+                        {currentTier === SubscriptionTier.Free ? "Active" : "Manage Subscription"}
                     </button>
                 </div>
 

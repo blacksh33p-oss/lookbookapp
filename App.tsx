@@ -14,7 +14,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.6.9"; 
+const APP_VERSION = "v1.7.0"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -614,31 +614,12 @@ const App: React.FC = () => {
              return;
          }
 
-         // DOWNGRADE LOGIC: ACTUALLY UPDATE DB
+         // DOWNGRADE LOGIC: REDIRECT TO PORTAL
          if (tier === SubscriptionTier.Free) {
-             console.log("Downgrading to Free");
-             
-             // Optimistic update for UI (Force UI update regardless of DB Result)
-             setUserProfile(prev => {
-                if (!prev) return null;
-                return { ...prev, tier: SubscriptionTier.Free };
-             });
-             
-             setShowUpgradeModal(false);
-             localStorage.removeItem('pending_plan');
-
-             // DB Update (Background)
-             const { error } = await supabase
-                .from('profiles')
-                .update({ tier: SubscriptionTier.Free })
-                .eq('id', activeSession.user.id);
-             
-             if (error) {
-                 console.warn("Downgrade DB Error:", error);
-                 // We don't revert UI here to avoid confusing the user in this demo context.
-             }
-             
-             showToast("Plan downgraded to Guest.", "success");
+             console.log("User requested downgrade. Redirecting to Account Portal.");
+             showToast("Opening subscription portal...", "info");
+             // Using the standard FastSpring account URL structure based on the storefront ID from index.html
+             window.open('https://lookbook.test.onfastspring.com/account', '_blank');
              return;
          }
 

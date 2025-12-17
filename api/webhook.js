@@ -1,4 +1,6 @@
 
+
+
 import { createClient } from '@supabase/supabase-js';
 
 // Helper to safely read stream if Vercel didn't parse body
@@ -16,7 +18,7 @@ const readStream = async (req) => {
 };
 
 export default async function handler(req, res) {
-  const LOG_PREFIX = '[FastSpring V15-UpgradeFix]'; 
+  const LOG_PREFIX = '[FastSpring V16-Deactivation]'; 
   const trace = []; 
 
   const log = (msg) => {
@@ -34,7 +36,7 @@ export default async function handler(req, res) {
   const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '').trim();
   
   if (req.method === 'GET') {
-      return res.status(200).json({ status: 'Active', version: 'v15-UpgradeFix' });
+      return res.status(200).json({ status: 'Active', version: 'v16-Deactivation' });
   }
   
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -68,8 +70,8 @@ export default async function handler(req, res) {
       for (const event of payload.events) {
           log(`Event: ${event.type} (ID: ${event.id})`);
           
-          // Added 'subscription.updated' to handle upgrades/downgrades
-          if (!['order.completed', 'subscription.activated', 'subscription.charge.completed', 'subscription.updated'].includes(event.type)) {
+          // Added 'subscription.deactivated' and 'subscription.canceled'
+          if (!['order.completed', 'subscription.activated', 'subscription.charge.completed', 'subscription.updated', 'subscription.deactivated', 'subscription.canceled'].includes(event.type)) {
              continue;
           }
 
@@ -110,7 +112,6 @@ export default async function handler(req, res) {
 
           // 3. Determine Plan
           // We search the entire data structure for product keys because FastSpring structure varies by event type.
-          // Order events have 'items'. Subscription events have 'subscription.product'.
           let productInfo = '';
           if (data.items && Array.isArray(data.items)) productInfo += JSON.stringify(data.items);
           if (data.subscription) productInfo += JSON.stringify(data.subscription);
@@ -129,21 +130,21 @@ export default async function handler(req, res) {
               monthlyCredits = 100;
           }
 
-          log(`User: ${targetUserId} | Detected Tier: ${tier}`);
-
-          // 4. Calculate Credits
-          // Only add credits if this is a payment event or activation. 
-          // Pure 'subscription.updated' might just be a plan switch without immediate charge (or charge event comes separately).
-          let creditsToAdd = 0;
-          if (['order.completed', 'subscription.activated', 'subscription.charge.completed'].includes(event.type)) {
-              creditsToAdd = monthlyCredits;
-              log(`Payment event detected. Adding ${creditsToAdd} credits.`);
+          // SPECIAL HANDLING: Deactivation
+          if (event.type === 'subscription.deactivated' || event.type === 'subscription.canceled') {
+              if (event.type === 'subscription.canceled') {
+                  log(`Subscription canceled (Auto-renew off). User keeps access until end of term. No DB change.`);
+                  continue; 
+              }
+              // If Deactivated, we force downgrade
+              tier = 'Free';
+              monthlyCredits = 5; // Reset to default guest amount
+              log(`Subscription Deactivated. Force Downgrading to Free.`);
           } else {
-              log(`Non-payment event (${event.type}). Updating tier only.`);
+             log(`User: ${targetUserId} | Detected Tier from Product: ${tier}`);
           }
 
-          // 5. DB Operation
-          
+          // 4. Calculate Credits
           // A. Fetch current credits
           const { data: currentProfile } = await supabase
             .from('profiles')
@@ -152,14 +153,25 @@ export default async function handler(req, res) {
             .single();
           
           const existingCredits = (currentProfile && typeof currentProfile.credits === 'number') ? currentProfile.credits : 0;
-          const finalCredits = existingCredits + creditsToAdd;
+          let finalCredits = existingCredits;
 
+          if (['order.completed', 'subscription.activated', 'subscription.charge.completed'].includes(event.type)) {
+              finalCredits = existingCredits + monthlyCredits;
+              log(`Payment event detected. Adding ${monthlyCredits} credits. New Total: ${finalCredits}`);
+          } else if (event.type === 'subscription.deactivated') {
+              finalCredits = 5; // Reset to guest default on deactivation
+              log(`Deactivation event. Resetting credits to 5.`);
+          } else {
+              log(`Non-payment event (${event.type}). Updating tier only.`);
+          }
+
+          // 5. DB Operation
           // B. Attempt UPDATE
           const { data: updateData, error: updateError } = await supabase
               .from('profiles')
               .update({ 
-                  tier: tier, // Always update tier
-                  credits: finalCredits // Update credits (either adds, or keeps same if 0 added)
+                  tier: tier, 
+                  credits: finalCredits 
               })
               .eq('id', targetUserId)
               .select();
