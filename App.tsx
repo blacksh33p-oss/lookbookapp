@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw, Command, Monitor, Folder, Library, Plus, Save } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw, Command, Monitor, Folder, Library, Plus, Save, Check } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -13,7 +13,7 @@ import { generatePhotoshootImage } from './services/gemini';
 import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier, Project, Generation } from './types';
 
-const APP_VERSION = "v1.8.3"; 
+const APP_VERSION = "v1.8.4"; 
 const ACCOUNT_PORTAL_URL = 'https://lookbook.test.onfastspring.com/account';
 
 const POSES = [
@@ -69,9 +69,9 @@ const Toast: React.FC<{ message: string; type: 'success' | 'error' | 'info'; onC
   const Icon = type === 'success' ? CheckCircle : type === 'error' ? XCircle : Info;
 
   return (
-    <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] px-4 py-3 rounded-lg border shadow-2xl flex items-center gap-3 animate-fade-in ${bgColor}`}>
-      <Icon size={16} className={textColor} />
-      <span className="text-xs font-bold uppercase tracking-wider text-white">{message}</span>
+    <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[110] px-5 py-3.5 rounded-xl border shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center gap-3 animate-slide-up ${bgColor} backdrop-blur-xl`}>
+      <Icon size={18} className={textColor} />
+      <span className="text-[11px] font-black uppercase tracking-widest text-white whitespace-nowrap">{message}</span>
       <button onClick={onClose} className="ml-2 text-zinc-500 hover:text-white transition-colors">
         <X size={14} />
       </button>
@@ -131,6 +131,7 @@ const App: React.FC = () => {
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [showLibrary, setShowLibrary] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
 
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginModalView, setLoginModalView] = useState<'pricing' | 'login' | 'signup'>('signup'); 
@@ -208,6 +209,7 @@ const App: React.FC = () => {
   const saveToLibrary = async (imageUrl: string) => {
     if (!session || !imageUrl) return;
     setIsSaving(true);
+    setJustSaved(false);
     try {
       const payload = {
         image_url: imageUrl,
@@ -222,7 +224,10 @@ const App: React.FC = () => {
         console.error("Save error:", error);
         showToast(`Error: ${error.message}`, "error");
       } else {
-        showToast("Saved to library", "success");
+        showToast("Shoot saved to archive", "success");
+        setJustSaved(true);
+        // Reset the "Saved" state after 3 seconds
+        setTimeout(() => setJustSaved(false), 3000);
       }
     } catch (e: any) {
       showToast("Error saving to archive", "error");
@@ -482,9 +487,16 @@ const App: React.FC = () => {
              }} isPremium={isPremium} error={error} />
              
              {generatedImage && session && (
-                <button onClick={() => saveToLibrary(generatedImage)} disabled={isSaving} className="absolute top-6 right-6 bg-black/80 backdrop-blur border border-zinc-800 px-4 py-2 rounded-md text-white hover:border-zinc-500 transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider">
-                  {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                  {isSaving ? "Saving..." : "Save to Archive"}
+                <button 
+                  onClick={() => saveToLibrary(generatedImage)} 
+                  disabled={isSaving || justSaved} 
+                  className={`absolute top-6 right-6 backdrop-blur px-5 py-2.5 rounded-md transition-all flex items-center gap-3 text-[10px] font-black uppercase tracking-widest shadow-2xl
+                    ${justSaved 
+                        ? 'bg-emerald-500 text-white border-emerald-400' 
+                        : 'bg-black/80 text-white border border-zinc-800 hover:border-zinc-500'}`}
+                >
+                  {isSaving ? <Loader2 size={14} className="animate-spin" /> : justSaved ? <Check size={14} /> : <Save size={14} />}
+                  {isSaving ? "Saving..." : justSaved ? "Shoot Archived" : "Save to Archive"}
                 </button>
              )}
           </div>
