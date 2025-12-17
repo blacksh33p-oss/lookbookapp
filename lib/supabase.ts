@@ -1,20 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
 /**
- * Safely resolves environment variables from Vite's import.meta.env.
- * Prevents crashes if the environment is not standard Vite or missing vars.
+ * Defensive access to import.meta.env to prevent "Cannot read properties of undefined" 
+ * errors during initialization if the bundler hasn't injected the env object yet.
  */
-const getSafeEnv = () => {
-  try {
-    const meta = import.meta as any;
-    if (meta && meta.env) {
-      return meta.env;
-    }
-  } catch (e) {}
-  return {};
-};
+const env = (import.meta as any).env || {};
 
-const env = getSafeEnv();
 const supabaseUrl = (env.VITE_SUPABASE_URL || '').trim();
 const supabaseAnonKey = (env.VITE_SUPABASE_ANON_KEY || '').trim();
 
@@ -25,10 +16,10 @@ export const isConfigured = !!supabaseUrl &&
   supabaseUrl.length > 0;
 
 if (!isConfigured && typeof window !== 'undefined') {
-  console.warn('FashionStudio: Missing or invalid Supabase Environment Variables (VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY).');
+  console.warn('FashionStudio: Missing Supabase Environment Variables. Login and Folders will be disabled.');
 }
 
-// Initialize with safe fallbacks to prevent "Cannot read properties of undefined"
+// Initialize with safe fallbacks to prevent instantiation crashes
 export const supabase: any = createClient(
   supabaseUrl || 'https://placeholder.supabase.co', 
   supabaseAnonKey || 'placeholder'

@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw, Command, Monitor, Folder, Library, Plus, Save, Check, HelpCircle, FolderPlus, ChevronRight } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw, Command, Monitor, Folder, Library, Plus, Save, Check, HelpCircle, FolderPlus, ChevronRight, AlertTriangle } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -13,7 +12,7 @@ import { generatePhotoshootImage } from './services/gemini';
 import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier, Project, Generation } from './types';
 
-const APP_VERSION = "v2.0.0"; 
+const APP_VERSION = "v2.0.1"; 
 
 const POSES = [
     "Standing naturally, arms relaxed", "Walking towards camera, confident stride", "Leaning slightly against a wall", 
@@ -167,6 +166,7 @@ const App: React.FC = () => {
   }, [session]);
 
   const fetchProjects = async () => {
+    if (!isConfigured) return;
     try {
       const { data, error } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
       if (error) return;
@@ -178,6 +178,10 @@ const App: React.FC = () => {
   };
 
   const createProject = async (manualName?: string) => {
+    if (!isConfigured) {
+        showToast("Database not configured. Cannot create folder.", "error");
+        return null;
+    }
     const name = manualName || prompt("New Folder Name?");
     if (!name) return null;
     try {
@@ -199,6 +203,10 @@ const App: React.FC = () => {
 
   const saveToLibrary = async (projectId: string | null) => {
     if (!session || !generatedImage) return;
+    if (!isConfigured) {
+        showToast("Database not configured. Cannot save.", "error");
+        return;
+    }
     try {
       const payload = {
         image_url: generatedImage,
@@ -217,24 +225,29 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) fetchProfile(session.user.id, session.user.email);
-      else setIsAuthLoading(false);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setSession(session);
-      if (event === 'SIGNED_IN' && session) {
-         setShowLoginModal(false);
-         setTimeout(() => fetchProfile(session.user.id, session.user.email), 300);
-      } else if (event === 'SIGNED_OUT') {
-         setUserProfile(null); setSession(null); setProjects([]); setActiveProjectId(null);
-      }
-    });
-    return () => subscription.unsubscribe();
+    if (isConfigured) {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          setSession(session);
+          if (session) fetchProfile(session.user.id, session.user.email);
+          else setIsAuthLoading(false);
+        });
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          setSession(session);
+          if (event === 'SIGNED_IN' && session) {
+             setShowLoginModal(false);
+             setTimeout(() => fetchProfile(session.user.id, session.user.email), 300);
+          } else if (event === 'SIGNED_OUT') {
+             setUserProfile(null); setSession(null); setProjects([]); setActiveProjectId(null);
+          }
+        });
+        return () => subscription.unsubscribe();
+    } else {
+        setIsAuthLoading(false);
+    }
   }, []);
 
   const fetchProfile = async (userId: string, email?: string) => {
+    if (!isConfigured) return;
     try {
         let { data, error } = await supabase.from('profiles').select('tier, credits').eq('id', userId).single();
         if (error && error.code === 'PGRST116') {
@@ -252,7 +265,9 @@ const App: React.FC = () => {
   };
 
   const handleAuth = async (email: string, password?: string, isSignUp?: boolean, username?: string) => {
-      if (!isConfigured) return;
+      if (!isConfigured) {
+          throw new Error("Supabase is not configured. Please check your Vercel Environment Variables (VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY).");
+      }
       if (isSignUp) {
           const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: username } } });
           if (error) throw error;
@@ -263,19 +278,19 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
-      await supabase.auth.signOut(); 
-      showToast('Signed out successfully', 'info');
+      if (isConfigured) {
+          await supabase.auth.signOut(); 
+          showToast('Signed out successfully', 'info');
+      }
   };
 
   const handleGenerate = async () => {
       const aistudio = (window as any).aistudio;
-      // Pro models in AI Studio require explicit key selection
       if (options.modelVersion === ModelVersion.Pro && aistudio) {
         try {
           const hasKey = await aistudio.hasSelectedApiKey();
           if (!hasKey) {
             await aistudio.openSelectKey();
-            // Assume success after trigger as per rules
           }
         } catch (e) {
           console.warn("AI Studio key selection failed:", e);
@@ -317,15 +332,15 @@ const App: React.FC = () => {
               setGeneratedImage(result);
               const newBalance = userProfile.credits - cost;
               setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
-              supabase.from('profiles').update({ credits: newBalance }).eq('id', session.user.id);
+              if (isConfigured) {
+                  supabase.from('profiles').update({ credits: newBalance }).eq('id', session.user.id);
+              }
           }
       } catch (err: any) { 
           console.error("Execute Generation Error:", err);
-          
           const aistudio = (window as any).aistudio;
           const errorMessage = err.message || '';
           
-          // Handle specific Gemini SDK errors
           if (errorMessage.includes("Requested entity was not found.") && currentOptions.modelVersion === ModelVersion.Pro && aistudio) {
               await aistudio.openSelectKey();
               setError("Session reset. Please select a valid paid project API key.");
@@ -359,7 +374,6 @@ const App: React.FC = () => {
   const handleProFeatureClick = async (action: () => void) => {
       if (session ? (userProfile?.tier === SubscriptionTier.Creator || userProfile?.tier === SubscriptionTier.Studio) : false) {
           action();
-          // Immediately prompt for key selection when switching to Pro in AI Studio context
           if ((window as any).aistudio) {
               const hasKey = await (window as any).aistudio.hasSelectedApiKey();
               if (!hasKey) await (window as any).aistudio.openSelectKey();
@@ -389,6 +403,16 @@ const App: React.FC = () => {
          <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-white/5 rounded-full blur-[150px]"></div>
          <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] bg-zinc-900/40 rounded-full blur-[150px]"></div>
       </div>
+
+      {/* Configuration Guardian Alert */}
+      {!isConfigured && (
+        <div className="fixed top-14 left-0 right-0 z-50 bg-amber-950/20 border-b border-amber-500/30 backdrop-blur-md px-6 py-2 flex items-center justify-center gap-3">
+            <AlertTriangle size={14} className="text-amber-500" />
+            <span className="text-[10px] font-bold text-amber-200 uppercase tracking-widest">
+                Database configuration missing. Folders and Login are currently disabled.
+            </span>
+        </div>
+      )}
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onAuth={handleAuth} initialView={loginModalView} showToast={showToast} />
@@ -448,7 +472,7 @@ const App: React.FC = () => {
         <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 relative">
           <div className="order-2 lg:order-1 lg:col-span-4 flex flex-col gap-4 relative z-20 pb-32 lg:pb-0">
             
-            {session && (
+            {session && isConfigured && (
                 <div className="flex flex-col gap-1.5">
                     <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Working Folder</label>
                     <div className="relative" ref={projectSelectorRef}>
