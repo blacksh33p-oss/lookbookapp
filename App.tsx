@@ -13,7 +13,7 @@ import { generatePhotoshootImage } from './services/gemini';
 import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier, Project, Generation } from './types';
 
-const APP_VERSION = "v1.8.7"; 
+const APP_VERSION = "v1.8.8"; 
 const ACCOUNT_PORTAL_URL = 'https://lookbook.test.onfastspring.com/account';
 
 const POSES = [
@@ -139,8 +139,6 @@ const App: React.FC = () => {
   const [autoPose, setAutoPose] = useState(true);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
 
-  const [hasApiKey, setHasApiKey] = useState<boolean>(true);
-
   const [options, setOptions] = useState<PhotoshootOptions>({
     sex: ModelSex.Female, ethnicity: ModelEthnicity.Mixed, age: ModelAge.YoungAdult,
     facialExpression: FacialExpression.Neutral, hairColor: "Dark Brown", hairStyle: "Straight & Loose",
@@ -224,9 +222,7 @@ const App: React.FC = () => {
         console.error("Save error:", error);
         showToast(`Error: ${error.message}`, "error");
       } else {
-        showToast("Shoot saved to archive", "success");
         setJustSaved(true);
-        // Extended feedback duration
         setTimeout(() => setJustSaved(false), 5000);
       }
     } catch (e: any) {
@@ -289,13 +285,14 @@ const App: React.FC = () => {
 
   const handleGenerate = () => {
       const newSeed = getRandomSeed();
-      const newFeatures = options.isModelLocked && options.modelFeatures ? options.modelFeatures : getRandomFeatures();
+      // If referenceModelImage is set (via Keep Model), we maintain features
+      const newFeatures = options.referenceModelImage ? (options.modelFeatures || getRandomFeatures()) : getRandomFeatures();
       const newOptions = { 
         ...options, 
         seed: newSeed, 
         pose: autoPose ? getRandomPose() : (options.pose || getRandomPose()), 
         modelFeatures: newFeatures,
-        referenceModelImage: options.isModelLocked ? (generatedImage || options.referenceModelImage) : undefined
+        referenceModelImage: options.referenceModelImage
       };
       setOptions(newOptions);
       executeGeneration(newOptions);
@@ -377,16 +374,16 @@ const App: React.FC = () => {
       <header className="fixed top-0 left-0 right-0 z-40 bg-black/80 backdrop-blur-xl border-b border-zinc-800/50 h-14">
           <div className="max-w-[1920px] mx-auto h-full flex justify-between items-center px-4 md:px-6">
               <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 bg-white text-black rounded-sm flex items-center justify-center shadow-lg shadow-white/10">
+                  <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white text-black rounded-sm flex items-center justify-center shadow-lg shadow-white/10 shrink-0">
                      <Hexagon size={14} fill="currentColor" strokeWidth={0} />
                   </div>
-                  <h1 className="text-sm font-bold tracking-tight text-white font-mono uppercase">FashionStudio<span className="text-zinc-500">.ai</span></h1>
+                  <h1 className="text-xs sm:text-sm font-bold tracking-tight text-white font-mono uppercase">FashionStudio<span className="text-zinc-500">.ai</span></h1>
               </div>
 
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 sm:gap-4">
                  {session && (
-                    <button onClick={() => setShowLibrary(true)} className="flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-white transition-colors">
-                        <Library size={14} /> Archive
+                    <button onClick={() => setShowLibrary(true)} className="flex items-center gap-2 text-[10px] sm:text-xs font-medium text-zinc-400 hover:text-white transition-colors">
+                        <Library size={14} /> <span className="hidden xs:inline">Archive</span>
                     </button>
                  )}
                  {session ? (
@@ -408,8 +405,8 @@ const App: React.FC = () => {
                      </>
                  ) : (
                     <div className="flex items-center gap-3">
-                        <button onClick={handleLogin} className="text-xs font-medium text-white">Log in</button>
-                        <button onClick={handleSignup} className="bg-white text-black px-3 py-1.5 rounded-md text-xs font-bold transition-colors">Sign up</button>
+                        <button onClick={handleLogin} className="text-[10px] sm:text-xs font-medium text-white">Log in</button>
+                        <button onClick={handleSignup} className="bg-white text-black px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] sm:text-xs font-bold transition-colors">Sign up</button>
                     </div>
                  )}
               </div>
@@ -442,22 +439,6 @@ const App: React.FC = () => {
                     <OutfitControl outfit={options.outfit} onChange={(newOutfit) => setOptions({ ...options, outfit: newOutfit })} />
                 </ConfigSection>
                 <ConfigSection title="Model & Set" icon={UserCircle} defaultOpen={true}>
-                    <div className="mb-4 bg-zinc-900/40 p-3 rounded-md border border-zinc-800 group/lock relative">
-                        <div className="flex items-center justify-between mb-1.5">
-                            <div className="flex items-center gap-2">
-                                <Star size={12} className={options.isModelLocked ? "text-amber-500" : "text-zinc-600"} />
-                                <span className="text-[10px] font-bold text-white uppercase tracking-wider">Lock Identity</span>
-                                <Info size={10} className="text-zinc-700 cursor-help" />
-                            </div>
-                            <button onClick={() => setOptions({...options, isModelLocked: !options.isModelLocked})} className={`w-8 h-4 rounded-full relative transition-colors ${options.isModelLocked ? 'bg-amber-500' : 'bg-zinc-700'}`}>
-                                <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${options.isModelLocked ? 'translate-x-4' : 'translate-x-0'}`}></div>
-                            </button>
-                        </div>
-                        <p className="text-[9px] text-zinc-500 leading-tight">
-                            {options.isModelLocked ? 'Locked: All future clicks use THIS model.' : 'Unlocked: Every click generates a NEW model.'}
-                        </p>
-                    </div>
-
                     <div className="space-y-3 mb-6">
                         <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Engine Selection</label>
                         <div className="grid grid-cols-2 gap-3">
@@ -506,9 +487,9 @@ const App: React.FC = () => {
             </button>
           </div>
 
-          <div className="order-1 lg:order-2 lg:col-span-8 h-[60vh] lg:h-[calc(100vh-8rem)] sticky top-20 bg-black border border-zinc-800 rounded-lg overflow-hidden shadow-2xl relative">
+          <div className="order-1 lg:order-2 lg:col-span-8 h-[50vh] xs:h-[60vh] lg:h-[calc(100vh-8rem)] sticky top-20 bg-black border border-zinc-800 rounded-lg overflow-hidden shadow-2xl relative">
              <ResultDisplay isLoading={isLoading} image={generatedImage} onDownload={handleDownload} onRegenerate={(keep) => {
-                 setOptions({...options, isModelLocked: keep});
+                 setOptions({ ...options, referenceModelImage: keep ? (generatedImage || options.referenceModelImage) : undefined });
                  handleGenerate();
              }} isPremium={isPremium} error={error} />
              
@@ -516,7 +497,7 @@ const App: React.FC = () => {
                 <button 
                   onClick={() => saveToLibrary(generatedImage)} 
                   disabled={isSaving || justSaved} 
-                  className={`absolute top-6 right-6 backdrop-blur px-5 py-2.5 rounded-md transition-all duration-300 flex items-center gap-3 text-[10px] font-black uppercase tracking-widest shadow-2xl transform active:scale-90
+                  className={`absolute top-4 right-4 sm:top-6 sm:right-6 backdrop-blur px-3 py-2 sm:px-5 sm:py-2.5 rounded-md transition-all duration-300 flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-2xl transform active:scale-90 touch-none
                     ${justSaved 
                         ? 'bg-emerald-500 text-white border-emerald-400 scale-105' 
                         : 'bg-black/90 text-white border border-zinc-800 hover:border-zinc-400 hover:bg-black'}`}
@@ -528,7 +509,7 @@ const App: React.FC = () => {
                   ) : (
                     <Save size={14} className="group-hover:translate-y-[-1px] transition-transform" />
                   )}
-                  {isSaving ? "Saving..." : justSaved ? "Shoot Saved" : "Save to Archive"}
+                  {isSaving ? "Saving..." : justSaved ? "Saved" : "Save to Archive"}
                 </button>
              )}
           </div>
