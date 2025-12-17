@@ -14,7 +14,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.6.6"; 
+const APP_VERSION = "v1.6.7"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -37,13 +37,6 @@ const SKIN_DETAILS = ["Freckles", "Clear complexion", "Sun-kissed skin", "Dewy s
 const STANDARD_STYLES = [ PhotoStyle.Studio, PhotoStyle.Urban, PhotoStyle.Nature, PhotoStyle.Coastal ];
 const PRO_STYLES = [ PhotoStyle.Luxury, PhotoStyle.Chromatic, PhotoStyle.Minimalist, PhotoStyle.Film, PhotoStyle.Newton, PhotoStyle.Lindbergh, PhotoStyle.Leibovitz, PhotoStyle.Avedon, PhotoStyle.LaChapelle, PhotoStyle.Testino ];
 
-// FASTSPRING PRODUCT MAPPING
-const PRODUCT_PATHS: Record<string, string> = {
-    [SubscriptionTier.Starter]: 'starter',
-    [SubscriptionTier.Creator]: 'creator',
-    [SubscriptionTier.Studio]: 'studio'
-};
-
 const getRandomPose = () => POSES[Math.floor(Math.random() * POSES.length)];
 const getRandomSeed = () => Math.floor(Math.random() * 1000000000);
 const getRandomFeatures = (): string => {
@@ -58,6 +51,44 @@ const getGenerationCost = (options: PhotoshootOptions): number => {
     if (options.modelVersion === ModelVersion.Pro) cost = 10;
     if (options.enable4K) cost += 5;
     return cost;
+};
+
+// --- HELPER: Resolve FastSpring Product Path ---
+// Prioritizes Env Vars, cleans URLs to extract slugs, falls back to defaults.
+const getProductPath = (tier: SubscriptionTier): string => {
+    let val = '';
+    
+    // 1. Check for explicit path variables
+    if (tier === SubscriptionTier.Starter) val = import.meta.env.VITE_FASTSPRING_STARTER_PATH || '';
+    if (tier === SubscriptionTier.Creator) val = import.meta.env.VITE_FASTSPRING_CREATOR_PATH || '';
+    if (tier === SubscriptionTier.Studio) val = import.meta.env.VITE_FASTSPRING_STUDIO_PATH || '';
+
+    // 2. Check for URL variables (common user mistake, so we handle it)
+    if (!val) {
+        if (tier === SubscriptionTier.Starter) val = import.meta.env.VITE_FASTSPRING_STARTER_URL || '';
+        if (tier === SubscriptionTier.Creator) val = import.meta.env.VITE_FASTSPRING_CREATOR_URL || '';
+        if (tier === SubscriptionTier.Studio) val = import.meta.env.VITE_FASTSPRING_STUDIO_URL || '';
+        
+        // Extract slug from URL if present (e.g. ".../products/my-product" -> "my-product")
+        if (val && val.includes('/')) {
+            const parts = val.split('/');
+            // Remove empty strings from trailing slashes
+            const cleanParts = parts.filter(p => p.length > 0);
+            val = cleanParts[cleanParts.length - 1];
+        }
+    }
+
+    // 3. Fallback to defaults
+    if (!val) {
+         const defaults: Record<string, string> = {
+            [SubscriptionTier.Starter]: 'starter',
+            [SubscriptionTier.Creator]: 'creator',
+            [SubscriptionTier.Studio]: 'studio'
+        };
+        val = defaults[tier];
+    }
+    
+    return val;
 };
 
 // --- Sub-Components ---
@@ -588,13 +619,16 @@ const App: React.FC = () => {
 
          // FASTSPRING POPUP LOGIC
          if (window.fastspring && window.fastspring.builder) {
-             const productPath = PRODUCT_PATHS[tier];
+             const productPath = getProductPath(tier);
+             
              if (!productPath) {
                  console.error("Product path missing for tier:", tier);
-                 showToast("Configuration Error: Product path missing.", "error");
+                 showToast("Configuration Error: Product path missing from .env", "error");
                  return;
              }
              
+             console.log("Initializing checkout for path:", productPath);
+
              // 1. Reset Builder to clear old carts
              try { 
                  window.fastspring.builder.reset(); 
@@ -602,15 +636,22 @@ const App: React.FC = () => {
              } catch(e) { 
                  console.log('Builder reset skipped/failed', e); 
              }
+             
+             // 2. Prepare Name Payload
+             const fullName = activeSession.user.user_metadata?.full_name || 'Valued Customer';
+             const nameParts = fullName.split(' ');
+             const firstName = nameParts[0];
+             const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : undefined;
 
-             // 2. Prepare Payload
+             // 3. Prepare Payload
              const payload = {
                  products: [
                      { path: productPath, quantity: 1 }
                  ],
                  paymentContact: {
                     email: activeSession.user.email,
-                    firstName: activeSession.user.user_metadata?.full_name || 'Valued Customer'
+                    firstName: firstName,
+                    lastName: lastName
                  },
                  tags: {
                      userId: activeSession.user.id,
@@ -620,7 +661,7 @@ const App: React.FC = () => {
 
              console.log("Pushing FastSpring session...", payload);
 
-             // 3. Push to FastSpring
+             // 4. Push to FastSpring
              try {
                  window.fastspring.builder.push(payload);
                  // Close Modal after successful push
