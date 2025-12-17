@@ -81,6 +81,7 @@ export enum AspectRatio {
 
 export enum SubscriptionTier {
   Free = 'Free',
+  Starter = 'Starter', // $9/mo
   Creator = 'Creator', // $29/mo
   Studio = 'Studio'    // $99/mo
 }

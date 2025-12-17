@@ -14,7 +14,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.4.35-ProPolish"; 
+const APP_VERSION = "v1.5.0-StarterTier"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -535,7 +535,17 @@ const App: React.FC = () => {
              return;
          }
 
-         const checkoutUrl = tier === SubscriptionTier.Creator ? import.meta.env.VITE_FASTSPRING_CREATOR_URL : import.meta.env.VITE_FASTSPRING_STUDIO_URL;
+         let checkoutUrl = '';
+         if (tier === SubscriptionTier.Creator) checkoutUrl = import.meta.env.VITE_FASTSPRING_CREATOR_URL;
+         else if (tier === SubscriptionTier.Studio) checkoutUrl = import.meta.env.VITE_FASTSPRING_STUDIO_URL;
+         else if (tier === SubscriptionTier.Starter) checkoutUrl = import.meta.env.VITE_FASTSPRING_STARTER_URL;
+
+         if (!checkoutUrl) {
+             showToast("Checkout URL not configured.", "error");
+             setIsRedirecting(false);
+             return;
+         }
+
          const tags = encodeURIComponent(`userId:${activeSession.user.id}`);
          const separator = checkoutUrl.includes('?') ? '&' : '?';
          window.location.href = `${checkoutUrl}${separator}tags=${tags}&email=${encodeURIComponent(activeSession.user.email)}`;
@@ -559,13 +569,15 @@ const App: React.FC = () => {
       const cost = getGenerationCost(currentOptions);
       const isGuest = !session;
       const isFreeTier = session && userProfile?.tier === SubscriptionTier.Free;
+      const isStarterTier = session && userProfile?.tier === SubscriptionTier.Starter;
+      
+      // Pro Model Access Check
+      const hasProAccess = session && (userProfile?.tier === SubscriptionTier.Creator || userProfile?.tier === SubscriptionTier.Studio);
 
-      if (isGuest || isFreeTier) {
-          if (currentOptions.modelVersion === ModelVersion.Pro) {
-              showToast("Gemini 3 Pro is available on Creator plans.", "info");
-              setShowUpgradeModal(true);
-              return;
-          }
+      if (!hasProAccess && currentOptions.modelVersion === ModelVersion.Pro) {
+          showToast("Gemini 3 Pro is available on Creator plans.", "info");
+          setShowUpgradeModal(true);
+          return;
       }
 
       if (isGuest) {
@@ -651,6 +663,8 @@ const App: React.FC = () => {
 
   const isPremium = session ? userProfile?.tier !== SubscriptionTier.Free : false;
   const isStudio = session ? userProfile?.tier === SubscriptionTier.Studio : false;
+  const hasProAccess = session ? (userProfile?.tier === SubscriptionTier.Creator || userProfile?.tier === SubscriptionTier.Studio) : false;
+  
   const currentCost = getGenerationCost(options);
 
   if (isRedirecting) {
@@ -769,8 +783,8 @@ const App: React.FC = () => {
                                 <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Flash ? 'text-black' : 'text-white'}`}>Flash 2.5</span>
                                 <span className={`text-[9px] font-mono mt-0.5 ${options.modelVersion === ModelVersion.Flash ? 'text-zinc-600' : 'text-zinc-500'}`}>1 Credit</span>
                             </button>
-                            <button onClick={() => { if(isPremium) setOptions({...options, modelVersion: ModelVersion.Pro}); else setShowUpgradeModal(true); }} className={`flex flex-col items-center justify-center py-3 px-2 rounded-md border transition-all relative ${options.modelVersion === ModelVersion.Pro ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-600'}`}>
-                                {!isPremium && <Lock size={10} className="absolute top-2 right-2 text-zinc-500" />}
+                            <button onClick={() => { if(hasProAccess) setOptions({...options, modelVersion: ModelVersion.Pro}); else setShowUpgradeModal(true); }} className={`flex flex-col items-center justify-center py-3 px-2 rounded-md border transition-all relative ${options.modelVersion === ModelVersion.Pro ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-600'}`}>
+                                {!hasProAccess && <Lock size={10} className="absolute top-2 right-2 text-zinc-500" />}
                                 <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Pro ? 'text-black' : 'text-white'}`}>Pro 3</span>
                                 <span className={`text-[9px] font-mono mt-0.5 ${options.modelVersion === ModelVersion.Pro ? 'text-zinc-600' : 'text-zinc-500'}`}>10 Credits</span>
                             </button>
@@ -807,7 +821,7 @@ const App: React.FC = () => {
                       <div className="grid grid-cols-2 gap-2 max-h-[240px] overflow-y-auto pr-2 custom-scrollbar">
                          {STANDARD_STYLES.map(style => (<StyleButton key={style} label={style} isSelected={options.style === style} onClick={() => setOptions({...options, style: style as PhotoStyle})} />))}
                          <div className="col-span-2 text-[9px] font-bold text-zinc-500 uppercase tracking-wider mt-2 mb-1 pl-1">Pro Styles</div>
-                         {PRO_STYLES.map(style => (<StyleButton key={style} label={style} isSelected={options.style === style} isLocked={!isPremium} onClick={() => { if(isPremium) setOptions({...options, style: style as PhotoStyle}); else setShowUpgradeModal(true); }} />))}
+                         {PRO_STYLES.map(style => (<StyleButton key={style} label={style} isSelected={options.style === style} isLocked={!hasProAccess} onClick={() => { if(hasProAccess) setOptions({...options, style: style as PhotoStyle}); else setShowUpgradeModal(true); }} />))}
                       </div>
                     </div>
                 </ConfigSection>

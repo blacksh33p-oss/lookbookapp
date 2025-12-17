@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { X, Mail, ArrowRight, Loader2, Check, User, Building2, Lock, Fingerprint, Eye, EyeOff, ExternalLink, RefreshCw, Zap, Crown, Star, ShieldCheck } from 'lucide-react';
 import { SubscriptionTier } from '../types';
@@ -98,7 +99,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
-      <div className={`bg-black border border-zinc-800 rounded-xl w-full ${step === 'selection' ? 'max-w-5xl' : 'max-w-md'} overflow-hidden relative`}>
+      <div className={`bg-black border border-zinc-800 rounded-xl w-full ${step === 'selection' ? 'max-w-6xl' : 'max-w-md'} overflow-hidden relative`}>
         <button onClick={onClose} className="absolute top-4 right-4 text-zinc-500 hover:text-white z-20"><X size={16} /></button>
 
         {step === 'selection' ? (
@@ -111,14 +112,27 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                     <button onClick={() => { setStep('credentials'); setAuthMode('signin'); }} className="text-zinc-400 hover:text-white text-sm font-medium">Log In</button>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                      <div className="bg-black border border-zinc-800 rounded-lg p-6 hover:border-zinc-600 transition-colors cursor-pointer flex flex-col" onClick={() => handleTierSelect(SubscriptionTier.Free)}>
                         <div className="mb-4">
-                            <div className="text-white font-bold text-lg mb-1">Free</div>
+                            <div className="text-white font-bold text-lg mb-1">Guest</div>
                             <div className="text-zinc-500 text-xs">For testing.</div>
                         </div>
                         <ul className="space-y-2 mb-6 flex-1 text-sm text-zinc-400">
                             <li>5 Daily Credits</li>
+                            <li>Standard Model</li>
+                            <li>1K Resolution</li>
+                        </ul>
+                        <button className="w-full bg-zinc-900 text-white font-medium py-2 rounded-md border border-zinc-800 text-xs">Select</button>
+                    </div>
+
+                    <div className="bg-black border border-zinc-800 rounded-lg p-6 hover:border-zinc-600 transition-colors cursor-pointer flex flex-col" onClick={() => handleTierSelect(SubscriptionTier.Starter)}>
+                        <div className="mb-4">
+                            <div className="text-white font-bold text-lg mb-1">Starter</div>
+                            <div className="text-zinc-500 text-xs">$9/mo</div>
+                        </div>
+                        <ul className="space-y-2 mb-6 flex-1 text-sm text-zinc-400">
+                            <li>100 Monthly Credits</li>
                             <li>Standard Model</li>
                             <li>1K Resolution</li>
                         </ul>

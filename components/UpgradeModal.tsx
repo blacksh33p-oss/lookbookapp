@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { X, Check, Zap, Crown, Building2, User } from 'lucide-react';
 import { SubscriptionTier } from '../types';
@@ -13,7 +14,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md">
-      <div className="bg-black border border-zinc-800 rounded-xl w-full max-w-5xl overflow-hidden relative max-h-[90vh] overflow-y-auto">
+      <div className="bg-black border border-zinc-800 rounded-xl w-full max-w-6xl overflow-hidden relative max-h-[90vh] overflow-y-auto">
         <button onClick={onClose} className="absolute top-6 right-6 text-zinc-500 hover:text-white z-20"><X size={20} /></button>
         
         <div className="p-8 lg:p-12">
@@ -22,11 +23,11 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                 <p className="text-zinc-500 text-sm">Professional tools for high-volume production.</p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* FREE */}
                 <div className="bg-black border border-zinc-800 rounded-lg p-6 flex flex-col opacity-60 hover:opacity-100 transition-opacity">
                     <div className="mb-8">
-                        <div className="text-zinc-500 font-bold uppercase text-xs mb-2">Starter</div>
+                        <div className="text-zinc-500 font-bold uppercase text-xs mb-2">Guest</div>
                         <div className="text-3xl font-bold text-white">Free</div>
                     </div>
                     <ul className="space-y-3 mb-8 flex-1 text-sm text-zinc-400">
@@ -35,6 +36,21 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                         <li>1K Resolution</li>
                     </ul>
                     <button onClick={onClose} className="w-full bg-zinc-900 text-white py-3 rounded-md border border-zinc-800 text-xs font-medium">Current</button>
+                </div>
+
+                {/* STARTER */}
+                <div className="bg-black border border-zinc-800 rounded-lg p-6 flex flex-col hover:border-zinc-600 transition-colors">
+                     <div className="mb-8">
+                        <div className="text-zinc-400 font-bold uppercase text-xs mb-2">Starter</div>
+                        <div className="text-3xl font-bold text-white">$9<span className="text-sm text-zinc-500 font-normal">/mo</span></div>
+                    </div>
+                    <ul className="space-y-3 mb-8 flex-1 text-sm text-zinc-400">
+                        <li className="text-zinc-200 font-medium">100 Credits</li>
+                        <li>Standard Model</li>
+                        <li>1K Resolution</li>
+                        <li>Commercial Rights</li>
+                    </ul>
+                    <button onClick={() => onUpgrade(SubscriptionTier.Starter)} className="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-bold py-3 rounded-md border border-zinc-700 text-xs">Upgrade</button>
                 </div>
 
                 {/* CREATOR */}
@@ -48,7 +64,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                          <li className="text-white font-medium">500 Monthly Credits</li>
                          <li>Gemini 3 Pro Access</li>
                          <li>2K Resolution</li>
-                         <li>Commercial Rights</li>
+                         <li>Editorial Styles</li>
                     </ul>
                     <button onClick={() => onUpgrade(SubscriptionTier.Creator)} className="w-full bg-white hover:bg-zinc-200 text-black font-bold py-3 rounded-md text-xs">Upgrade</button>
                 </div>

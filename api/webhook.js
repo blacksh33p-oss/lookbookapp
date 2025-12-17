@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 
 // Helper to safely read stream if Vercel didn't parse body
@@ -114,7 +115,11 @@ export default async function handler(req, res) {
           if (itemsJSON.includes('studio') || itemsJSON.includes('agency')) {
               tier = 'Studio';
               creditsToAdd = 2000;
+          } else if (itemsJSON.includes('starter') || itemsJSON.includes('basic')) {
+              tier = 'Starter';
+              creditsToAdd = 100;
           }
+
           log(`User: ${targetUserId} | Tier: ${tier} | Adding: ${creditsToAdd}`);
 
           // 4. DB Operation - Strictly use existing columns: id, email, credits, tier
