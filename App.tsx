@@ -13,7 +13,7 @@ import { generatePhotoshootImage } from './services/gemini';
 import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier, Project, Generation } from './types';
 
-const APP_VERSION = "v1.8.0"; 
+const APP_VERSION = "v1.8.1"; 
 const ACCOUNT_PORTAL_URL = 'https://lookbook.test.onfastspring.com/account';
 
 const POSES = [
@@ -58,7 +58,6 @@ const getProductPath = (tier: SubscriptionTier): string => {
     return val || tier.toLowerCase();
 };
 
-// Fix for: Error in file App.tsx on line 343: Cannot find name 'Toast'.
 const Toast: React.FC<{ message: string; type: 'success' | 'error' | 'info'; onClose: () => void }> = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(onClose, 3000);
@@ -129,7 +128,6 @@ const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [isSyncingPayment, setIsSyncingPayment] = useState(false);
   const [guestCredits, setGuestCredits] = useState<number>(() => {
     const saved = localStorage.getItem('fashion_guest_credits');
     return saved !== null ? parseInt(saved, 10) : 5;
@@ -147,7 +145,6 @@ const App: React.FC = () => {
   const [autoPose, setAutoPose] = useState(true);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
 
-  // Mandatory API key selection state as per Gemini 3 Pro guidelines
   const [hasApiKey, setHasApiKey] = useState<boolean>(true);
 
   const [options, setOptions] = useState<PhotoshootOptions>({
@@ -174,14 +171,12 @@ const App: React.FC = () => {
     item.images.length > 0 || (item.description && item.description.trim().length > 0) || (item.garmentType && item.garmentType.trim().length > 0)
   );
 
-  // Load Projects
   useEffect(() => {
     if (session?.user) {
       fetchProjects();
     }
   }, [session]);
 
-  // Mandatory check for API key selection when using advanced models
   useEffect(() => {
     const checkApiKey = async () => {
       const aistudio = (window as any).aistudio;
@@ -204,7 +199,7 @@ const App: React.FC = () => {
   const createProject = async () => {
     const name = prompt("Project Name?");
     if (!name) return;
-    const { data, error } = await supabase.from('projects').insert([{ name, user_id: session.user.id }]).select().single();
+    const { data } = await supabase.from('projects').insert([{ name, user_id: session.user.id }]).select().single();
     if (data) {
       setProjects([data, ...projects]);
       setActiveProjectId(data.id);
@@ -213,19 +208,27 @@ const App: React.FC = () => {
   };
 
   const saveToLibrary = async (imageUrl: string) => {
-    if (!session) return;
+    if (!session || !imageUrl) return;
     setIsSaving(true);
     try {
-      // 1. Convert Base64 to Blob (mock for now, usually we'd upload to Supabase Storage)
-      const { data, error } = await supabase.from('generations').insert([{
+      const payload = {
         image_url: imageUrl,
         user_id: session.user.id,
-        project_id: activeProjectId,
-        config: { ...options, referenceModelImage: undefined } // Don't save recursive images
-      }]);
-      if (!error) showToast("Saved to library", "success");
-    } catch (e) {
-      showToast("Error saving", "error");
+        project_id: activeProjectId || null,
+        config: { ...options, referenceModelImage: undefined }
+      };
+      
+      const { error } = await supabase.from('generations').insert([payload]);
+      
+      if (error) {
+        console.error("Supabase insert error:", error);
+        showToast(`Failed to save: ${error.message}`, "error");
+      } else {
+        showToast("Saved to library", "success");
+      }
+    } catch (e: any) {
+      console.error("Save to library exception:", e);
+      showToast("Error saving to archive", "error");
     } finally {
       setIsSaving(false);
     }
@@ -334,12 +337,10 @@ const App: React.FC = () => {
             setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
             supabase.from('profiles').update({ credits: newBalance }).eq('id', session.user.id);
             
-            // Auto-Archive for Paid Users
             if (userProfile.tier !== SubscriptionTier.Free) {
               saveToLibrary(result);
             }
           } catch (err: any) { 
-            // Handle race conditions and missing entities by re-prompting for API key per guidelines
             if (err.message && err.message.includes("Requested entity was not found.")) {
                 setHasApiKey(false);
                 showToast("Invalid API context. Please re-select your key.", "error");
@@ -375,6 +376,18 @@ const App: React.FC = () => {
        executeGeneration(newOptions);
   };
 
+  const handleDownload = () => {
+    if (generatedImage) {
+      const link = document.createElement('a');
+      link.href = generatedImage;
+      link.download = `fashion-studio-shoot-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast("Image downloaded", "success");
+    }
+  };
+
   const isPremium = session ? userProfile?.tier !== SubscriptionTier.Free : false;
   const isStudio = session ? userProfile?.tier === SubscriptionTier.Studio : false;
   const hasProAccess = session ? (userProfile?.tier === SubscriptionTier.Creator || userProfile?.tier === SubscriptionTier.Studio) : false;
@@ -388,7 +401,6 @@ const App: React.FC = () => {
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       
-      {/* Mandatory API Key Selection for Gemini 3 Pro features */}
       {!hasApiKey && (
         <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-xl flex items-center justify-center p-6 text-center">
           <div className="max-w-md animate-fade-in">
@@ -470,18 +482,17 @@ const App: React.FC = () => {
         <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 relative">
           <div className="order-2 lg:order-1 lg:col-span-4 flex flex-col gap-4 relative z-20 pb-32 lg:pb-0">
             
-            {/* Project Selector */}
             {session && (
                 <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-3 flex items-center justify-between">
                     <div className="flex items-center gap-2 flex-1">
                         <Folder size={14} className="text-zinc-500" />
                         <select 
                             value={activeProjectId || ''} 
-                            onChange={(e) => setActiveProjectId(e.target.value)}
+                            onChange={(e) => setActiveProjectId(e.target.value || null)}
                             className="bg-transparent border-none text-xs font-bold text-white p-0 focus:ring-0 cursor-pointer flex-1"
                         >
+                            <option value="">All Generations</option>
                             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                            {projects.length === 0 && <option value="">No Projects</option>}
                         </select>
                     </div>
                     <button onClick={createProject} className="p-1 text-zinc-500 hover:text-white"><Plus size={16}/></button>
@@ -493,7 +504,6 @@ const App: React.FC = () => {
                     <OutfitControl outfit={options.outfit} onChange={(newOutfit) => setOptions({ ...options, outfit: newOutfit })} />
                 </ConfigSection>
                 <ConfigSection title="Model & Set" icon={UserCircle} defaultOpen={true}>
-                    {/* Identity Lock Toggle */}
                     <div className="mb-4 flex items-center justify-between bg-zinc-900/40 p-2 rounded-md border border-zinc-800">
                         <div className="flex items-center gap-2">
                             <Star size={12} className={options.isModelLocked ? "text-amber-500" : "text-zinc-600"} />
@@ -554,7 +564,7 @@ const App: React.FC = () => {
             </div>
           </div>
           <div className="order-1 lg:order-2 lg:col-span-8 h-[60vh] lg:h-[calc(100vh-8rem)] sticky top-20 bg-black/50 backdrop-blur-sm border border-zinc-800 rounded-lg overflow-hidden shadow-2xl">
-             <ResultDisplay isLoading={isLoading} image={generatedImage} onDownload={() => {}} onRegenerate={handleRegenerate} isPremium={isPremium} error={error} />
+             <ResultDisplay isLoading={isLoading} image={generatedImage} onDownload={handleDownload} onRegenerate={handleRegenerate} isPremium={isPremium} error={error} />
              {generatedImage && session && (
                 <button 
                   onClick={() => saveToLibrary(generatedImage)}
