@@ -14,7 +14,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.7.2"; 
+const APP_VERSION = "v1.7.3"; 
 const ACCOUNT_PORTAL_URL = 'https://lookbook.test.onfastspring.com/account';
 
 const POSES = [
@@ -875,7 +875,10 @@ const App: React.FC = () => {
                  {session ? (
                      <>
                         <button onClick={() => setShowUpgradeModal(true)} className="hidden sm:flex text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white transition-colors items-center gap-1.5 border border-zinc-800 hover:border-zinc-600 px-3 py-1.5 rounded-md">
-                           <Crown size={12} /> {userProfile?.tier === SubscriptionTier.Free ? 'Guest' : userProfile?.tier}
+                           <Crown size={12} className="text-amber-500" /> 
+                           <span className={userProfile?.tier !== SubscriptionTier.Free ? "text-white" : ""}>
+                             {userProfile?.tier === SubscriptionTier.Free ? 'Guest' : userProfile?.tier}
+                           </span>
                         </button>
                         
                         <div onClick={() => setShowProfileMenu(!showProfileMenu)} className="flex items-center gap-3 cursor-pointer group px-2 py-1 rounded-md hover:bg-zinc-900 transition-colors">
@@ -897,9 +900,8 @@ const App: React.FC = () => {
                                     <div className="text-xs text-zinc-400 truncate">{session.user.email}</div>
                                 </div>
                                 <div className="p-1">
-                                    {/* UPDATED: Opens Portal directly */}
-                                    <button onClick={() => { handleUpgrade(); setShowProfileMenu(false); }} className="w-full text-left px-3 py-2 text-xs text-white hover:bg-zinc-900 rounded-sm transition-colors flex items-center gap-2"><CreditCard size={12} /> Billing</button>
-                                    <button onClick={() => { setIsSyncingPayment(true); pollForCredits(session.user.id, session.user.email, userProfile?.credits); setShowProfileMenu(false); }} className="w-full text-left px-3 py-2 text-xs text-white hover:bg-zinc-900 rounded-sm transition-colors flex items-center gap-2"><RefreshCcw size={12} /> Sync</button>
+                                    <button onClick={() => { handleUpgrade(); setShowProfileMenu(false); }} className="w-full text-left px-3 py-2 text-xs text-white hover:bg-zinc-900 rounded-sm transition-colors flex items-center gap-2"><CreditCard size={12} /> Manage Subscription</button>
+                                    <button onClick={() => { setIsSyncingPayment(true); pollForCredits(session.user.id, session.user.email, userProfile?.credits); setShowProfileMenu(false); }} className="w-full text-left px-3 py-2 text-xs text-white hover:bg-zinc-900 rounded-sm transition-colors flex items-center gap-2"><RefreshCcw size={12} /> Sync Purchase</button>
                                     <button onClick={(e) => handleLogout(e)} className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-zinc-900 rounded-sm transition-colors flex items-center gap-2"><LogOut size={12} /> Sign Out</button>
                                 </div>
                             </div>

@@ -1,6 +1,5 @@
 
 
-
 import { createClient } from '@supabase/supabase-js';
 
 // Helper to safely read stream if Vercel didn't parse body
@@ -17,8 +16,16 @@ const readStream = async (req) => {
     }
 };
 
+// Tier Hierarchy for Downgrade Logic
+const TIER_LEVELS = {
+    'Studio': 3,
+    'Creator': 2,
+    'Starter': 1,
+    'Free': 0
+};
+
 export default async function handler(req, res) {
-  const LOG_PREFIX = '[FastSpring V16-Deactivation]'; 
+  const LOG_PREFIX = '[FastSpring Webhook]'; 
   const trace = []; 
 
   const log = (msg) => {
@@ -36,7 +43,7 @@ export default async function handler(req, res) {
   const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '').trim();
   
   if (req.method === 'GET') {
-      return res.status(200).json({ status: 'Active', version: 'v16-Deactivation' });
+      return res.status(200).json({ status: 'Active', version: 'v1.7.2-SaaS-Logic' });
   }
   
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -70,7 +77,7 @@ export default async function handler(req, res) {
       for (const event of payload.events) {
           log(`Event: ${event.type} (ID: ${event.id})`);
           
-          // Added 'subscription.deactivated' and 'subscription.canceled'
+          // Filter relevant events
           if (!['order.completed', 'subscription.activated', 'subscription.charge.completed', 'subscription.updated', 'subscription.deactivated', 'subscription.canceled'].includes(event.type)) {
              continue;
           }
@@ -79,7 +86,7 @@ export default async function handler(req, res) {
           let targetUserId = null;
           let emailFound = data.email || data.customer?.email || data.account?.contact?.email;
 
-          // 1. Identify User ID (Prefer Tags)
+          // 1. Identify User ID
           const tags = data.tags || (data.order && data.order.tags) || (data.subscription && data.subscription.tags);
           if (tags) {
               let decodedTags = tags;
@@ -94,9 +101,7 @@ export default async function handler(req, res) {
               }
           }
 
-          // 2. Identify User ID (Fallback to Email)
           if (!targetUserId && emailFound) {
-              log(`No UserID tag. Looking up email: ${emailFound}`);
               const { data: userResult } = await supabase.auth.admin.listUsers({ perPage: 1000 });
               if (userResult && userResult.users) {
                   const cleanEmail = emailFound.toLowerCase().trim();
@@ -110,8 +115,7 @@ export default async function handler(req, res) {
               continue;
           }
 
-          // 3. Determine Plan
-          // We search the entire data structure for product keys because FastSpring structure varies by event type.
+          // 2. Determine Incoming Plan (From Webhook Data)
           let productInfo = '';
           if (data.items && Array.isArray(data.items)) productInfo += JSON.stringify(data.items);
           if (data.subscription) productInfo += JSON.stringify(data.subscription);
@@ -119,93 +123,96 @@ export default async function handler(req, res) {
           
           productInfo = productInfo.toLowerCase();
 
-          let tier = 'Creator'; // Default fallback
+          let newTier = 'Creator'; // Default
           let monthlyCredits = 500;
           
           if (productInfo.includes('studio') || productInfo.includes('agency')) {
-              tier = 'Studio';
+              newTier = 'Studio';
               monthlyCredits = 2000;
           } else if (productInfo.includes('starter') || productInfo.includes('basic')) {
-              tier = 'Starter';
+              newTier = 'Starter';
               monthlyCredits = 100;
           }
 
-          // SPECIAL HANDLING: Deactivation
-          if (event.type === 'subscription.deactivated' || event.type === 'subscription.canceled') {
-              if (event.type === 'subscription.canceled') {
-                  log(`Subscription canceled (Auto-renew off). User keeps access until end of term. No DB change.`);
-                  continue; 
-              }
-              // If Deactivated, we force downgrade
-              tier = 'Free';
-              monthlyCredits = 5; // Reset to default guest amount
-              log(`Subscription Deactivated. Force Downgrading to Free.`);
-          } else {
-             log(`User: ${targetUserId} | Detected Tier from Product: ${tier}`);
+          // 3. Handle Cancellations & Deactivations
+          if (event.type === 'subscription.canceled') {
+              // Standard SaaS: Cancellation means "Do not renew", NOT "Remove access immediately".
+              // We do NOTHING here. Access remains until 'subscription.deactivated' fires at end of cycle.
+              log(`Subscription canceled. User retains access until period ends. No DB Update.`);
+              continue; 
           }
 
-          // 4. Calculate Credits
-          // A. Fetch current credits
+          if (event.type === 'subscription.deactivated') {
+              newTier = 'Free';
+              monthlyCredits = 5; 
+              log(`Subscription Deactivated/Expired. Downgrading to Free.`);
+          }
+
+          // 4. Fetch CURRENT Database State
           const { data: currentProfile } = await supabase
             .from('profiles')
-            .select('credits')
+            .select('tier, credits')
             .eq('id', targetUserId)
             .single();
           
+          const currentTier = currentProfile?.tier || 'Free';
           const existingCredits = (currentProfile && typeof currentProfile.credits === 'number') ? currentProfile.credits : 0;
-          let finalCredits = existingCredits;
+          
+          // 5. SAAS DOWNGRADE PROTECTION LOGIC
+          const currentLevel = TIER_LEVELS[currentTier] || 0;
+          const newLevel = TIER_LEVELS[newTier] || 0;
 
-          if (['order.completed', 'subscription.activated', 'subscription.charge.completed'].includes(event.type)) {
-              finalCredits = existingCredits + monthlyCredits;
-              log(`Payment event detected. Adding ${monthlyCredits} credits. New Total: ${finalCredits}`);
-          } else if (event.type === 'subscription.deactivated') {
-              finalCredits = 5; // Reset to guest default on deactivation
-              log(`Deactivation event. Resetting credits to 5.`);
-          } else {
-              log(`Non-payment event (${event.type}). Updating tier only.`);
+          // IF this is just an 'update' event (e.g. user clicked switch plan in portal), 
+          // AND it looks like a downgrade, 
+          // AND it's not a 'deactivation' (expiry),
+          // THEN we ignore it. We wait for the 'charge.completed' or 'activated' event which signals the NEW period has actually started.
+          if (event.type === 'subscription.updated' && newLevel < currentLevel) {
+              log(`Downgrade detected (from ${currentTier} to ${newTier}). Deferring update until next billing cycle/charge event.`);
+              continue; // EXIT LOOP. Do not update DB.
           }
 
-          // 5. DB Operation
-          // B. Attempt UPDATE
+          // 6. Calculate Final Credits
+          let finalCredits = existingCredits;
+
+          // If it's a payment event, add credits.
+          // Note: If user upgrades mid-cycle, FastSpring often charges pro-rated amount immediately -> 'order.completed' or 'charge.completed' fires -> We add credits.
+          if (['order.completed', 'subscription.activated', 'subscription.charge.completed'].includes(event.type)) {
+              finalCredits = existingCredits + monthlyCredits;
+              log(`Payment event detected. Adding ${monthlyCredits} credits.`);
+          } else if (event.type === 'subscription.deactivated') {
+              finalCredits = 5; // Reset to guest limit
+          } else if (newLevel > currentLevel) {
+              // If it's a pure upgrade event (no charge event yet?), we might want to bump credits or wait.
+              // Usually upgrades come with a charge event, but if we see a tier bump, we ensure they have at least the base credits.
+              if (finalCredits < monthlyCredits) finalCredits = monthlyCredits;
+          }
+
+          // 7. Perform Update
+          log(`Applying Update -> Tier: ${newTier}, Credits: ${finalCredits}`);
+
           const { data: updateData, error: updateError } = await supabase
               .from('profiles')
               .update({ 
-                  tier: tier, 
+                  tier: newTier, 
                   credits: finalCredits 
               })
               .eq('id', targetUserId)
               .select();
 
           let success = false;
-
           if (!updateError && updateData && updateData.length > 0) {
-              log(`UPDATE Success. New Tier: ${tier}, Credits: ${finalCredits}`);
               success = true;
           } else {
-              // C. If UPDATE failed (row missing), attempt INSERT
-              log(`UPDATE failed. Attempting INSERT.`);
-              
-              let finalEmail = emailFound;
-              if (!finalEmail) {
-                  const { data: authUser } = await supabase.auth.admin.getUserById(targetUserId);
-                  if (authUser && authUser.user) finalEmail = authUser.user.email;
-              }
-
+              // Insert fallback
               const { error: insertError } = await supabase
                   .from('profiles')
                   .insert({
                       id: targetUserId,
-                      email: finalEmail || 'unknown@user.com',
+                      email: emailFound || 'unknown@user.com',
                       credits: finalCredits,
-                      tier: tier
+                      tier: newTier
                   });
-              
-              if (!insertError) {
-                  log(`INSERT Success. Tier: ${tier}, Credits: ${finalCredits}`);
-                  success = true;
-              } else {
-                  log(`INSERT Error: ${insertError.message}`);
-              }
+              if (!insertError) success = true;
           }
 
           if (success) processedCount++;
