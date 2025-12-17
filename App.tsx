@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw, Command, Monitor } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
@@ -791,8 +792,8 @@ const App: React.FC = () => {
                             </button>
                         </div>
                         
-                        {/* 4K Toggle - Only visible when Pro is selected */}
-                        {options.modelVersion === ModelVersion.Pro && (
+                        {/* 4K Toggle - Only visible when Pro is selected AND user is Studio tier */}
+                        {options.modelVersion === ModelVersion.Pro && isStudio && (
                             <div className="flex items-center justify-between px-3 py-2 bg-zinc-900/30 rounded border border-zinc-800">
                                 <div className="flex items-center gap-2">
                                     <Monitor size={12} className="text-zinc-400" />

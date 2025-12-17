@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import { X, Mail, ArrowRight, Loader2, Check, User, Building2, Lock, Fingerprint, Eye, EyeOff, ExternalLink, RefreshCw, Zap, Crown, Star, ShieldCheck } from 'lucide-react';
 import { SubscriptionTier } from '../types';
@@ -173,6 +175,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                             <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> 200 Studio Quality</li>
                             <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> <span className="text-zinc-500">or 2000 Fast Drafts</span></li>
                             <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> Gemini Pro V3</li>
+                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> 4K Resolution Available</li>
                         </ul>
                         <button className="w-full bg-zinc-900 text-white font-medium py-3 rounded-md border border-zinc-800 text-xs group-hover:bg-zinc-800 group-hover:border-zinc-600 transition-all">Select Studio</button>
                     </div>

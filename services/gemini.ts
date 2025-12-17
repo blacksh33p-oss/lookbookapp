@@ -199,8 +199,16 @@ export const generatePhotoshootImage = async (
     const targetModel = getModelName(options.modelVersion);
     
     const imageConfig: any = { aspectRatio: options.aspectRatio };
-    if (options.modelVersion === ModelVersion.Pro && options.enable4K) {
-      imageConfig.imageSize = '4K';
+    
+    // Pro Model Configuration
+    // Creator Tier & Studio Tier both get at least 2K.
+    // Studio Tier can optionally enable 4K.
+    if (options.modelVersion === ModelVersion.Pro) {
+        if (options.enable4K) {
+            imageConfig.imageSize = '4K';
+        } else {
+            imageConfig.imageSize = '2K'; // Default baseline for Pro is 2K
+        }
     }
 
     // ATTEMPT 1: Target Model

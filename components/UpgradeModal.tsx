@@ -1,4 +1,6 @@
 
+
+
 import React from 'react';
 import { X, Check, Zap, Crown, Building2, User, ArrowRight } from 'lucide-react';
 import { SubscriptionTier } from '../types';
@@ -127,6 +129,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                         <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> 200 Studio Quality</li>
                         <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> <span className="text-zinc-500">or 2000 Fast Drafts</span></li>
                         <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> Gemini Pro V3</li>
+                        <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> 4K Resolution Available</li>
                     </ul>
                     <button 
                         onClick={() => !studioProps.disabled && onUpgrade(SubscriptionTier.Studio)}
