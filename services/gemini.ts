@@ -42,9 +42,16 @@ const getModelName = (version: ModelVersion): string => {
 };
 
 export const generatePhotoshootImage = async (options: PhotoshootOptions): Promise<string> => {
-  // Use the API key exclusively from process.env.API_KEY as per guidelines.
-  // A fresh instance is created right before the call to ensure the latest key is used.
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Always fetch dynamic API key from runtime environment
+  // We check window.process.env.API_KEY which is where the key is injected in AI Studio.
+  const apiKey = (window as any).process?.env?.API_KEY || (process as any).env?.API_KEY;
+  
+  if (!apiKey && options.modelVersion === ModelVersion.Pro) {
+      throw new Error("Gemini Pro requires a selected API key. Please select one using the Pro engine button.");
+  }
+
+  // Use this apiKey directly when initializing the client.
+  const ai = new GoogleGenAI({ apiKey: apiKey || "" });
 
   const heightStr = options.height ? `Model Height: ${options.height} ${options.measurementUnit}` : 'Height: Standard Model Height';
   const bodyTypeStr = `Body Type: ${options.bodyType}`;
@@ -144,7 +151,7 @@ export const generatePhotoshootImage = async (options: PhotoshootOptions): Promi
       }
     }
     
-    throw new Error("The model generated text but no image. Please try again.");
+    throw new Error("The model generated text but no image. Please try again with a different pose.");
   } catch (error: any) {
     console.error("Gemini Generation Error:", error);
     throw error;

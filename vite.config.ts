@@ -4,16 +4,14 @@ import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  // Load env file based on `mode` in the current working directory.
   const env = loadEnv(mode, (process as any).cwd(), '');
 
   return {
     plugins: [react()],
-    // We define process.env.API_KEY to ensure it's available in the browser.
-    // Using a fallback to env variables ensures the app works in both local dev
-    // and production environments where the key is injected.
+    // We remove the build-time define for API_KEY so it can be dynamically injected at runtime.
     define: {
-      'process.env.API_KEY': JSON.stringify(env.API_KEY || env.VITE_API_KEY || ''),
+      'process.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
+      'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
     },
     envPrefix: 'VITE_',
     build: {
