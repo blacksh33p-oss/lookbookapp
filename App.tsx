@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw, Command, Monitor, Folder, Library, Plus, Save, Check, HelpCircle } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw, Command, Monitor, Folder, Library, Plus, Save, Check, HelpCircle, FolderPlus, ChevronRight } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -13,8 +13,7 @@ import { generatePhotoshootImage } from './services/gemini';
 import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier, Project, Generation } from './types';
 
-const APP_VERSION = "v1.8.9"; 
-const ACCOUNT_PORTAL_URL = 'https://lookbook.test.onfastspring.com/account';
+const APP_VERSION = "v1.9.0"; 
 
 const POSES = [
     "Standing naturally, arms relaxed", "Walking towards camera, confident stride", "Leaning slightly against a wall", 
@@ -43,19 +42,6 @@ const getGenerationCost = (options: PhotoshootOptions): number => {
     if (options.modelVersion === ModelVersion.Pro) cost = 10;
     if (options.enable4K) cost += 5;
     return cost;
-};
-
-const getProductPath = (tier: SubscriptionTier): string => {
-    let val = '';
-    if (tier === SubscriptionTier.Starter) val = import.meta.env.VITE_FASTSPRING_STARTER_PATH || '';
-    if (tier === SubscriptionTier.Creator) val = import.meta.env.VITE_FASTSPRING_CREATOR_PATH || '';
-    if (tier === SubscriptionTier.Studio) val = import.meta.env.VITE_FASTSPRING_STUDIO_PATH || '';
-    if (!val) {
-        if (tier === SubscriptionTier.Starter) val = import.meta.env.VITE_FASTSPRING_STARTER_URL || '';
-        if (tier === SubscriptionTier.Creator) val = import.meta.env.VITE_FASTSPRING_CREATOR_URL || '';
-        if (tier === SubscriptionTier.Studio) val = import.meta.env.VITE_FASTSPRING_STUDIO_URL || '';
-    }
-    return val || tier.toLowerCase();
 };
 
 const Toast: React.FC<{ message: string; type: 'success' | 'error' | 'info'; onClose: () => void }> = ({ message, type, onClose }) => {
@@ -122,6 +108,7 @@ const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showSaveMenu, setShowSaveMenu] = useState(false);
   const [guestCredits, setGuestCredits] = useState<number>(() => {
     const saved = localStorage.getItem('fashion_guest_credits');
     return saved !== null ? parseInt(saved, 10) : 5;
@@ -172,58 +159,55 @@ const App: React.FC = () => {
   const fetchProjects = async () => {
     try {
       const { data, error } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
-      if (error) {
-          if (error.code === '42P01') console.warn("Table 'projects' not found. Run SQL script.");
-          return;
-      }
+      if (error) return;
       if (data) {
         setProjects(data);
         if (data.length > 0 && !activeProjectId) setActiveProjectId(data[0].id);
       }
-    } catch (e) {
-      console.error("Fetch projects exception:", e);
-    }
+    } catch (e) { }
   };
 
-  const createProject = async () => {
-    const name = prompt("Project Name?");
-    if (!name) return;
+  const createProject = async (manualName?: string) => {
+    const name = manualName || prompt("New Folder Name?");
+    if (!name) return null;
     try {
       const { data, error } = await supabase.from('projects').insert([{ name, user_id: session.user.id }]).select().single();
       if (error) {
         showToast(`Failed to create project: ${error.message}`, "error");
-        return;
+        return null;
       }
       if (data) {
         setProjects([data, ...projects]);
         setActiveProjectId(data.id);
-        showToast(`Project "${name}" created`, "success");
+        return data.id;
       }
     } catch (e) {
-      showToast("Error creating project", "error");
+      showToast("Error creating folder", "error");
     }
+    return null;
   };
 
-  const saveToLibrary = async (imageUrl: string) => {
+  const saveToLibrary = async (imageUrl: string, projectId: string | null = activeProjectId) => {
     if (!session || !imageUrl) return;
     setIsSaving(true);
     setJustSaved(false);
+    setShowSaveMenu(false);
     try {
       const payload = {
         image_url: imageUrl,
         user_id: session.user.id,
-        project_id: activeProjectId || null,
+        project_id: projectId,
         config: { ...options, referenceModelImage: undefined }
       };
       
       const { error } = await supabase.from('generations').insert([payload]);
       
       if (error) {
-        console.error("Save error:", error);
         showToast(`Error: ${error.message}`, "error");
       } else {
         setJustSaved(true);
         setTimeout(() => setJustSaved(false), 4000);
+        showToast("Saved to Archive", "success");
       }
     } catch (e: any) {
       showToast("Error saving to archive", "error");
@@ -316,20 +300,16 @@ const App: React.FC = () => {
             const newBalance = userProfile.credits - cost;
             setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
             supabase.from('profiles').update({ credits: newBalance }).eq('id', session.user.id);
-            if (userProfile.tier !== SubscriptionTier.Free) saveToLibrary(result);
+            // Auto save for premium users to their active folder
+            if (userProfile.tier !== SubscriptionTier.Free) saveToLibrary(result, activeProjectId);
           } catch (err: any) { setError(err.message || 'Error'); } finally { setIsLoading(false); }
       }
   }
 
   const handleUpgrade = (tier?: SubscriptionTier) => {
-     if (userProfile?.tier !== SubscriptionTier.Free && !tier) {
-         window.open(ACCOUNT_PORTAL_URL, '_blank');
-         return;
-     }
      const fs = (window as any).fastspring;
      if (fs?.builder && tier) {
-         const productPath = getProductPath(tier);
-         fs.builder.push({ products: [{ path: productPath, quantity: 1 }], tags: { userId: session.user.id } });
+         fs.builder.push({ products: [{ path: tier.toLowerCase(), quantity: 1 }], tags: { userId: session.user.id } });
          if (fs.builder.checkout) fs.builder.checkout();
          setShowUpgradeModal(false);
      }
@@ -350,7 +330,6 @@ const App: React.FC = () => {
       link.href = generatedImage;
       link.download = `shoot-${Date.now()}.png`;
       link.click();
-      showToast("Download started", "success");
     }
   };
 
@@ -368,7 +347,14 @@ const App: React.FC = () => {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onAuth={handleAuth} initialView={loginModalView} showToast={showToast} />
       <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} onUpgrade={handleUpgrade} currentTier={userProfile?.tier || SubscriptionTier.Free} />
-      <LibraryDrawer isOpen={showLibrary} onClose={() => setShowLibrary(false)} activeProjectId={activeProjectId} session={session} />
+      <LibraryDrawer 
+        isOpen={showLibrary} 
+        onClose={() => setShowLibrary(false)} 
+        initialProjectId={activeProjectId} 
+        session={session} 
+        projects={projects}
+        onProjectChange={setActiveProjectId}
+      />
 
       <header className="fixed top-0 left-0 right-0 z-40 bg-black/80 backdrop-blur-xl border-b border-zinc-800/50 h-14">
           <div className="max-w-[1920px] mx-auto h-full flex justify-between items-center px-4 md:px-6">
@@ -381,8 +367,8 @@ const App: React.FC = () => {
 
               <div className="flex items-center gap-3 sm:gap-4">
                  {session && (
-                    <button onClick={() => setShowLibrary(true)} className="flex items-center gap-2 text-[10px] sm:text-xs font-medium text-zinc-400 hover:text-white transition-colors">
-                        <Library size={14} /> <span className="hidden xs:inline">Archive</span>
+                    <button onClick={() => setShowLibrary(true)} className="flex items-center gap-2 text-[10px] sm:text-xs font-medium text-zinc-400 hover:text-white transition-colors group">
+                        <Library size={14} className="group-hover:scale-110 transition-transform" /> <span className="hidden xs:inline">Archive</span>
                     </button>
                  )}
                  {session ? (
@@ -396,7 +382,7 @@ const App: React.FC = () => {
                             {showProfileMenu && (
                                 <div className="absolute top-10 right-0 w-48 bg-black border border-zinc-800 rounded-md shadow-2xl z-50 overflow-hidden">
                                     <div className="p-3 border-b border-zinc-800 text-[10px] text-zinc-500 truncate">{session.user.email}</div>
-                                    <button onClick={() => handleUpgrade()} className="w-full text-left px-3 py-2.5 text-[10px] text-white hover:bg-zinc-900 flex items-center gap-2 uppercase font-bold"><CreditCard size={12} /> Billing</button>
+                                    <button onClick={() => window.open('https://lookbook.test.onfastspring.com/account', '_blank')} className="w-full text-left px-3 py-2.5 text-[10px] text-white hover:bg-zinc-900 flex items-center gap-2 uppercase font-bold"><CreditCard size={12} /> Billing</button>
                                     <button onClick={handleLogout} className="w-full text-left px-3 py-2.5 text-[10px] text-red-400 hover:bg-zinc-900 flex items-center gap-2 uppercase font-bold"><LogOut size={12} /> Sign Out</button>
                                 </div>
                             )}
@@ -417,19 +403,19 @@ const App: React.FC = () => {
           <div className="order-2 lg:order-1 lg:col-span-4 flex flex-col gap-4 relative z-20 pb-32 lg:pb-0">
             
             {session && (
-                <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2 flex-1">
-                        <Folder size={14} className="text-zinc-500" />
+                <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-3 flex items-center justify-between group hover:border-zinc-600 transition-colors">
+                    <div className="flex items-center gap-2 flex-1 overflow-hidden">
+                        <Folder size={14} className="text-zinc-500 shrink-0" />
                         <select 
                             value={activeProjectId || ''} 
                             onChange={(e) => setActiveProjectId(e.target.value || null)}
-                            className="bg-transparent border-none text-[10px] font-bold text-white p-0 focus:ring-0 cursor-pointer flex-1 uppercase tracking-widest"
+                            className="bg-transparent border-none text-[10px] font-bold text-white p-0 focus:ring-0 cursor-pointer flex-1 uppercase tracking-widest truncate"
                         >
-                            <option value="">Main Archive</option>
+                            <option value="">Default Archive</option>
                             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
                     </div>
-                    <button onClick={createProject} className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-900 rounded-md transition-colors"><Plus size={14}/></button>
+                    <button onClick={() => createProject()} className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-900 rounded-md transition-colors"><Plus size={14}/></button>
                 </div>
             )}
 
@@ -468,7 +454,7 @@ const App: React.FC = () => {
                       <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Photo Style</label>
                       <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
                          {STANDARD_STYLES.map(style => (<StyleButton key={style} label={style} isSelected={options.style === style} onClick={() => setOptions({...options, style: style as PhotoStyle})} />))}
-                         <div className="col-span-2 text-[9px] font-bold text-zinc-500 uppercase tracking-wider mt-2 mb-1 pl-1">Studio Styles</div>
+                         <div className="col-span-2 text-[9px] font-bold text-zinc-500 uppercase tracking-wider mt-2 mb-1 pl-1">Premium Styles</div>
                          {PRO_STYLES.map(style => (<StyleButton key={style} label={style} isSelected={options.style === style} isLocked={!hasProAccess} onClick={() => handleProFeatureClick(() => setOptions({...options, style: style as PhotoStyle}))} />))}
                       </div>
                     </div>
@@ -481,7 +467,7 @@ const App: React.FC = () => {
                 </ConfigSection>
             </div>
             
-            <button onClick={handleGenerate} disabled={!isFormValid || isLoading} className={`w-full py-4 rounded-md text-[11px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 transform active:scale-[0.98] ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-600 border border-zinc-800' : 'bg-white text-black hover:bg-zinc-200'}`}>
+            <button onClick={handleGenerate} disabled={!isFormValid || isLoading} className={`w-full py-4 rounded-md text-[11px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 transform active:scale-[0.98] shadow-xl ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-600 border border-zinc-800' : 'bg-white text-black hover:bg-zinc-200'}`}>
                 {isLoading ? <Loader2 size={16} className="animate-spin" /> : <><Sparkles size={16} fill="black" /> Generate Shoot</>}
             </button>
           </div>
@@ -493,23 +479,56 @@ const App: React.FC = () => {
              }} isPremium={isPremium} error={error} />
              
              {generatedImage && session && (
-                <button 
-                  onClick={() => saveToLibrary(generatedImage)} 
-                  disabled={isSaving || justSaved} 
-                  className={`absolute top-4 right-4 sm:top-6 sm:right-6 backdrop-blur px-3 py-2 sm:px-5 sm:py-2.5 rounded-md transition-all duration-300 flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-2xl transform active:scale-90 touch-none
-                    ${justSaved 
-                        ? 'bg-emerald-500 text-white border-emerald-400 scale-105' 
-                        : 'bg-black/90 text-white border border-zinc-800 hover:border-zinc-400 hover:bg-black active:scale-95'}`}
-                >
-                  {isSaving ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : justSaved ? (
-                    <Check size={14} className="text-white animate-fade-in" />
-                  ) : (
-                    <Save size={14} className="group-hover:translate-y-[-1px] transition-transform" />
-                  )}
-                  {isSaving ? "Saving..." : justSaved ? "Saved" : "Save to Archive"}
-                </button>
+                <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex flex-col items-end gap-2">
+                    <div className="relative">
+                        <button 
+                          onClick={() => setShowSaveMenu(!showSaveMenu)} 
+                          disabled={isSaving || justSaved} 
+                          className={`backdrop-blur px-3 py-2 sm:px-5 sm:py-2.5 rounded-md transition-all duration-300 flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-2xl transform active:scale-90 touch-none
+                            ${justSaved 
+                                ? 'bg-emerald-500 text-white border-emerald-400 scale-105' 
+                                : 'bg-black/90 text-white border border-zinc-800 hover:border-zinc-400 hover:bg-black'}`}
+                        >
+                          {isSaving ? <Loader2 size={14} className="animate-spin" /> : justSaved ? <Check size={14} className="animate-fade-in" /> : <Save size={14} />}
+                          {isSaving ? "Saving..." : justSaved ? "Saved" : "Save to Archive"}
+                        </button>
+
+                        {showSaveMenu && (
+                            <div className="absolute top-full right-0 mt-2 w-56 bg-black border border-zinc-800 rounded-lg shadow-2xl z-50 overflow-hidden animate-fade-in py-1">
+                                <div className="px-3 py-2 text-[8px] font-bold text-zinc-600 uppercase tracking-widest border-b border-zinc-900 mb-1">Select Destination</div>
+                                <button 
+                                    onClick={() => saveToLibrary(generatedImage, null)}
+                                    className="w-full text-left px-3 py-2.5 text-[10px] text-zinc-300 hover:bg-zinc-900 flex items-center gap-3 transition-colors uppercase font-bold"
+                                >
+                                    <Hexagon size={12} className="text-zinc-600" /> General Archive
+                                </button>
+                                {projects.map(p => (
+                                    <button 
+                                        key={p.id}
+                                        onClick={() => saveToLibrary(generatedImage, p.id)}
+                                        className="w-full text-left px-3 py-2.5 text-[10px] text-zinc-300 hover:bg-zinc-900 flex items-center justify-between transition-colors uppercase font-bold group"
+                                    >
+                                        <div className="flex items-center gap-3 truncate pr-2">
+                                            <Folder size={12} className="text-zinc-600 group-hover:text-white" /> {p.name}
+                                        </div>
+                                        {activeProjectId === p.id && <span className="text-[8px] bg-zinc-800 text-zinc-400 px-1 rounded shrink-0">Default</span>}
+                                    </button>
+                                ))}
+                                <div className="border-t border-zinc-900 mt-1 pt-1">
+                                    <button 
+                                        onClick={async () => {
+                                            const newId = await createProject();
+                                            if (newId) saveToLibrary(generatedImage, newId);
+                                        }}
+                                        className="w-full text-left px-3 py-2.5 text-[10px] text-white hover:bg-zinc-900 flex items-center gap-3 transition-colors uppercase font-bold"
+                                    >
+                                        <FolderPlus size={12} className="text-emerald-500" /> New Folder...
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
              )}
           </div>
         </div>
@@ -518,5 +537,4 @@ const App: React.FC = () => {
   );
 };
 
-// Add default export to fix "Module './App' has no default export" error in index.tsx
 export default App;
