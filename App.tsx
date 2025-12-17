@@ -14,7 +14,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.6.8"; 
+const APP_VERSION = "v1.6.9"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -195,6 +195,10 @@ const App: React.FC = () => {
       }
   });
 
+  // Ref to track profile without triggering re-renders in callbacks
+  const userProfileRef = useRef(userProfile);
+  useEffect(() => { userProfileRef.current = userProfile; }, [userProfile]);
+
   const [session, setSession] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
@@ -303,9 +307,13 @@ const App: React.FC = () => {
               setIsSyncingPayment(true);
               setSyncAttempts(0);
               
-              // If we have a session, poll for credits
+              // CRITICAL: We pass the CURRENT known credits (from the ref) as the baseline.
+              // If we fetched from DB here, the DB might already be updated (race condition), 
+              // and we wouldn't see a "difference" in credits.
+              const baselineCredits = userProfileRef.current?.credits || 0;
+
               if (session?.user) {
-                   pollForCredits(session.user.id, session.user.email);
+                   pollForCredits(session.user.id, session.user.email, baselineCredits);
               } else {
                   setIsSyncingPayment(false); 
               }
@@ -342,7 +350,8 @@ const App: React.FC = () => {
         setIsSyncingPayment(true);
         setSyncAttempts(0);
         window.history.replaceState({}, '', window.location.pathname);
-        pollForCredits(userSession.user.id, userSession.user.email);
+        // Use Ref for baseline
+        pollForCredits(userSession.user.id, userSession.user.email, userProfileRef.current?.credits || 0);
     } else {
         const pendingPlan = localStorage.getItem('pending_plan');
         if (pendingPlan && pendingPlan !== SubscriptionTier.Free) {
@@ -355,11 +364,10 @@ const App: React.FC = () => {
     }
   };
 
-  const pollForCredits = async (userId: string, emailArg?: string) => {
+  const pollForCredits = async (userId: string, emailArg?: string, knownOldCredits: number = 0) => {
       let attempts = 0;
       const pendingPlan = localStorage.getItem('pending_plan');
-      const { data: initialData } = await supabase.from('profiles').select('credits').eq('id', userId).single();
-      const startCredits = initialData?.credits || 0;
+      // NOTE: We do NOT fetch a new baseline here. We compare against knownOldCredits passed from UI state.
 
       if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
 
@@ -367,8 +375,10 @@ const App: React.FC = () => {
           attempts++;
           setSyncAttempts(attempts);
           const { data } = await supabase.from('profiles').select('tier, credits').eq('id', userId).single();
+          
           const tierMatch = pendingPlan ? data?.tier === pendingPlan : false;
-          const creditBump = data && data.credits > startCredits;
+          // Race Condition Fix: If DB already has more credits than what UI had before popup opened, it's a success.
+          const creditBump = data && data.credits > knownOldCredits;
           
           if (data && (tierMatch || creditBump || attempts >= 60)) {
               clearInterval(syncIntervalRef.current);
@@ -460,6 +470,21 @@ const App: React.FC = () => {
                    credits: payload.new.credits
                };
             });
+            
+            // Backup: If we are stuck in syncing, and a realtime update comes in, stop syncing.
+            // Using a timeout to allow the polling interval to clear naturally if it can, 
+            // but ensuring the UI unlocks if the polling logic missed it.
+            setTimeout(() => {
+                setIsSyncingPayment(prev => {
+                    if (prev) {
+                        if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
+                        showToast('Purchase synced (realtime)!', 'success');
+                        localStorage.removeItem('pending_plan');
+                        return false;
+                    }
+                    return prev;
+                });
+            }, 2000);
           }
         }
       )
@@ -886,7 +911,7 @@ const App: React.FC = () => {
                                 </div>
                                 <div className="p-1">
                                     <button onClick={() => { setShowUpgradeModal(true); setShowProfileMenu(false); }} className="w-full text-left px-3 py-2 text-xs text-white hover:bg-zinc-900 rounded-sm transition-colors flex items-center gap-2"><CreditCard size={12} /> Billing</button>
-                                    <button onClick={() => { setIsSyncingPayment(true); pollForCredits(session.user.id, session.user.email); setShowProfileMenu(false); }} className="w-full text-left px-3 py-2 text-xs text-white hover:bg-zinc-900 rounded-sm transition-colors flex items-center gap-2"><RefreshCcw size={12} /> Sync</button>
+                                    <button onClick={() => { setIsSyncingPayment(true); pollForCredits(session.user.id, session.user.email, userProfile?.credits); setShowProfileMenu(false); }} className="w-full text-left px-3 py-2 text-xs text-white hover:bg-zinc-900 rounded-sm transition-colors flex items-center gap-2"><RefreshCcw size={12} /> Sync</button>
                                     <button onClick={(e) => handleLogout(e)} className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-zinc-900 rounded-sm transition-colors flex items-center gap-2"><LogOut size={12} /> Sign Out</button>
                                 </div>
                             </div>
