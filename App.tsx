@@ -14,7 +14,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.6.0"; 
+const APP_VERSION = "v1.6.1"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -38,7 +38,9 @@ const STANDARD_STYLES = [ PhotoStyle.Studio, PhotoStyle.Urban, PhotoStyle.Nature
 const PRO_STYLES = [ PhotoStyle.Luxury, PhotoStyle.Chromatic, PhotoStyle.Minimalist, PhotoStyle.Film, PhotoStyle.Newton, PhotoStyle.Lindbergh, PhotoStyle.Leibovitz, PhotoStyle.Avedon, PhotoStyle.LaChapelle, PhotoStyle.Testino ];
 
 // FASTSPRING PRODUCT MAPPING
-// IMPORTANT: These paths must match the "Product Path" in your FastSpring Store Dashboard
+// These match the "Path" column in your FastSpring Dashboard.
+// Since these are simple IDs, we hardcode them here for simplicity.
+// No environment variables are required for these paths.
 const PRODUCT_PATHS: Record<string, string> = {
     [SubscriptionTier.Starter]: 'starter',
     [SubscriptionTier.Creator]: 'creator',
