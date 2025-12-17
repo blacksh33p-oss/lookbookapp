@@ -39,17 +39,18 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
            const targetLevel = tierOrder[tier] || 0;
 
            if (targetLevel > currentLevel) {
+               // UPGRADE: Allow immediate switch
                return { 
-                   text: "Upgrade (Immediate)", 
+                   text: "Upgrade", 
                    disabled: false, 
-                   style: "" // Uses default styles defined in JSX (usually bold/highlighted)
+                   style: "" // Uses default styles
                };
            } else {
-               // Downgrade / Switch
+               // DOWNGRADE: Hide button, force them to use "Manage" link to prevent immediate feature loss
                return { 
-                   text: "Switch (Immediate)", 
-                   disabled: false, 
-                   style: "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white border-zinc-800" 
+                   text: "Manage in Portal", 
+                   disabled: true, 
+                   style: "hidden" 
                };
            }
       }
@@ -190,12 +191,8 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
             {/* MANAGEMENT FOOTER FOR PAID USERS */}
             {isPaidUser && (
                 <div className="mt-8 pt-8 border-t border-zinc-900 text-center">
-                    <div className="inline-flex items-center gap-2 bg-amber-900/10 border border-amber-900/30 px-3 py-1.5 rounded-full mb-4">
-                        <Info size={12} className="text-amber-500" />
-                        <span className="text-[10px] text-amber-500 font-mono">Plan switches processed immediately.</span>
-                    </div>
                     <p className="text-zinc-400 text-xs mb-4">
-                        To cancel or update payment details, visit the portal.
+                        To downgrade or cancel, please visit your account portal.
                     </p>
                     <button 
                         onClick={() => onUpgrade()} 

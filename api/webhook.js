@@ -17,6 +17,7 @@ const readStream = async (req) => {
 };
 
 // Tier Hierarchy for Downgrade Logic
+// Higher number = Higher tier
 const TIER_LEVELS = {
     'Studio': 3,
     'Creator': 2,
@@ -43,7 +44,7 @@ export default async function handler(req, res) {
   const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '').trim();
   
   if (req.method === 'GET') {
-      return res.status(200).json({ status: 'Active', version: 'v1.7.3-SaaS-Logic-Fixed' });
+      return res.status(200).json({ status: 'Active', version: 'v1.7.4-Downgrade-Protection' });
   }
   
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -173,12 +174,12 @@ export default async function handler(req, res) {
           const currentLevel = TIER_LEVELS[currentTier] !== undefined ? TIER_LEVELS[currentTier] : 0;
           const newLevel = TIER_LEVELS[newTier] !== undefined ? TIER_LEVELS[newTier] : 0;
 
-          // IF this is just an 'update' event (e.g. scheduled change), 
-          // AND it looks like a downgrade, 
-          // AND it's not a 'deactivation',
-          // THEN we ignore it. We wait for the period to actually end (deactivated) or a new order (charge).
-          if (event.type === 'subscription.updated' && newLevel < currentLevel) {
-              log(`Downgrade detected (from ${currentTier} to ${newTier}) via update event. Deferring update until next billing cycle/charge event.`);
+          // LOGIC:
+          // If the new tier is LOWER than the current tier...
+          // AND the event is NOT 'subscription.deactivated' (which means the paid period is over)...
+          // THEN we ignore the event. This allows the user to finish their paid term.
+          if (newLevel < currentLevel && event.type !== 'subscription.deactivated') {
+              log(`Downgrade detected (from ${currentTier} to ${newTier}). Deferring update until 'subscription.deactivated' event at end of period.`);
               continue; // EXIT LOOP. Do not update DB.
           }
 
@@ -190,8 +191,6 @@ export default async function handler(req, res) {
               // If previously Free, we set to monthly allowance. 
               // If upgrading/renewing, we add to existing (rollover) or reset? 
               // For simplicity and generosity: We Add.
-              
-              // Edge case: If immediate switch (upgrade/downgrade order), we grant the new plan's credits.
               finalCredits = existingCredits + monthlyCredits;
               log(`Payment/Activation event. Adding ${monthlyCredits} credits.`);
           } else if (event.type === 'subscription.deactivated') {
