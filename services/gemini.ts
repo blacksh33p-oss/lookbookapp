@@ -42,16 +42,9 @@ const getModelName = (version: ModelVersion): string => {
 };
 
 export const generatePhotoshootImage = async (options: PhotoshootOptions): Promise<string> => {
-  // Always fetch dynamic API key from runtime environment right before call
-  // Use a fallback sequence to ensure we catch the injected key
-  const API_KEY = (globalThis as any).process?.env?.API_KEY || (window as any).process?.env?.API_KEY || (process as any).env?.API_KEY;
-  
-  if (!API_KEY) {
-    throw new Error("API Key not found. If using Pro, please select your API key.");
-  }
-  
-  // Create fresh instance as per guidelines
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
+  // Use the API key exclusively from process.env.API_KEY as per guidelines.
+  // A fresh instance is created right before the call to ensure the latest key is used.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const heightStr = options.height ? `Model Height: ${options.height} ${options.measurementUnit}` : 'Height: Standard Model Height';
   const bodyTypeStr = `Body Type: ${options.bodyType}`;
@@ -120,7 +113,7 @@ export const generatePhotoshootImage = async (options: PhotoshootOptions): Promi
   const tools: any[] = [];
 
   if (options.modelVersion === ModelVersion.Pro) {
-    imageConfig.imageSize = options.enable4K ? '4K' : (options.enable4K === false ? '2K' : '1K');
+    imageConfig.imageSize = options.enable4K ? '4K' : '2K';
     // Using google_search tool specifically for Pro image generation as per SDK example
     tools.push({ google_search: {} });
   }
@@ -151,12 +144,9 @@ export const generatePhotoshootImage = async (options: PhotoshootOptions): Promi
       }
     }
     
-    throw new Error("The model generated text but no image. Please try again with a more specific pose.");
+    throw new Error("The model generated text but no image. Please try again.");
   } catch (error: any) {
-    console.error("Gemini Error:", error);
-    if (error.message?.includes("API_KEY_INVALID") || error.message?.includes("key not found")) {
-        throw new Error("Your API key is invalid or not found. Please re-select it using the Pro engine button.");
-    }
+    console.error("Gemini Generation Error:", error);
     throw error;
   }
 };
