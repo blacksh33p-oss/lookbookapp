@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw, Command, Monitor, Folder, Library, Plus, Save, Check } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw, Command, Monitor, Folder, Library, Plus, Save, Check, HelpCircle } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -13,7 +13,7 @@ import { generatePhotoshootImage } from './services/gemini';
 import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier, Project, Generation } from './types';
 
-const APP_VERSION = "v1.8.4"; 
+const APP_VERSION = "v1.8.7"; 
 const ACCOUNT_PORTAL_URL = 'https://lookbook.test.onfastspring.com/account';
 
 const POSES = [
@@ -226,8 +226,8 @@ const App: React.FC = () => {
       } else {
         showToast("Shoot saved to archive", "success");
         setJustSaved(true);
-        // Reset the "Saved" state after 3 seconds
-        setTimeout(() => setJustSaved(false), 3000);
+        // Extended feedback duration
+        setTimeout(() => setJustSaved(false), 5000);
       }
     } catch (e: any) {
       showToast("Error saving to archive", "error");
@@ -442,15 +442,41 @@ const App: React.FC = () => {
                     <OutfitControl outfit={options.outfit} onChange={(newOutfit) => setOptions({ ...options, outfit: newOutfit })} />
                 </ConfigSection>
                 <ConfigSection title="Model & Set" icon={UserCircle} defaultOpen={true}>
-                    <div className="mb-4 flex items-center justify-between bg-zinc-900/40 p-2.5 rounded-md border border-zinc-800">
-                        <div className="flex items-center gap-2">
-                            <Star size={12} className={options.isModelLocked ? "text-amber-500" : "text-zinc-600"} />
-                            <span className="text-[10px] font-bold text-white uppercase tracking-wider">Lock Identity</span>
+                    <div className="mb-4 bg-zinc-900/40 p-3 rounded-md border border-zinc-800 group/lock relative">
+                        <div className="flex items-center justify-between mb-1.5">
+                            <div className="flex items-center gap-2">
+                                <Star size={12} className={options.isModelLocked ? "text-amber-500" : "text-zinc-600"} />
+                                <span className="text-[10px] font-bold text-white uppercase tracking-wider">Lock Identity</span>
+                                <Info size={10} className="text-zinc-700 cursor-help" />
+                            </div>
+                            <button onClick={() => setOptions({...options, isModelLocked: !options.isModelLocked})} className={`w-8 h-4 rounded-full relative transition-colors ${options.isModelLocked ? 'bg-amber-500' : 'bg-zinc-700'}`}>
+                                <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${options.isModelLocked ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                            </button>
                         </div>
-                        <button onClick={() => setOptions({...options, isModelLocked: !options.isModelLocked})} className={`w-8 h-4 rounded-full relative transition-colors ${options.isModelLocked ? 'bg-amber-500' : 'bg-zinc-700'}`}>
-                            <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${options.isModelLocked ? 'translate-x-4' : 'translate-x-0'}`}></div>
-                        </button>
+                        <p className="text-[9px] text-zinc-500 leading-tight">
+                            {options.isModelLocked ? 'Locked: All future clicks use THIS model.' : 'Unlocked: Every click generates a NEW model.'}
+                        </p>
                     </div>
+
+                    <div className="space-y-3 mb-6">
+                        <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Engine Selection</label>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button 
+                                onClick={() => setOptions({...options, modelVersion: ModelVersion.Flash})} 
+                                className={`flex flex-col items-center justify-center py-3 rounded-md border transition-all ${options.modelVersion === ModelVersion.Flash ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-700'}`}
+                            >
+                                <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Flash ? 'text-black' : 'text-zinc-400'}`}>Flash 2.5</span>
+                            </button>
+                            <button 
+                                onClick={() => handleProFeatureClick(() => setOptions({...options, modelVersion: ModelVersion.Pro}))} 
+                                className={`flex flex-col items-center justify-center py-3 rounded-md border transition-all relative ${options.modelVersion === ModelVersion.Pro ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-700'}`}
+                            >
+                                {!hasProAccess && <Lock size={10} className="absolute top-1 right-1 text-zinc-600" />}
+                                <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Pro ? 'text-black' : 'text-zinc-400'}`}>Pro 3</span>
+                            </button>
+                        </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <Dropdown label="Sex" value={options.sex} options={Object.values(ModelSex)} onChange={(val) => setOptions({ ...options, sex: val })} />
                         <Dropdown label="Age" value={options.age} options={Object.values(ModelAge)} onChange={(val) => setOptions({ ...options, age: val })} />
@@ -490,13 +516,19 @@ const App: React.FC = () => {
                 <button 
                   onClick={() => saveToLibrary(generatedImage)} 
                   disabled={isSaving || justSaved} 
-                  className={`absolute top-6 right-6 backdrop-blur px-5 py-2.5 rounded-md transition-all flex items-center gap-3 text-[10px] font-black uppercase tracking-widest shadow-2xl
+                  className={`absolute top-6 right-6 backdrop-blur px-5 py-2.5 rounded-md transition-all duration-300 flex items-center gap-3 text-[10px] font-black uppercase tracking-widest shadow-2xl transform active:scale-90
                     ${justSaved 
-                        ? 'bg-emerald-500 text-white border-emerald-400' 
-                        : 'bg-black/80 text-white border border-zinc-800 hover:border-zinc-500'}`}
+                        ? 'bg-emerald-500 text-white border-emerald-400 scale-105' 
+                        : 'bg-black/90 text-white border border-zinc-800 hover:border-zinc-400 hover:bg-black'}`}
                 >
-                  {isSaving ? <Loader2 size={14} className="animate-spin" /> : justSaved ? <Check size={14} /> : <Save size={14} />}
-                  {isSaving ? "Saving..." : justSaved ? "Shoot Archived" : "Save to Archive"}
+                  {isSaving ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : justSaved ? (
+                    <Check size={14} className="text-white animate-fade-in" />
+                  ) : (
+                    <Save size={14} className="group-hover:translate-y-[-1px] transition-transform" />
+                  )}
+                  {isSaving ? "Saving..." : justSaved ? "Shoot Saved" : "Save to Archive"}
                 </button>
              )}
           </div>
