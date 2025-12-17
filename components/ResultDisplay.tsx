@@ -1,18 +1,13 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Download, RefreshCw, Loader2, User, Users, Camera, Lock, Sparkles, Shirt, Wand2, Save, ChevronDown, Folder, Hexagon, Plus, FolderPlus, Check } from 'lucide-react';
-import { Project } from '../types';
+import { Download, RefreshCw, Loader2, User, Users, Camera, Lock, Sparkles, Shirt, Wand2 } from 'lucide-react';
 
 interface ResultDisplayProps {
   isLoading: boolean;
   image: string | null;
   onDownload: () => void;
   onRegenerate: (keepModel: boolean) => void;
-  onSaveToProject: (projectId: string | null) => Promise<void>;
   isPremium: boolean;
-  isLoggedIn: boolean;
-  projects: Project[];
-  activeProjectId: string | null;
   error: string | null;
 }
 
@@ -29,30 +24,18 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
     isLoading, 
     image, 
     onDownload, 
-    onRegenerate,
-    onSaveToProject,
+    onRegenerate, 
     isPremium,
-    isLoggedIn,
-    projects,
-    activeProjectId,
     error 
 }) => {
-  const [showRegenMenu, setShowRegenMenu] = useState(false);
-  const [showSaveMenu, setShowSaveMenu] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [justSaved, setJustSaved] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
-  
-  const regenMenuRef = useRef<HTMLDivElement>(null);
-  const saveMenuRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (regenMenuRef.current && !regenMenuRef.current.contains(event.target as Node)) {
-        setShowRegenMenu(false);
-      }
-      if (saveMenuRef.current && !saveMenuRef.current.contains(event.target as Node)) {
-        setShowSaveMenu(false);
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -69,18 +52,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
     }
   }, [isLoading]);
 
-  const handleSaveClick = async (projectId: string | null) => {
-    setIsSaving(true);
-    setShowSaveMenu(false);
-    try {
-      await onSaveToProject(projectId);
-      setJustSaved(true);
-      setTimeout(() => setJustSaved(false), 3000);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
+  // Loading - System Log Style
   if (isLoading) {
     return (
       <div className="h-full w-full bg-black flex flex-col items-center justify-center relative font-mono">
@@ -103,6 +75,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
     );
   }
 
+  // Error
   if (error) {
     return (
       <div className="h-full w-full bg-black flex flex-col items-center justify-center p-8 text-center">
@@ -114,9 +87,11 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
     );
   }
 
+  // Empty State / Onboarding Hero
   if (!image) {
     return (
       <div className="h-full w-full bg-black flex flex-col items-center justify-center relative overflow-hidden">
+        {/* Background ambient glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-white/5 rounded-full blur-[100px] pointer-events-none"></div>
 
         <div className="relative z-10 max-w-md text-center px-6">
@@ -158,6 +133,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
     );
   }
 
+  // Success
   return (
     <div className="h-full w-full bg-black relative flex flex-col group">
       <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-zinc-950/30">
@@ -168,117 +144,50 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
         />
       </div>
       
-      <div className="absolute bottom-6 right-6 flex items-center gap-2 z-30 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-        <div className="relative" ref={regenMenuRef}>
+      <div className="absolute bottom-6 right-6 flex items-center gap-2 z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <div className="relative" ref={menuRef}>
             <button
-                onClick={() => setShowRegenMenu(!showRegenMenu)}
-                className="h-9 px-4 bg-black/90 hover:bg-black text-white border border-zinc-800 hover:border-zinc-600 backdrop-blur-md rounded-md font-medium text-[10px] uppercase tracking-wider transition-all flex items-center gap-2"
+                onClick={() => setShowMenu(!showMenu)}
+                className="h-9 px-4 bg-black/90 hover:bg-black text-white border border-zinc-800 hover:border-zinc-600 backdrop-blur-md rounded-md font-medium text-xs transition-all flex items-center gap-2"
             >
-                <RefreshCw size={12} className={isLoading ? 'animate-spin' : ''} />
+                <RefreshCw size={12} />
                 Regenerate
             </button>
 
-            {showRegenMenu && (
-                <div className="absolute bottom-full right-0 mb-2 w-56 bg-black border border-zinc-800 rounded-md shadow-2xl z-50 overflow-hidden animate-fade-in py-1">
+            {showMenu && (
+                <div className="absolute bottom-full right-0 mb-2 w-56 bg-black border border-zinc-800 rounded-md shadow-2xl z-50 overflow-hidden">
                     <button
-                        onClick={() => { onRegenerate(true); setShowRegenMenu(false); }}
+                        onClick={() => { onRegenerate(true); setShowMenu(false); }}
                         className="w-full text-left px-4 py-3 hover:bg-zinc-900 flex items-center gap-3 text-zinc-300 transition-colors border-b border-zinc-900"
                     >
                             <User size={14} />
                             <div className="flex-1">
-                            <span className="text-xs font-bold block text-white uppercase">Keep Model</span>
-                            <span className="text-[9px] text-zinc-500 font-mono">Preserve identity</span>
+                            <span className="text-xs font-bold block text-white">Keep Model</span>
+                            <span className="text-[10px] text-zinc-500">Same ID, new pose</span>
                             </div>
                             {!isPremium && <Lock size={10} className="text-zinc-600" />}
                     </button>
                     <button
-                        onClick={() => { onRegenerate(false); setShowRegenMenu(false); }}
+                        onClick={() => { onRegenerate(false); setShowMenu(false); }}
                         className="w-full text-left px-4 py-3 hover:bg-zinc-900 flex items-center gap-3 text-zinc-300 transition-colors"
                     >
                         <Users size={14} />
                         <div className="flex-1">
-                            <span className="text-xs font-bold block text-white uppercase">New Model</span>
-                            <span className="text-[9px] text-zinc-500 font-mono">Roll new features</span>
+                            <span className="text-xs font-bold block text-white">New Model</span>
+                            <span className="text-[10px] text-zinc-500">Roll new character</span>
                         </div>
                     </button>
                 </div>
             )}
         </div>
 
-        {isLoggedIn ? (
-          <div className="relative" ref={saveMenuRef}>
-            <button
-                onClick={() => setShowSaveMenu(!showSaveMenu)}
-                disabled={isSaving}
-                className={`h-9 px-4 rounded-md font-bold text-[10px] uppercase tracking-wider transition-all flex items-center gap-2 shadow-xl border ${justSaved ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-white text-black border-transparent hover:bg-zinc-200'}`}
-            >
-                {isSaving ? <Loader2 size={12} className="animate-spin" /> : justSaved ? <Check size={12} /> : <Save size={12} />}
-                {justSaved ? "Saved" : "Save"}
-                <ChevronDown size={10} className={`transition-transform duration-200 ${showSaveMenu ? 'rotate-180' : ''}`} />
-            </button>
-
-            {showSaveMenu && (
-                <div className="absolute bottom-full right-0 mb-3 w-64 bg-black border border-zinc-800 rounded-lg shadow-[0_20px_60px_rgba(0,0,0,0.8)] z-[100] overflow-hidden animate-fade-in py-1">
-                    <div className="px-4 py-3 text-[9px] font-black text-zinc-600 uppercase tracking-[0.2em] border-b border-zinc-900 mb-1 flex justify-between">
-                        Folder <span>Archive</span>
-                    </div>
-                    
-                    <button 
-                        onClick={() => handleSaveClick(null)}
-                        className={`w-full text-left px-4 py-3 text-[10px] flex items-center gap-3 transition-all uppercase font-bold group
-                            ${activeProjectId === null ? 'bg-[#0051e0] text-white' : 'text-zinc-300 hover:bg-zinc-900'}`}
-                    >
-                        <div className="w-5 h-5 flex items-center justify-center shrink-0">
-                            <Hexagon size={12} className={activeProjectId === null ? 'text-white' : 'text-zinc-600 group-hover:text-white'} />
-                        </div>
-                        <div className="flex-1">
-                            <span className="block">General Archive</span>
-                        </div>
-                        {activeProjectId === null && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
-                    </button>
-
-                    <div className="max-h-[240px] overflow-y-auto custom-scrollbar">
-                        {projects.map(p => (
-                            <button 
-                                key={p.id}
-                                onClick={() => handleSaveClick(p.id)}
-                                className={`w-full text-left px-4 py-3 text-[10px] flex items-center justify-between transition-all uppercase font-bold group
-                                    ${activeProjectId === p.id ? 'bg-[#0051e0] text-white' : 'text-zinc-300 hover:bg-zinc-900'}`}
-                            >
-                                <div className="flex items-center gap-3 truncate pr-2">
-                                    <div className="w-5 h-5 flex items-center justify-center shrink-0">
-                                        <Folder size={12} className={activeProjectId === p.id ? 'text-white' : 'text-zinc-600 group-hover:text-white'} />
-                                    </div>
-                                    <span className="truncate">{p.name}</span>
-                                </div>
-                                {activeProjectId === p.id && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="border-t border-zinc-900 mt-1 pt-1">
-                        <button 
-                            onClick={onDownload}
-                            className="w-full text-left px-4 py-3 text-[10px] text-zinc-400 hover:bg-zinc-900 hover:text-white flex items-center gap-3 transition-colors uppercase font-bold"
-                        >
-                            <div className="w-5 h-5 flex items-center justify-center shrink-0">
-                                <Download size={14} />
-                            </div>
-                            <span>Local Download</span>
-                        </button>
-                    </div>
-                </div>
-            )}
-          </div>
-        ) : (
-          <button
-              onClick={onDownload}
-              className="h-9 px-4 bg-white text-black hover:bg-zinc-200 rounded-md font-bold text-[10px] uppercase tracking-wider transition-all flex items-center gap-2 shadow-sm"
-          >
-              <Download size={12} />
-              Save
-          </button>
-        )}
+        <button
+            onClick={onDownload}
+            className="h-9 px-4 bg-white text-black hover:bg-zinc-200 rounded-md font-medium text-xs transition-all flex items-center gap-2 shadow-sm"
+        >
+            <Download size={12} />
+            Save
+        </button>
       </div>
     </div>
   );

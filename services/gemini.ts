@@ -42,24 +42,24 @@ const getModelName = (version: ModelVersion): string => {
 };
 
 export const generatePhotoshootImage = async (options: PhotoshootOptions): Promise<string> => {
-  // Always use process.env.API_KEY directly for initialization as per Google GenAI SDK guidelines.
-  // The platform automatically injects the valid key into this runtime environment variable.
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const API_KEY = process.env.API_KEY;
+  if (!API_KEY) throw new Error("API Key is missing.");
+  const ai = new GoogleGenAI({ apiKey: API_KEY });
 
   const heightStr = options.height ? `Model Height: ${options.height} ${options.measurementUnit}` : 'Height: Standard Model Height';
   const bodyTypeStr = `Body Type: ${options.bodyType}`;
 
   const outfitParts: string[] = [];
-  const imageInputs: { type: string; data: string; mimeType: string }[] = [];
+  const imageInputs: { type: string; data: string }[] = [];
 
   const processSlot = (role: string, item: OutfitItem) => {
     const hasImages = item.images && item.images.length > 0;
     if (!item.garmentType && !hasImages && !item.description) return;
     let description = `- ${role.toUpperCase()}: ${item.garmentType || role}`;
-    if (item.description) description += `. Style notes: ${item.description}`;
+    if (item.description) description += `. Visuals: ${item.description}`;
     if (hasImages) {
-      item.images.forEach((img: string) => {
-          imageInputs.push({ type: role, data: extractBase64(img), mimeType: getMimeType(img) });
+      item.images.forEach((img: string, idx: number) => {
+          imageInputs.push({ type: `${role} Reference ${idx + 1}`, data: img });
       });
     }
     outfitParts.push(description);
@@ -71,24 +71,20 @@ export const generatePhotoshootImage = async (options: PhotoshootOptions): Promi
   processSlot('Accessories', options.outfit.accessories);
 
   if (options.referenceModelImage) {
-      imageInputs.push({ 
-        type: 'IDENTITY', 
-        data: extractBase64(options.referenceModelImage), 
-        mimeType: getMimeType(options.referenceModelImage) 
-      });
+      imageInputs.push({ type: 'IDENTITY_REFERENCE', data: options.referenceModelImage });
   }
 
   const richStylePrompt = STYLE_PROMPTS[options.style] || options.style;
   const richExpressionPrompt = EXPRESSION_PROMPTS[options.facialExpression] || options.facialExpression;
 
   const prompt = `
-    Create a professional high-fashion photoshoot image.
-    ${options.referenceModelImage ? 'MANDATORY: Maintain the exact facial features and identity from the IDENTITY image.' : ''}
+    Create a high-fashion lookbook image.
+    ${options.isModelLocked ? 'CRITICAL: Maintain the exact facial features, hair, and identity from the IDENTITY_REFERENCE image.' : ''}
 
-    OUTFIT REQUIREMENTS:
+    OUTFIT:
     ${outfitParts.join('\n')}
 
-    MODEL SPECS:
+    MODEL:
     - Sex: ${options.sex}
     - Age: ${options.age}
     - Ethnicity: ${options.ethnicity}
@@ -96,56 +92,44 @@ export const generatePhotoshootImage = async (options: PhotoshootOptions): Promi
     - Expression: ${richExpressionPrompt}
     - ${heightStr}
     - ${bodyTypeStr}
-    - Additional Features: ${options.modelFeatures || 'Standard'}
+    - Features: ${options.modelFeatures || 'Standard'}
     - Pose: ${options.pose || 'Standing naturally'}
 
-    PHOTOGRAPHY DIRECTION:
-    - Environment/Style: ${richStylePrompt}
-    - Quality: Commercial studio quality, ultra-realistic skin textures, sharp focus on garments.
+    ART DIRECTION:
+    - Style: ${richStylePrompt}
+    - Lighting: Professional commercial lighting.
 
-    INSTRUCTIONS:
-    - Output ONLY the generated image.
-    - If garment references are provided, match the silhouettes and details faithfully.
+    TASK:
+    1. **Identity Integrity**: If IDENTITY_REFERENCE is provided, match the person's face and build EXACTLY.
+    2. **Product Fidelity**: Match provided garment reference images exactly.
+    3. **Format**: OUTPUT ONLY THE IMAGE.
   `;
+
+  const executeGeneration = async (modelName: string, config: any) => {
+      const parts: any[] = [{ text: prompt }];
+      imageInputs.forEach(img => {
+        parts.push({
+          inlineData: { mimeType: getMimeType(img.data), data: extractBase64(img.data) }
+        });
+      });
+
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: { parts },
+        config: { imageConfig: config, seed: options.seed }
+      });
+
+      if (response.candidates && response.candidates[0].content && response.candidates[0].content.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData && part.inlineData.data) return `data:image/png;base64,${part.inlineData.data}`;
+        }
+      }
+      throw new Error("No image generated.");
+  };
 
   const targetModel = getModelName(options.modelVersion);
   const imageConfig: any = { aspectRatio: options.aspectRatio };
-  const tools: any[] = [];
+  if (options.modelVersion === ModelVersion.Pro) imageConfig.imageSize = options.enable4K ? '4K' : '2K';
 
-  if (options.modelVersion === ModelVersion.Pro) {
-    imageConfig.imageSize = options.enable4K ? '4K' : '2K';
-    tools.push({ google_search: {} });
-  }
-
-  const parts: any[] = [{ text: prompt }];
-  imageInputs.forEach(img => {
-    parts.push({
-      inlineData: { mimeType: img.mimeType, data: img.data }
-    });
-  });
-
-  try {
-    const response = await ai.models.generateContent({
-      model: targetModel,
-      contents: { parts },
-      config: { 
-        imageConfig: imageConfig, 
-        seed: options.seed,
-        tools: tools.length > 0 ? tools : undefined
-      }
-    });
-
-    if (response.candidates && response.candidates[0].content && response.candidates[0].content.parts) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData && part.inlineData.data) {
-          return `data:image/png;base64,${part.inlineData.data}`;
-        }
-      }
-    }
-    
-    throw new Error("The model generated text but no image. Please try again with a different pose.");
-  } catch (error: any) {
-    console.error("Gemini Generation Error:", error);
-    throw error;
-  }
+  return await executeGeneration(targetModel, imageConfig);
 };

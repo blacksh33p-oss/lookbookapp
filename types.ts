@@ -116,6 +116,7 @@ export interface PhotoshootOptions {
   pose?: string;
   modelFeatures?: string;
   referenceModelImage?: string;
+  isModelLocked?: boolean;
 }
 
 export interface Project {

@@ -1,25 +1,37 @@
 import { createClient } from '@supabase/supabase-js';
 
-/**
- * Defensive access to import.meta.env to prevent "Cannot read properties of undefined" 
- * errors during initialization if the bundler hasn't injected the env object yet.
- */
-const env = (import.meta as any).env || {};
+// Helper to safely access environment variables in any environment (Vite, Node, etc.)
+const getEnvVar = (key: string) => {
+  // 1. Try Vite's import.meta.env
+  // Use optional chaining (?.) to avoid crash if (import.meta as any).env is undefined
+  const viteVal = (import.meta as any).env?.[key];
+  if (viteVal) return viteVal;
 
-const supabaseUrl = (env.VITE_SUPABASE_URL || '').trim();
-const supabaseAnonKey = (env.VITE_SUPABASE_ANON_KEY || '').trim();
+  // 2. Try process.env (Node.js / Webpack fallback)
+  try {
+    // @ts-ignore
+    if (typeof process !== 'undefined' && process.env) {
+      // @ts-ignore
+      return process.env[key];
+    }
+  } catch (e) {
+    // Ignore ReferenceError if process is not defined
+  }
+  return '';
+};
 
-export const isConfigured = !!supabaseUrl && 
-  !!supabaseAnonKey && 
-  supabaseUrl !== 'https://placeholder.supabase.co' && 
-  !supabaseUrl.includes('placeholder') &&
-  supabaseUrl.length > 0;
+// Trim to avoid copy-paste whitespace issues
+const supabaseUrl = getEnvVar('VITE_SUPABASE_URL')?.trim();
+const supabaseAnonKey = getEnvVar('VITE_SUPABASE_ANON_KEY')?.trim();
 
-if (!isConfigured && typeof window !== 'undefined') {
-  console.warn('FashionStudio: Missing Supabase Environment Variables. Login and Folders will be disabled.');
+export const isConfigured = !!supabaseUrl && !!supabaseAnonKey && supabaseUrl !== 'https://placeholder.supabase.co';
+
+if (!isConfigured) {
+  console.warn('FashionStudio: Missing or invalid Supabase Environment Variables. Authentication features will be disabled.');
 }
 
-// Initialize with safe fallbacks to prevent instantiation crashes
+// Initialize with safe fallbacks to prevent runtime crash on load
+// Cast to any to avoid TypeScript errors if Supabase types are mismatched
 export const supabase: any = createClient(
   supabaseUrl || 'https://placeholder.supabase.co', 
   supabaseAnonKey || 'placeholder'
