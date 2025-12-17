@@ -31,7 +31,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                         <div className="text-3xl font-bold text-white">Free</div>
                     </div>
                     <ul className="space-y-3 mb-8 flex-1 text-sm text-zinc-400">
-                        <li>5 Daily Credits</li>
+                        <li>5 Images / Day</li>
                         <li>Standard Model</li>
                         <li>1K Resolution</li>
                     </ul>
@@ -45,8 +45,8 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                         <div className="text-3xl font-bold text-white">$9<span className="text-sm text-zinc-500 font-normal">/mo</span></div>
                     </div>
                     <ul className="space-y-3 mb-8 flex-1 text-sm text-zinc-400">
-                        <li className="text-zinc-200 font-medium">100 Credits</li>
-                        <li>Standard Model</li>
+                        <li className="text-zinc-200 font-medium">100 Standard Images/Mo</li>
+                        <li>Flash Model Only</li>
                         <li>1K Resolution</li>
                         <li>Commercial Rights</li>
                     </ul>
@@ -61,8 +61,8 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                         <div className="text-3xl font-bold text-white">$29<span className="text-sm text-zinc-500 font-normal">/mo</span></div>
                     </div>
                     <ul className="space-y-3 mb-8 flex-1 text-sm text-zinc-300">
-                         <li className="text-white font-medium">500 Monthly Credits</li>
-                         <li>Gemini 3 Pro Access</li>
+                         <li className="text-white font-medium">50 Pro / 500 Standard</li>
+                         <li>Gemini 3 Pro + Flash</li>
                          <li>2K Resolution</li>
                          <li>Editorial Styles</li>
                     </ul>
@@ -76,10 +76,10 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                         <div className="text-3xl font-bold text-white">$99<span className="text-sm text-zinc-500 font-normal">/mo</span></div>
                     </div>
                     <ul className="space-y-3 mb-8 flex-1 text-sm text-zinc-400">
-                        <li className="text-zinc-200 font-medium">2,000 Credits</li>
+                        <li className="text-zinc-200 font-medium">200 Pro / 2k Standard</li>
                         <li>4K Ultra HD</li>
-                        <li>Batch API</li>
                         <li>Priority Queue</li>
+                        <li>Commercial Rights</li>
                     </ul>
                     <button onClick={() => onUpgrade(SubscriptionTier.Studio)} className="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-bold py-3 rounded-md border border-zinc-700 text-xs">Upgrade</button>
                 </div>

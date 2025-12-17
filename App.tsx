@@ -8,13 +8,12 @@ import { OutfitControl } from './components/OutfitControl';
 import { PoseControl } from './components/PoseControl';
 import { LoginModal } from './components/LoginModal';
 import { UpgradeModal } from './components/UpgradeModal';
-import { BatchMode } from './components/BatchMode';
 import { generatePhotoshootImage } from './services/gemini';
 import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.5.0-StarterTier"; 
+const APP_VERSION = "v1.5.1-Clean"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -175,7 +174,6 @@ const App: React.FC = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginModalView, setLoginModalView] = useState<'pricing' | 'login'>('pricing'); 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [appMode, setAppMode] = useState<'single' | 'batch'>('single');
   const [autoPose, setAutoPose] = useState(true);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
 
@@ -715,11 +713,6 @@ const App: React.FC = () => {
                   <h1 className="text-sm font-bold tracking-tight text-white">FashionStudio</h1>
               </div>
 
-              <div className="hidden md:flex gap-px bg-zinc-800 p-[1px] rounded-md overflow-hidden">
-                  <button onClick={() => setAppMode('single')} className={`px-4 py-1.5 text-xs font-medium transition-all ${appMode === 'single' ? 'bg-zinc-100 text-black' : 'bg-black text-zinc-500 hover:text-zinc-300'}`}>Runway</button>
-                  <button onClick={() => setAppMode('batch')} className={`px-4 py-1.5 text-xs font-medium transition-all ${appMode === 'batch' ? 'bg-zinc-100 text-black' : 'bg-black text-zinc-500 hover:text-zinc-300'}`}>Batch</button>
-              </div>
-
               <div className="flex items-center gap-4">
                  {session ? (
                      <>
@@ -766,7 +759,6 @@ const App: React.FC = () => {
       </header>
 
       <main className="pt-20 px-4 md:px-6 max-w-[1920px] mx-auto min-h-screen pb-12">
-        {appMode === 'batch' ? ( <BatchMode /> ) : (
         <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 relative">
           
           {/* Controls Column */}
@@ -862,7 +854,6 @@ const App: React.FC = () => {
           </div>
 
         </div>
-        )}
       </main>
     </div>
   );

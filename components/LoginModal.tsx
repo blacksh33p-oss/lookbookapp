@@ -119,7 +119,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                             <div className="text-zinc-500 text-xs">For testing.</div>
                         </div>
                         <ul className="space-y-2 mb-6 flex-1 text-sm text-zinc-400">
-                            <li>5 Daily Credits</li>
+                            <li>5 Images / Day</li>
                             <li>Standard Model</li>
                             <li>1K Resolution</li>
                         </ul>
@@ -132,9 +132,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                             <div className="text-zinc-500 text-xs">$9/mo</div>
                         </div>
                         <ul className="space-y-2 mb-6 flex-1 text-sm text-zinc-400">
-                            <li>100 Monthly Credits</li>
-                            <li>Standard Model</li>
+                            <li>100 Standard Images/Mo</li>
+                            <li>Flash Model Only</li>
                             <li>1K Resolution</li>
+                            <li>No Watermark</li>
                         </ul>
                         <button className="w-full bg-zinc-900 text-white font-medium py-2 rounded-md border border-zinc-800 text-xs">Select</button>
                     </div>
@@ -148,9 +149,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                             <div className="text-zinc-500 text-xs">$29/mo</div>
                         </div>
                         <ul className="space-y-2 mb-6 flex-1 text-sm text-zinc-300">
-                             <li>500 Monthly Credits</li>
-                             <li>Gemini 3 Pro</li>
-                             <li>2K Res</li>
+                             <li><strong className="text-white">50 Pro</strong> or 500 Standard</li>
+                             <li>Gemini 3 Pro + Flash</li>
+                             <li>2K Resolution</li>
                              <li>Commercial Rights</li>
                         </ul>
                         <button className="w-full bg-white text-black font-bold py-2 rounded-md text-xs">Select</button>
@@ -162,10 +163,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                             <div className="text-zinc-500 text-xs">$99/mo</div>
                         </div>
                         <ul className="space-y-2 mb-6 flex-1 text-sm text-zinc-400">
-                            <li>2,000 Credits</li>
+                            <li><strong className="text-white">200 Pro</strong> or 2k Standard</li>
                             <li>4K Ultra HD</li>
-                            <li>Batch API</li>
                             <li>Priority Queue</li>
+                            <li>Commercial Rights</li>
                         </ul>
                         <button className="w-full bg-zinc-900 text-white font-medium py-2 rounded-md border border-zinc-800 text-xs">Select</button>
                     </div>
