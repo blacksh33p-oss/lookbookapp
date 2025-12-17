@@ -14,7 +14,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.7.1"; 
+const APP_VERSION = "v1.7.2"; 
 const ACCOUNT_PORTAL_URL = 'https://lookbook.test.onfastspring.com/account';
 
 const POSES = [
@@ -600,16 +600,15 @@ const App: React.FC = () => {
       showToast('Signed out successfully', 'info');
   };
 
-  const handleUpgrade = async (tier: SubscriptionTier) => {
+  const handleUpgrade = async (tier?: SubscriptionTier) => {
      try {
-         console.log("handleUpgrade called for tier:", tier);
          const { data } = await supabase.auth.getSession();
          const activeSession = data.session;
 
          // If not logged in, prompt login
          if (!activeSession) {
              console.log("No session, prompting login");
-             localStorage.setItem('pending_plan', tier);
+             if (tier) localStorage.setItem('pending_plan', tier);
              setLoginModalView('pricing');
              setShowLoginModal(true);
              setShowUpgradeModal(false);
@@ -621,15 +620,12 @@ const App: React.FC = () => {
          // ---------------------------------------------------------
          // SCENARIO 1: EXISTING SUBSCRIBER (Manage/Change Plan)
          // ---------------------------------------------------------
-         // If the user is ALREADY on a paid plan (Starter, Creator, Studio), 
-         // we CANNOT just open a checkout for a new plan because FastSpring 
-         // would create a *second* subscription. 
-         // Instead, we send them to the Self-Serve Account Portal to "Change Plan".
-         if (currentTier !== SubscriptionTier.Free) {
-             console.log("User is existing subscriber. Redirecting to Account Portal for plan change.");
-             showToast("Opening subscription management portal...", "info");
-             // The Account Portal URL is generally based on the storefront URL.
-             // Using the one configured in index.html: lookbook.test.onfastspring.com
+         // This is triggered by:
+         // A) Clicking "Billing" in Profile Menu
+         // B) Clicking "Manage Subscription" banner in Upgrade Modal
+         if (currentTier !== SubscriptionTier.Free && !tier) {
+             console.log("User is existing subscriber. Redirecting to Account Portal.");
+             showToast("Opening account settings...", "info");
              window.open(ACCOUNT_PORTAL_URL, '_blank');
              return;
          }
@@ -637,10 +633,9 @@ const App: React.FC = () => {
          // ---------------------------------------------------------
          // SCENARIO 2: NEW SUBSCRIBER (Purchase)
          // ---------------------------------------------------------
-         // User is on Free tier. They are buying their first subscription.
-         // We open the Popup Checkout.
+         // User is on Free tier. They clicked a specific "Select Plan" button.
          
-         if (window.fastspring && window.fastspring.builder) {
+         if (window.fastspring && window.fastspring.builder && tier) {
              const productPath = getProductPath(tier);
              
              if (!productPath) {
@@ -690,8 +685,13 @@ const App: React.FC = () => {
              }
 
          } else {
-             console.error("FastSpring script not loaded.");
-             showToast("Checkout system loading... please refresh.", "error");
+             if (tier) {
+                console.error("FastSpring script not loaded.");
+                showToast("Checkout system loading... please refresh.", "error");
+             } else if (currentTier !== SubscriptionTier.Free) {
+                 // Fallback for logic if they are paid but accidentally triggered this block
+                 window.open(ACCOUNT_PORTAL_URL, '_blank');
+             }
          }
 
      } catch (err) {
@@ -897,7 +897,8 @@ const App: React.FC = () => {
                                     <div className="text-xs text-zinc-400 truncate">{session.user.email}</div>
                                 </div>
                                 <div className="p-1">
-                                    <button onClick={() => { setShowUpgradeModal(true); setShowProfileMenu(false); }} className="w-full text-left px-3 py-2 text-xs text-white hover:bg-zinc-900 rounded-sm transition-colors flex items-center gap-2"><CreditCard size={12} /> Billing</button>
+                                    {/* UPDATED: Opens Portal directly */}
+                                    <button onClick={() => { handleUpgrade(); setShowProfileMenu(false); }} className="w-full text-left px-3 py-2 text-xs text-white hover:bg-zinc-900 rounded-sm transition-colors flex items-center gap-2"><CreditCard size={12} /> Billing</button>
                                     <button onClick={() => { setIsSyncingPayment(true); pollForCredits(session.user.id, session.user.email, userProfile?.credits); setShowProfileMenu(false); }} className="w-full text-left px-3 py-2 text-xs text-white hover:bg-zinc-900 rounded-sm transition-colors flex items-center gap-2"><RefreshCcw size={12} /> Sync</button>
                                     <button onClick={(e) => handleLogout(e)} className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-zinc-900 rounded-sm transition-colors flex items-center gap-2"><LogOut size={12} /> Sign Out</button>
                                 </div>
