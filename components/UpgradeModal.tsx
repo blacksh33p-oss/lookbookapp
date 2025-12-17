@@ -26,13 +26,32 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
           };
       }
 
-      // 2. Paid User looking at other plans (HIDE ACTION)
+      // 2. Paid User Logic
       if (isPaidUser) {
-          return {
-              text: "View in Portal", // Just fallback text, logic handled in rendering
-              disabled: true,
-              style: "hidden" // Completely hide button to avoid confusion
-          };
+           const tierOrder: Record<string, number> = {
+              [SubscriptionTier.Free]: 0,
+              [SubscriptionTier.Starter]: 1,
+              [SubscriptionTier.Creator]: 2,
+              [SubscriptionTier.Studio]: 3,
+           };
+           
+           const currentLevel = tierOrder[currentTier] || 0;
+           const targetLevel = tierOrder[tier] || 0;
+
+           if (targetLevel > currentLevel) {
+               return { 
+                   text: "Upgrade", 
+                   disabled: false, 
+                   style: "" // Uses default styles defined in JSX (usually bold/highlighted)
+               };
+           } else {
+               // Downgrade / Switch
+               return { 
+                   text: "Switch Plan", 
+                   disabled: false, 
+                   style: "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white border-zinc-800" 
+               };
+           }
       }
 
       // 3. Free User (Buy)
@@ -89,7 +108,8 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                         <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> 100 Fast Drafts</li>
                         <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> Gemini Flash 2.5 Model</li>
                     </ul>
-                    {(!isPaidUser || currentTier === SubscriptionTier.Starter) && (
+                    {/* BUTTON */}
+                    {(!isPaidUser || currentTier !== SubscriptionTier.Starter) && (
                          <button 
                             onClick={() => !starterProps.disabled && onUpgrade(SubscriptionTier.Starter)}
                             disabled={starterProps.disabled}
@@ -97,6 +117,9 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                         >
                             {starterProps.text}
                         </button>
+                    )}
+                    {currentTier === SubscriptionTier.Starter && (
+                        <div className="w-full py-3 rounded-md border border-zinc-700 text-xs font-medium bg-zinc-900 text-zinc-500 text-center cursor-default">Current Plan</div>
                     )}
                 </div>
 
@@ -120,7 +143,8 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                              <li className="flex items-center gap-2"><Check size={14} className="text-black" /> 2K Resolution</li>
                         </ul>
                     </div>
-                    {(!isPaidUser || currentTier === SubscriptionTier.Creator) && (
+                    {/* BUTTON */}
+                    {(!isPaidUser || currentTier !== SubscriptionTier.Creator) && (
                         <button 
                             onClick={() => !creatorProps.disabled && onUpgrade(SubscriptionTier.Creator)}
                             disabled={creatorProps.disabled}
@@ -128,6 +152,9 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                         >
                             {creatorProps.text} {creatorProps.text === "Get Creator Access" && <ArrowRight size={12} />}
                         </button>
+                    )}
+                    {currentTier === SubscriptionTier.Creator && (
+                        <div className="w-full py-3.5 rounded-md text-xs font-medium bg-zinc-200 text-zinc-500 text-center cursor-default">Current Plan</div>
                     )}
                 </div>
 
@@ -144,7 +171,8 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                         <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> Gemini Pro V3</li>
                         <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> 4K Resolution Available</li>
                     </ul>
-                    {(!isPaidUser || currentTier === SubscriptionTier.Studio) && (
+                    {/* BUTTON */}
+                    {(!isPaidUser || currentTier !== SubscriptionTier.Studio) && (
                         <button 
                             onClick={() => !studioProps.disabled && onUpgrade(SubscriptionTier.Studio)}
                             disabled={studioProps.disabled}
@@ -153,6 +181,9 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                             {studioProps.text}
                         </button>
                     )}
+                    {currentTier === SubscriptionTier.Studio && (
+                        <div className="w-full py-3 rounded-md border border-zinc-700 text-xs font-medium bg-zinc-900 text-zinc-500 text-center cursor-default">Current Plan</div>
+                    )}
                 </div>
             </div>
 
@@ -160,7 +191,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
             {isPaidUser && (
                 <div className="mt-8 pt-8 border-t border-zinc-900 text-center">
                     <p className="text-zinc-400 text-sm mb-4">
-                        To upgrade, downgrade, or cancel your current plan, please visit your account settings.
+                        Manage your subscription.
                     </p>
                     <button 
                         onClick={() => onUpgrade()} 
