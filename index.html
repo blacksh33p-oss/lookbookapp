@@ -11,9 +11,12 @@
     <!-- Runtime Environment Shim -->
     <script type="text/javascript">
         // Standard shim to support libraries expecting process.env in the browser.
-        // This is critical for the @google/genai SDK when API keys are injected at runtime.
+        // We define a getter to ensure we always return a string and avoid undefined crashes.
         window.process = window.process || {};
         window.process.env = window.process.env || {};
+        if (!window.process.env.API_KEY) {
+            window.process.env.API_KEY = "";
+        }
     </script>
 
     <!-- FastSpring Global Callback -->

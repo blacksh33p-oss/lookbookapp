@@ -42,10 +42,9 @@ const getModelName = (version: ModelVersion): string => {
 };
 
 export const generatePhotoshootImage = async (options: PhotoshootOptions): Promise<string> => {
-  // Use a fallback empty string to prevent the SDK constructor from throwing immediately if key is not yet set.
-  // The SDK will handle missing keys gracefully during the actual API call.
-  const apiKey = process.env.API_KEY || "";
-  const ai = new GoogleGenAI({ apiKey });
+  // Always use process.env.API_KEY directly for initialization as per Google GenAI SDK guidelines.
+  // The platform automatically injects the valid key into this runtime environment variable.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const heightStr = options.height ? `Model Height: ${options.height} ${options.measurementUnit}` : 'Height: Standard Model Height';
   const bodyTypeStr = `Body Type: ${options.bodyType}`;

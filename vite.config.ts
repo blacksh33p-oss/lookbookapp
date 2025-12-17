@@ -4,18 +4,10 @@ import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, (process as any).cwd(), '');
-
+  // We load env vars but do NOT define them under process.env here to avoid
+  // conflicting with dynamic runtime injection.
   return {
     plugins: [react()],
-    // We only define specific environment variables for Supabase.
-    // We do NOT define process.env.API_KEY here to avoid esbuild syntax errors during deployment.
-    // The runtime environment will provide process.env.API_KEY via the index.html shim or platform injection.
-    define: {
-      'process.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
-      'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
-    },
-    envPrefix: 'VITE_',
     build: {
       outDir: 'dist',
     },
