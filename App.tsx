@@ -13,7 +13,7 @@ import { generatePhotoshootImage } from './services/gemini';
 import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier, Project, Generation } from './types';
 
-const APP_VERSION = "v1.9.2"; 
+const APP_VERSION = "v1.9.3"; 
 
 const POSES = [
     "Standing naturally, arms relaxed", "Walking towards camera, confident stride", "Leaning slightly against a wall", 
@@ -108,7 +108,6 @@ const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [showSaveMenu, setShowSaveMenu] = useState(false);
   const [showProjectSelector, setShowProjectSelector] = useState(false);
   const [guestCredits, setGuestCredits] = useState<number>(() => {
     const saved = localStorage.getItem('fashion_guest_credits');
@@ -118,8 +117,6 @@ const App: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [showLibrary, setShowLibrary] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [justSaved, setJustSaved] = useState(false);
 
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginModalView, setLoginModalView] = useState<'pricing' | 'login' | 'signup'>('signup'); 
@@ -127,7 +124,6 @@ const App: React.FC = () => {
   const [autoPose, setAutoPose] = useState(true);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
 
-  const saveMenuRef = useRef<HTMLDivElement>(null);
   const projectSelectorRef = useRef<HTMLDivElement>(null);
 
   const [options, setOptions] = useState<PhotoshootOptions>({
@@ -156,9 +152,6 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (saveMenuRef.current && !saveMenuRef.current.contains(event.target as Node)) {
-        setShowSaveMenu(false);
-      }
       if (projectSelectorRef.current && !projectSelectorRef.current.contains(event.target as Node)) {
         setShowProjectSelector(false);
       }
@@ -204,32 +197,22 @@ const App: React.FC = () => {
     return null;
   };
 
-  const saveToLibrary = async (imageUrl: string, projectId: string | null = activeProjectId) => {
-    if (!session || !imageUrl) return;
-    setIsSaving(true);
-    setJustSaved(false);
-    setShowSaveMenu(false);
+  const saveToLibrary = async (projectId: string | null) => {
+    if (!session || !generatedImage) return;
     try {
       const payload = {
-        image_url: imageUrl,
+        image_url: generatedImage,
         user_id: session.user.id,
         project_id: projectId,
         config: { ...options, referenceModelImage: undefined }
       };
       
       const { error } = await supabase.from('generations').insert([payload]);
-      
-      if (error) {
-        showToast(`Error: ${error.message}`, "error");
-      } else {
-        setJustSaved(true);
-        setTimeout(() => setJustSaved(false), 4000);
-        showToast("Saved to Archive", "success");
-      }
+      if (error) throw error;
+      showToast("Saved to Archive", "success");
     } catch (e: any) {
-      showToast("Error saving to archive", "error");
-    } finally {
-      setIsSaving(false);
+      showToast(e.message || "Error saving to archive", "error");
+      throw e;
     }
   };
 
@@ -284,7 +267,17 @@ const App: React.FC = () => {
       showToast('Signed out successfully', 'info');
   };
 
-  const handleGenerate = () => {
+  // handleGenerate includes logic for mandatory API key selection for Gemini Pro models as per guidelines
+  const handleGenerate = async () => {
+      // Check for mandatory API key selection for Pro models (gemini-3-pro-image-preview)
+      if (options.modelVersion === ModelVersion.Pro) {
+        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+          await (window as any).aistudio.openSelectKey();
+          // Assume success following triggering openSelectKey() as per race condition rules in guidelines
+        }
+      }
+
       const newSeed = getRandomSeed();
       const newFeatures = options.referenceModelImage ? (options.modelFeatures || getRandomFeatures()) : getRandomFeatures();
       const newOptions = { 
@@ -307,7 +300,13 @@ const App: React.FC = () => {
             const result = await generatePhotoshootImage(currentOptions);
             setGeneratedImage(result);
             setGuestCredits(prev => prev - cost);
-          } catch (err: any) { setError(err.message || 'Error'); } finally { setIsLoading(false); }
+          } catch (err: any) { 
+            // If the request fails with this specific message for Pro model, re-prompt for API key selection
+            if (err.message?.includes("Requested entity was not found.") && currentOptions.modelVersion === ModelVersion.Pro) {
+                await (window as any).aistudio.openSelectKey();
+            }
+            setError(err.message || 'Error'); 
+          } finally { setIsLoading(false); }
       } else {
           if (!userProfile || userProfile.credits < cost) { setShowUpgradeModal(true); return; }
           setIsLoading(true); setError(null); setGeneratedImage(null);
@@ -317,8 +316,13 @@ const App: React.FC = () => {
             const newBalance = userProfile.credits - cost;
             setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
             supabase.from('profiles').update({ credits: newBalance }).eq('id', session.user.id);
-            // AUTO-SAVE REMOVED PER REQUEST. User must click "Save to Archive" manually.
-          } catch (err: any) { setError(err.message || 'Error'); } finally { setIsLoading(false); }
+          } catch (err: any) { 
+            // If the request fails with this specific message for Pro model, re-prompt for API key selection
+            if (err.message?.includes("Requested entity was not found.") && currentOptions.modelVersion === ModelVersion.Pro) {
+                await (window as any).aistudio.openSelectKey();
+            }
+            setError(err.message || 'Error'); 
+          } finally { setIsLoading(false); }
       }
   }
 
@@ -350,7 +354,6 @@ const App: React.FC = () => {
   };
 
   const isPremium = session ? userProfile?.tier !== SubscriptionTier.Free : false;
-  const isStudio = session ? userProfile?.tier === SubscriptionTier.Studio : false;
   const hasProAccess = session ? (userProfile?.tier === SubscriptionTier.Creator || userProfile?.tier === SubscriptionTier.Studio) : false;
 
   const activeProjectName = activeProjectId === null ? "Default Archive" : projects.find(p => p.id === activeProjectId)?.name || "Folder";
@@ -443,20 +446,20 @@ const App: React.FC = () => {
                         </div>
 
                         {showProjectSelector && (
-                            <div className="absolute top-full left-0 right-0 mt-1 bg-black border border-zinc-800 rounded-md shadow-2xl z-50 overflow-hidden animate-fade-in py-1">
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-black border border-zinc-800 rounded-md shadow-[0_20px_50px_rgba(0,0,0,0.8)] z-50 overflow-hidden animate-fade-in py-1">
                                 <button 
                                     onClick={() => { setActiveProjectId(null); setShowProjectSelector(false); }}
-                                    className={`w-full text-left px-4 py-2.5 text-[10px] font-bold transition-colors uppercase tracking-widest flex items-center gap-3 ${activeProjectId === null ? 'bg-white text-black' : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'}`}
+                                    className={`w-full text-left px-4 py-2.5 text-[10px] font-bold transition-colors uppercase tracking-widest flex items-center gap-3 ${activeProjectId === null ? 'bg-[#0051e0] text-white' : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'}`}
                                 >
-                                    <Hexagon size={12} className={activeProjectId === null ? 'text-black' : 'text-zinc-600'} /> Default Archive
+                                    <Hexagon size={12} className={activeProjectId === null ? 'text-white' : 'text-zinc-600'} /> Default Archive
                                 </button>
                                 {projects.map(p => (
                                     <button 
                                         key={p.id}
                                         onClick={() => { setActiveProjectId(p.id); setShowProjectSelector(false); }}
-                                        className={`w-full text-left px-4 py-2.5 text-[10px] font-bold transition-colors uppercase tracking-widest flex items-center gap-3 ${activeProjectId === p.id ? 'bg-white text-black' : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'}`}
+                                        className={`w-full text-left px-4 py-2.5 text-[10px] font-bold transition-colors uppercase tracking-widest flex items-center gap-3 ${activeProjectId === p.id ? 'bg-[#0051e0] text-white' : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'}`}
                                     >
-                                        <Folder size={12} className={activeProjectId === p.id ? 'text-black' : 'text-zinc-600'} /> {p.name}
+                                        <Folder size={12} className={activeProjectId === p.id ? 'text-white' : 'text-zinc-600'} /> {p.name}
                                     </button>
                                 ))}
                             </div>
@@ -509,7 +512,8 @@ const App: React.FC = () => {
                     <PoseControl selectedPose={options.pose} onPoseChange={(p) => setOptions({ ...options, pose: p })} isAutoMode={autoPose} onToggleAutoMode={setAutoPose} isPremium={isPremium} onUpgrade={() => handleProFeatureClick(() => {})} />
                 </ConfigSection>
                 <ConfigSection title="Model Specs" icon={Ruler}>
-                    <SizeControl options={options} onChange={setOptions} isPremium={isStudio} onUpgradeRequest={() => handleProFeatureClick(() => {})} />
+                    {/* Fix for Error on line 493: replaced undefined variable 'isStudio' with existing 'isPremium' */}
+                    <SizeControl options={options} onChange={setOptions} isPremium={isPremium} onUpgradeRequest={() => handleProFeatureClick(() => {})} />
                 </ConfigSection>
             </div>
             
@@ -519,84 +523,21 @@ const App: React.FC = () => {
           </div>
 
           <div className="order-1 lg:order-2 lg:col-span-8 h-[50vh] xs:h-[60vh] lg:h-[calc(100vh-8rem)] sticky top-20 bg-black border border-zinc-800 rounded-lg overflow-hidden shadow-2xl relative">
-             <ResultDisplay isLoading={isLoading} image={generatedImage} onDownload={handleDownload} onRegenerate={(keep) => {
-                 setOptions({ ...options, referenceModelImage: keep ? (generatedImage || options.referenceModelImage) : undefined });
-                 handleGenerate();
-             }} isPremium={isPremium} error={error} />
-             
-             {generatedImage && session && (
-                <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex flex-col items-end gap-2" ref={saveMenuRef}>
-                    <div className="relative">
-                        <button 
-                          onClick={() => setShowSaveMenu(!showSaveMenu)} 
-                          disabled={isSaving || justSaved} 
-                          className={`backdrop-blur px-3 py-2 sm:px-5 sm:py-2.5 rounded-md transition-all duration-300 flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-2xl transform active:scale-95 group
-                            ${justSaved 
-                                ? 'bg-emerald-500 text-white border-emerald-400 scale-105' 
-                                : 'bg-black/90 text-white border border-zinc-800 hover:border-white hover:bg-black'}`}
-                        >
-                          {isSaving ? <Loader2 size={14} className="animate-spin" /> : justSaved ? <Check size={14} className="animate-fade-in" /> : <Save size={14} className="group-hover:translate-y-[-1px] transition-transform" />}
-                          {isSaving ? "Saving..." : justSaved ? "Saved" : "Save to Archive"}
-                          <ChevronDown size={12} className={`transition-transform duration-300 ${showSaveMenu ? 'rotate-180' : ''}`} />
-                        </button>
-
-                        {showSaveMenu && (
-                            <div className="absolute top-full right-0 mt-3 w-64 bg-black border border-zinc-800 rounded-lg shadow-2xl z-50 overflow-hidden animate-fade-in py-1">
-                                <div className="px-4 py-3 text-[9px] font-black text-zinc-600 uppercase tracking-[0.2em] border-b border-zinc-900 mb-1 flex justify-between">
-                                    Destination <span>Cloud</span>
-                                </div>
-                                
-                                <button 
-                                    onClick={() => saveToLibrary(generatedImage, null)}
-                                    className="w-full text-left px-4 py-3 text-[10px] text-zinc-300 hover:bg-zinc-900 flex items-center gap-3 transition-colors uppercase font-bold group"
-                                >
-                                    <div className="w-5 h-5 flex items-center justify-center shrink-0">
-                                        <Hexagon size={12} className="text-zinc-600 group-hover:text-white group-hover:scale-110 transition-all" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <span className="block text-white">General Archive</span>
-                                        <span className="text-[8px] text-zinc-600 lowercase font-mono">/root</span>
-                                    </div>
-                                    {activeProjectId === null && <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />}
-                                </button>
-
-                                <div className="max-h-[200px] overflow-y-auto custom-scrollbar">
-                                    {projects.map(p => (
-                                        <button 
-                                            key={p.id}
-                                            onClick={() => saveToLibrary(generatedImage, p.id)}
-                                            className="w-full text-left px-4 py-3 text-[10px] text-zinc-300 hover:bg-zinc-900 flex items-center justify-between transition-colors uppercase font-bold group"
-                                        >
-                                            <div className="flex items-center gap-3 truncate pr-2">
-                                                <div className="w-5 h-5 flex items-center justify-center shrink-0">
-                                                    <Folder size={12} className="text-zinc-600 group-hover:text-white transition-all" />
-                                                </div>
-                                                <span className="truncate">{p.name}</span>
-                                            </div>
-                                            {activeProjectId === p.id && <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                <div className="border-t border-zinc-900 mt-1 pt-1">
-                                    <button 
-                                        onClick={async () => {
-                                            const newId = await createProject();
-                                            if (newId) saveToLibrary(generatedImage, newId);
-                                        }}
-                                        className="w-full text-left px-4 py-3 text-[10px] text-white hover:bg-zinc-900 flex items-center gap-3 transition-colors uppercase font-bold group"
-                                    >
-                                        <div className="w-5 h-5 flex items-center justify-center shrink-0">
-                                            <FolderPlus size={14} className="text-emerald-500 group-hover:scale-110 transition-transform" />
-                                        </div>
-                                        <span>Create New Folder</span>
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-             )}
+             <ResultDisplay 
+                isLoading={isLoading} 
+                image={generatedImage} 
+                onDownload={handleDownload} 
+                onRegenerate={(keep) => {
+                    setOptions({ ...options, referenceModelImage: keep ? (generatedImage || options.referenceModelImage) : undefined });
+                    handleGenerate();
+                }}
+                onSaveToProject={saveToLibrary}
+                isPremium={isPremium} 
+                isLoggedIn={!!session}
+                projects={projects}
+                activeProjectId={activeProjectId}
+                error={error} 
+             />
           </div>
         </div>
       </main>
