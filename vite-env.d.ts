@@ -28,6 +28,7 @@ interface Window {
     fastspring: {
         builder: {
             push: (session: any) => void;
+            reset: () => void;
             // Add other builder methods if needed
         };
     };

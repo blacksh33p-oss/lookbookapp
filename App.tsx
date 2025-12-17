@@ -14,7 +14,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.6.3"; 
+const APP_VERSION = "v1.6.4"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -558,8 +558,26 @@ const App: React.FC = () => {
              return;
          }
 
+         // DOWNGRADE LOGIC: ACTUALLY UPDATE DB
          if (tier === SubscriptionTier.Free) {
-             console.log("Downgrading to Free (local only)");
+             console.log("Downgrading to Free");
+             
+             // Optimistic update for UI
+             setUserProfile(prev => prev ? ({ ...prev, tier: SubscriptionTier.Free }) : null);
+             
+             // DB Update
+             const { error } = await supabase
+                .from('profiles')
+                .update({ tier: SubscriptionTier.Free })
+                .eq('id', activeSession.user.id);
+             
+             if (error) {
+                 console.error("Downgrade Error:", error);
+                 showToast("Error updating plan.", "error");
+             } else {
+                 showToast("Plan downgraded to Guest.", "success");
+             }
+             
              localStorage.removeItem('pending_plan');
              setShowUpgradeModal(false);
              return;
@@ -574,14 +592,11 @@ const App: React.FC = () => {
                  return;
              }
              
-             // Optimistically close modal
-             setShowUpgradeModal(false);
+             // 1. Reset Builder to clear old carts
+             try { window.fastspring.builder.reset(); } catch(e) { console.log('Builder reset skipped'); }
 
-             console.log("Pushing FastSpring session...", { path: productPath, email: activeSession.user.email });
-
-             // Open Checkout Popup
-             // Updated to use paymentContact per SBL docs
-             window.fastspring.builder.push({
+             // 2. Prepare Payload
+             const payload = {
                  products: [
                      { path: productPath, quantity: 1 }
                  ],
@@ -589,11 +604,22 @@ const App: React.FC = () => {
                      userId: activeSession.user.id,
                      userEmail: activeSession.user.email
                  },
+                 // Include both contact structures for max compatibility
+                 email: activeSession.user.email,
+                 firstName: activeSession.user.user_metadata?.full_name || '',
                  paymentContact: {
                     email: activeSession.user.email,
                     firstName: activeSession.user.user_metadata?.full_name || ''
                  }
-             });
+             };
+
+             console.log("Pushing FastSpring session...", payload);
+
+             // 3. Push to FastSpring
+             window.fastspring.builder.push(payload);
+             
+             // 4. Close Modal
+             setShowUpgradeModal(false);
 
          } else {
              console.error("FastSpring script not loaded or builder undefined");
