@@ -146,7 +146,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                         {!isStudioUser && <div className="h-px bg-zinc-200 w-full my-4"></div>}
                         
                         <ul className={`space-y-3 mb-8 text-sm ${isStudioUser ? 'text-zinc-400' : 'text-zinc-800'}`}>
-                             <li className="flex items-center gap-2"><Check size={14} className={isStudioUser ? "text-zinc-500" : "text-black stroke-[3px]"} /> <span className={isStudioUser ? "text-zinc-200" : "font-bold"}>500 Credits</span></li>
+                             <li className="flex items-center gap-2"><Check size={14} className={isStudioUser ? "text-zinc-500" : "text-black stroke-[3px]"} /> <span className="font-bold">500 Credits</span></li>
                              <li className="flex items-center gap-2"><Check size={14} className={isStudioUser ? "text-zinc-500" : "text-black"} /> 50 Studio Quality</li>
                              <li className="flex items-center gap-2"><Check size={14} className={isStudioUser ? "text-zinc-500" : "text-black"} /> <span className={isStudioUser ? "text-zinc-500" : "text-zinc-600"}>or 500 Fast Drafts</span></li>
                              <li className="flex items-center gap-2"><Check size={14} className={isStudioUser ? "text-zinc-500" : "text-black"} /> Gemini Pro V3</li>
@@ -208,7 +208,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
             {isPaidUser && (
                 <div className="mt-8 pt-8 border-t border-zinc-900 text-center">
                     <p className="text-zinc-400 text-xs mb-4">
-                        To downgrade or cancel, please visit your account portal.
+                        To cancel, please visit your account portal.
                     </p>
                     <button 
                         onClick={() => onUpgrade()} 
