@@ -13,7 +13,7 @@ import { generatePhotoshootImage } from './services/gemini';
 import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier, Project, Generation } from './types';
 
-const APP_VERSION = "v1.9.4"; 
+const APP_VERSION = "v1.9.5"; 
 
 const POSES = [
     "Standing naturally, arms relaxed", "Walking towards camera, confident stride", "Leaning slightly against a wall", 
@@ -268,12 +268,12 @@ const App: React.FC = () => {
   };
 
   const handleGenerate = async () => {
-      // Mandatory API key selection for Pro model
+      // Mandatory API key selection for Gemini 3 Pro model
       if (options.modelVersion === ModelVersion.Pro) {
         const hasKey = await (window as any).aistudio.hasSelectedApiKey();
         if (!hasKey) {
           await (window as any).aistudio.openSelectKey();
-          // Proceed immediately per guidelines
+          // Proceed immediately per guidelines - injection happens in background
         }
       }
 
@@ -315,10 +315,15 @@ const App: React.FC = () => {
               supabase.from('profiles').update({ credits: newBalance }).eq('id', session.user.id);
           }
       } catch (err: any) { 
-          // Per guidelines: handle requested entity not found by re-triggering key selection
+          console.error("Execute Generation Error:", err);
+          
+          // Guidelines: handle requested entity not found by re-triggering key selection
           if (err.message?.includes("Requested entity was not found.") && currentOptions.modelVersion === ModelVersion.Pro) {
               await (window as any).aistudio.openSelectKey();
-              setError("Please select a valid paid project key to continue.");
+              setError("API Key verification failed. Please ensure you select a key from a paid GCP project.");
+          } else if (err.message?.includes("API Key is missing")) {
+              await (window as any).aistudio.openSelectKey();
+              setError("Please select your Gemini API key to use the Pro model.");
           } else {
               setError(err.message || 'Generation failed. Please check your garment photos and try again.');
           }
