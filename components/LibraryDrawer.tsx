@@ -8,29 +8,28 @@ interface LibraryDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   activeProjectId: string | null;
+  session: any;
 }
 
-export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, activeProjectId }) => {
+export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, activeProjectId, session }) => {
   const [generations, setGenerations] = useState<Generation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && session?.user?.id) {
       fetchGenerations();
     }
-  }, [isOpen, activeProjectId, retryCount]);
+  }, [isOpen, activeProjectId, retryCount, session?.user?.id]);
 
   const fetchGenerations = async () => {
+    if (!session?.user?.id) return;
     setIsLoading(true);
-    try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session) {
-        setIsLoading(false);
-        return;
-      }
+    
+    // Safety timeout to prevent stuck loading on mobile
+    const timeout = setTimeout(() => setIsLoading(false), 8000);
 
+    try {
       let query = supabase
         .from('generations')
         .select('*')
@@ -50,6 +49,7 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
     } catch (err) {
       console.error("Fetch generations exception:", err);
     } finally {
+      clearTimeout(timeout);
       setIsLoading(false);
     }
   };

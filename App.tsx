@@ -13,7 +13,7 @@ import { generatePhotoshootImage } from './services/gemini';
 import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier, Project, Generation } from './types';
 
-const APP_VERSION = "v1.8.8"; 
+const APP_VERSION = "v1.8.9"; 
 const ACCOUNT_PORTAL_URL = 'https://lookbook.test.onfastspring.com/account';
 
 const POSES = [
@@ -144,7 +144,7 @@ const App: React.FC = () => {
     facialExpression: FacialExpression.Neutral, hairColor: "Dark Brown", hairStyle: "Straight & Loose",
     style: PhotoStyle.Studio, sceneDetails: '', modelVersion: ModelVersion.Flash,
     aspectRatio: AspectRatio.Portrait, enable4K: false, height: '', measurementUnit: MeasurementUnit.CM,
-    bodyType: BodyType.Standard, isModelLocked: false,
+    bodyType: BodyType.Standard,
     outfit: { 
         top: { garmentType: '', description: '', images: [], sizeChart: null, sizeChartDetails: '' },
         bottom: { garmentType: '', description: '', images: [], sizeChart: null, sizeChartDetails: '' },
@@ -223,7 +223,7 @@ const App: React.FC = () => {
         showToast(`Error: ${error.message}`, "error");
       } else {
         setJustSaved(true);
-        setTimeout(() => setJustSaved(false), 5000);
+        setTimeout(() => setJustSaved(false), 4000);
       }
     } catch (e: any) {
       showToast("Error saving to archive", "error");
@@ -285,7 +285,6 @@ const App: React.FC = () => {
 
   const handleGenerate = () => {
       const newSeed = getRandomSeed();
-      // If referenceModelImage is set (via Keep Model), we maintain features
       const newFeatures = options.referenceModelImage ? (options.modelFeatures || getRandomFeatures()) : getRandomFeatures();
       const newOptions = { 
         ...options, 
@@ -369,7 +368,7 @@ const App: React.FC = () => {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onAuth={handleAuth} initialView={loginModalView} showToast={showToast} />
       <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} onUpgrade={handleUpgrade} currentTier={userProfile?.tier || SubscriptionTier.Free} />
-      <LibraryDrawer isOpen={showLibrary} onClose={() => setShowLibrary(false)} activeProjectId={activeProjectId} />
+      <LibraryDrawer isOpen={showLibrary} onClose={() => setShowLibrary(false)} activeProjectId={activeProjectId} session={session} />
 
       <header className="fixed top-0 left-0 right-0 z-40 bg-black/80 backdrop-blur-xl border-b border-zinc-800/50 h-14">
           <div className="max-w-[1920px] mx-auto h-full flex justify-between items-center px-4 md:px-6">
@@ -500,7 +499,7 @@ const App: React.FC = () => {
                   className={`absolute top-4 right-4 sm:top-6 sm:right-6 backdrop-blur px-3 py-2 sm:px-5 sm:py-2.5 rounded-md transition-all duration-300 flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-2xl transform active:scale-90 touch-none
                     ${justSaved 
                         ? 'bg-emerald-500 text-white border-emerald-400 scale-105' 
-                        : 'bg-black/90 text-white border border-zinc-800 hover:border-zinc-400 hover:bg-black'}`}
+                        : 'bg-black/90 text-white border border-zinc-800 hover:border-zinc-400 hover:bg-black active:scale-95'}`}
                 >
                   {isSaving ? (
                     <Loader2 size={14} className="animate-spin" />
@@ -519,4 +518,5 @@ const App: React.FC = () => {
   );
 };
 
+// Add default export to fix "Module './App' has no default export" error in index.tsx
 export default App;

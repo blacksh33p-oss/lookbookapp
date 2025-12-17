@@ -79,7 +79,7 @@ export const generatePhotoshootImage = async (options: PhotoshootOptions): Promi
 
   const prompt = `
     Create a high-fashion lookbook image.
-    ${options.isModelLocked ? 'CRITICAL: Maintain the exact facial features, hair, and identity from the IDENTITY_REFERENCE image.' : ''}
+    ${options.referenceModelImage ? 'CRITICAL: Maintain the exact facial features, hair, and identity from the IDENTITY_REFERENCE image.' : ''}
 
     OUTFIT:
     ${outfitParts.join('\n')}
