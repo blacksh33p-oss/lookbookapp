@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { ChevronDown, Image as ImageIcon, Info, Sparkles } from 'lucide-react';
+import { ChevronDown, Image as ImageIcon, Info, Sparkles, Check } from 'lucide-react';
 import { OutfitDetails, OutfitItem } from '../types';
 import { ImageUploader } from './ImageUploader';
 
@@ -73,8 +73,23 @@ export const OutfitControl: React.FC<OutfitControlProps> = ({ outfit, onChange }
                         >
                             <div className="flex items-center gap-3">
                                 <span className="text-[10px] font-mono text-zinc-600">{id}</span>
-                                <span className={`text-xs font-bold uppercase tracking-wide ${isExpanded ? 'text-white' : 'text-zinc-400'}`}>{label}</span>
-                                {hasImage && !isExpanded && <span className="text-[9px] bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded border border-zinc-700">Image Set</span>}
+                                
+                                {/* Thumbnail Preview in Header (Heuristic: Visibility) */}
+                                {hasImage && !isExpanded ? (
+                                  <div className="w-6 h-6 rounded bg-zinc-800 border border-zinc-700 overflow-hidden relative">
+                                     <img src={item.images[0]} alt="Preview" className="w-full h-full object-cover" />
+                                  </div>
+                                ) : (
+                                  <span className={`text-xs font-bold uppercase tracking-wide ${isExpanded ? 'text-white' : 'text-zinc-400'}`}>{label}</span>
+                                )}
+
+                                {/* Status Badges */}
+                                {!isExpanded && (
+                                  <div className="flex gap-1">
+                                    {hasImage && <span className="text-[9px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-700 flex items-center gap-1"><ImageIcon size={8} /> Img</span>}
+                                    {hasText && <span className="text-[9px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-700 flex items-center gap-1"><Info size={8} /> Txt</span>}
+                                  </div>
+                                )}
                             </div>
                             <div className="flex items-center gap-3">
                                 <ChevronDown size={14} className={`text-zinc-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />

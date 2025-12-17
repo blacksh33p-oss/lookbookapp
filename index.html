@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -81,20 +82,21 @@
         -moz-osx-font-smoothing: grayscale;
       }
 
-      /* Custom scrollbar */
+      /* Custom scrollbar - Increased Contrast */
       ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
+        width: 8px;
+        height: 8px;
       }
       ::-webkit-scrollbar-track {
         background: #09090b; 
       }
       ::-webkit-scrollbar-thumb {
-        background: #27272a; 
-        border-radius: 3px;
+        background: #3f3f46; 
+        border-radius: 4px;
+        border: 2px solid #09090b; /* Padding effect */
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #3f3f46; 
+        background: #52525b; 
       }
 
       /* Geist Utilities */
@@ -126,11 +128,13 @@
         font-size: 12px !important;
       }
       
-      /* Accessibility: High Contrast Focus Ring for Industrial Look */
+      /* Accessibility: High Contrast Focus Ring (WCAG 2.1) */
+      /* Changed from box-shadow to outline for better High Contrast Mode support */
       input:focus, select:focus, textarea:focus, button:focus-visible {
-        outline: none !important;
+        outline: 2px solid #fff !important;
+        outline-offset: 1px !important;
         border-color: #fff !important; 
-        box-shadow: 0 0 0 1px #fff !important;
+        box-shadow: none !important;
       }
 
       button {
