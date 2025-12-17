@@ -13,12 +13,6 @@
         // Standard shim to support libraries expecting process.env in the browser.
         window.process = window.process || {};
         window.process.env = window.process.env || {};
-        
-        // Ensure API_KEY is at least an empty string to avoid crashes during SDK initialization,
-        // unless it's already been injected by the host environment.
-        if (typeof window.process.env.API_KEY === 'undefined') {
-            window.process.env.API_KEY = "";
-        }
     </script>
 
     <!-- FastSpring Global Callback -->
