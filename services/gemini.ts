@@ -1,4 +1,5 @@
 
+
 import { GoogleGenAI } from "@google/genai";
 import { PhotoshootOptions, ModelVersion, OutfitItem, PhotoStyle, FacialExpression } from "../types";
 
@@ -71,16 +72,6 @@ export const generatePhotoshootImage = async (
   const heightStr = options.height ? `Model Height: ${options.height} ${unit}` : 'Height: Standard Model Height';
   const bodyTypeStr = `Body Type: ${options.bodyType}`;
 
-  const m = options.measurements;
-  const measureList = [];
-  if(m.bust) measureList.push(`Bust: ${m.bust}`);
-  if(m.waist) measureList.push(`Waist: ${m.waist}`);
-  if(m.hips) measureList.push(`Hips: ${m.hips}`);
-  
-  const measurementsStr = measureList.length > 0 
-    ? `Measurements: ${measureList.join(', ')}` 
-    : '';
-
   // 2. Outfit Strategy
   const outfitParts: string[] = [];
   const imageInputs: { type: string; data: string }[] = [];
@@ -93,7 +84,6 @@ export const generatePhotoshootImage = async (
     let description = `- ${role.toUpperCase()}: ${label}`;
     
     if (item.description) description += `. Visuals: ${item.description}`;
-    if (item.fitNotes) description += `. Fit: ${item.fitNotes}`;
     
     if (hasImages) {
       item.images.forEach((img: string, idx: number) => {
@@ -149,7 +139,6 @@ export const generatePhotoshootImage = async (
     - Expression: ${richExpressionPrompt}
     - ${heightStr}
     - ${bodyTypeStr}
-    - ${measurementsStr}
     - Features: ${options.modelFeatures || 'Standard'}
     - Pose: ${options.pose || 'Standing naturally'}
 

@@ -1,4 +1,5 @@
 
+
 export enum ModelSex {
   Female = 'Female',
   Male = 'Male',
@@ -86,16 +87,9 @@ export enum SubscriptionTier {
   Studio = 'Studio'    // $99/mo
 }
 
-export interface BodyMeasurements {
-  bust: string;
-  waist: string;
-  hips: string;
-}
-
 export interface OutfitItem {
   garmentType: string; // e.g. "Oversized Blazer" instead of just "Top"
   description: string;
-  fitNotes: string; // Specific fit instructions for this item
   images: string[]; // Array of base64 strings
   sizeChart: string | null; // Image of size chart
   sizeChartDetails: string; // Manual text entry for size chart
@@ -126,7 +120,6 @@ export interface PhotoshootOptions {
   height: string; 
   measurementUnit: MeasurementUnit;
   bodyType: BodyType;
-  measurements: BodyMeasurements;
   
   // Outfit
   outfit: OutfitDetails;

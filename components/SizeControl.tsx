@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { Ruler, ChevronDown, User } from 'lucide-react';
 import { MeasurementUnit, PhotoshootOptions, BodyType } from '../types';
@@ -11,17 +12,7 @@ interface SizeControlProps {
 }
 
 export const SizeControl: React.FC<SizeControlProps> = ({ options, onChange, isPremium, onUpgradeRequest }) => {
-  const { measurementUnit, height, bodyType, measurements } = options;
-
-  const updateMeasurements = (key: keyof typeof measurements, value: string) => {
-      onChange({
-          ...options,
-          measurements: {
-              ...measurements,
-              [key]: value
-          }
-      });
-  };
+  const { measurementUnit, height, bodyType } = options;
 
   return (
     <div className="flex flex-col gap-4">
@@ -74,29 +65,6 @@ export const SizeControl: React.FC<SizeControlProps> = ({ options, onChange, isP
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={14} />
             </div>
-          </div>
-
-          {/* Detailed Measurements - Logic Fix: Apply Unit Context */}
-          <div className="grid grid-cols-3 gap-3 pt-2">
-              {[
-                  { key: 'bust', label: 'Bust' },
-                  { key: 'waist', label: 'Waist' },
-                  { key: 'hips', label: 'Hips' }
-              ].map(({key, label}) => (
-                  <div key={key} className="space-y-1">
-                      <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wide">{label}</label>
-                      <div className="relative">
-                        <input
-                            type="text"
-                            value={measurements[key as keyof typeof measurements]}
-                            onChange={(e) => updateMeasurements(key as keyof typeof measurements, e.target.value)}
-                            placeholder={measurementUnit === MeasurementUnit.CM ? "90" : "36"}
-                            className="w-full bg-black border border-zinc-800 text-white rounded-md px-2 py-2 text-xs focus:border-zinc-500 font-mono text-center"
-                        />
-                         <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[8px] text-zinc-600">{measurementUnit}</span>
-                      </div>
-                  </div>
-              ))}
           </div>
       </div>
     </div>

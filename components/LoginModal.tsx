@@ -121,8 +121,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                         </div>
                         <ul className="space-y-3 mb-6 flex-1 text-sm text-zinc-400">
                             <li className="flex items-center gap-2"><Check size={12} className="text-zinc-600" /> 5 Daily Drafts</li>
-                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-600" /> Standard Speed</li>
-                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-600" /> Personal Use</li>
+                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-600" /> Gemini Flash 2.5 Model</li>
                         </ul>
                         <button className="w-full bg-zinc-900 text-zinc-400 font-medium py-3 rounded-md border border-zinc-800 text-xs group-hover:bg-zinc-800 group-hover:text-white transition-all">Try Free</button>
                     </div>
@@ -134,9 +133,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                             <div className="text-zinc-500 text-xs">$9/mo</div>
                         </div>
                         <ul className="space-y-3 mb-6 flex-1 text-sm text-zinc-400">
-                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> <span className="text-zinc-200">100 Fast Drafts</span></li>
-                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> No Watermark</li>
-                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> Commercial Rights</li>
+                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> <span className="text-zinc-200">100 Credits</span></li>
+                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> 100 Fast Drafts</li>
+                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> Gemini Flash 2.5 Model</li>
                         </ul>
                         <button className="w-full bg-zinc-900 text-white font-medium py-3 rounded-md border border-zinc-800 text-xs group-hover:bg-zinc-800 group-hover:border-zinc-600 transition-all">Select Starter</button>
                     </div>
@@ -147,14 +146,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                         <div className="mb-4 mt-2">
                             <div className="flex justify-between items-center mb-1">
                                 <div className="text-black font-extrabold text-xl tracking-tight">Creator</div>
-                                <span className="bg-black text-white text-[9px] font-bold px-2 py-1 rounded-full uppercase tracking-widest shadow-lg">Best Value</span>
+                                <span className="bg-black text-white text-[9px] font-bold px-2 py-1 rounded-full uppercase tracking-widest shadow-lg">Most Popular</span>
                             </div>
                             <div className="text-zinc-600 text-xs font-medium">$29/mo</div>
                         </div>
                         <ul className="space-y-3 mb-8 flex-1 text-sm text-zinc-700">
-                             <li className="flex items-center gap-2"><Check size={14} className="text-black stroke-[3px]" /> <span className="font-bold">50 Studio Quality</span></li>
+                             <li className="flex items-center gap-2"><Check size={14} className="text-black stroke-[3px]" /> <span className="font-bold">500 Credits</span></li>
+                             <li className="flex items-center gap-2"><Check size={14} className="text-black" /> 50 Studio Quality</li>
                              <li className="flex items-center gap-2"><Check size={14} className="text-black" /> <span className="text-zinc-600">or 500 Fast Drafts</span></li>
-                             <li className="flex items-center gap-2"><Check size={14} className="text-black" /> Pro Model (V3)</li>
+                             <li className="flex items-center gap-2"><Check size={14} className="text-black" /> Gemini Pro V3</li>
                              <li className="flex items-center gap-2"><Check size={14} className="text-black" /> 2K Resolution</li>
                         </ul>
                         <button className="w-full bg-black text-white font-bold py-3.5 rounded-md text-xs hover:bg-zinc-800 hover:shadow-lg transition-all flex items-center justify-center gap-2">
@@ -169,9 +169,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                             <div className="text-zinc-500 text-xs">$99/mo</div>
                         </div>
                         <ul className="space-y-3 mb-6 flex-1 text-sm text-zinc-400">
-                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> <span className="text-zinc-200">200 Studio Quality</span></li>
-                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> 4K Ultra HD</li>
-                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> Priority Support</li>
+                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> <span className="text-zinc-200">2000 Credits</span></li>
+                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> 200 Studio Quality</li>
+                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> <span className="text-zinc-500">or 2000 Fast Drafts</span></li>
+                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> Gemini Pro V3</li>
                         </ul>
                         <button className="w-full bg-zinc-900 text-white font-medium py-3 rounded-md border border-zinc-800 text-xs group-hover:bg-zinc-800 group-hover:border-zinc-600 transition-all">Select Studio</button>
                     </div>

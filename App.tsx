@@ -13,7 +13,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.5.1-Clean"; 
+const APP_VERSION = "v1.5.3"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -192,12 +192,11 @@ const App: React.FC = () => {
     height: '',
     measurementUnit: MeasurementUnit.CM,
     bodyType: BodyType.Standard,
-    measurements: { bust: '', waist: '', hips: '' },
     outfit: { 
-        top: { garmentType: '', description: '', fitNotes: '', images: [], sizeChart: null, sizeChartDetails: '' },
-        bottom: { garmentType: '', description: '', fitNotes: '', images: [], sizeChart: null, sizeChartDetails: '' },
-        shoes: { garmentType: '', description: '', fitNotes: '', images: [], sizeChart: null, sizeChartDetails: '' },
-        accessories: { garmentType: '', description: '', fitNotes: '', images: [], sizeChart: null, sizeChartDetails: '' }
+        top: { garmentType: '', description: '', images: [], sizeChart: null, sizeChartDetails: '' },
+        bottom: { garmentType: '', description: '', images: [], sizeChart: null, sizeChartDetails: '' },
+        shoes: { garmentType: '', description: '', images: [], sizeChart: null, sizeChartDetails: '' },
+        accessories: { garmentType: '', description: '', images: [], sizeChart: null, sizeChartDetails: '' }
     },
     seed: undefined,
     pose: undefined,
@@ -701,7 +700,12 @@ const App: React.FC = () => {
     <div className="min-h-screen text-zinc-300 font-sans selection:bg-white selection:text-black bg-black">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onAuth={handleAuth} initialView={loginModalView} showToast={showToast} />
-      <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} onUpgrade={(tier) => handleUpgrade(tier)} />
+      <UpgradeModal 
+        isOpen={showUpgradeModal} 
+        onClose={() => setShowUpgradeModal(false)} 
+        onUpgrade={(tier) => handleUpgrade(tier)} 
+        currentTier={userProfile?.tier || SubscriptionTier.Free}
+      />
 
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-40 bg-black/50 backdrop-blur-xl border-b border-zinc-800 h-14">
@@ -716,11 +720,10 @@ const App: React.FC = () => {
               <div className="flex items-center gap-4">
                  {session ? (
                      <>
-                        {(!userProfile || userProfile.tier !== SubscriptionTier.Studio) && (
-                           <button onClick={() => setShowUpgradeModal(true)} className="hidden sm:flex text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white transition-colors items-center gap-1.5 border border-zinc-800 hover:border-zinc-600 px-3 py-1.5 rounded-md">
-                              <Crown size={12} /> Pro
-                           </button>
-                        )}
+                        <button onClick={() => setShowUpgradeModal(true)} className="hidden sm:flex text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white transition-colors items-center gap-1.5 border border-zinc-800 hover:border-zinc-600 px-3 py-1.5 rounded-md">
+                           <Crown size={12} /> {userProfile?.tier === SubscriptionTier.Free ? 'Guest' : userProfile?.tier}
+                        </button>
+                        
                         <div onClick={() => setShowProfileMenu(!showProfileMenu)} className="flex items-center gap-3 cursor-pointer group px-2 py-1 rounded-md hover:bg-zinc-900 transition-colors">
                             <div className="text-right hidden sm:block">
                                 <div className="text-[10px] font-bold text-white">

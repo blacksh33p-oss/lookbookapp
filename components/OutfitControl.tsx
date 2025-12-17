@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ChevronDown, Image as ImageIcon } from 'lucide-react';
 import { OutfitDetails, OutfitItem } from '../types';
@@ -96,9 +97,11 @@ export const OutfitControl: React.FC<OutfitControlProps> = ({ outfit, onChange }
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wide mb-2 block">Reference</label>
+                                        <div className="flex justify-between items-center mb-2 h-5">
+                                            <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wide">Reference</label>
+                                        </div>
                                         <ImageUploader 
                                             images={item.images || []}
                                             onImagesChange={(imgs) => updateItem(key, 'images', imgs)}
@@ -108,7 +111,7 @@ export const OutfitControl: React.FC<OutfitControlProps> = ({ outfit, onChange }
                                     </div>
 
                                     <div>
-                                         <div className="flex justify-between items-center mb-2">
+                                         <div className="flex justify-between items-center mb-2 h-5">
                                             <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wide">Size Chart</label>
                                             <div className="flex bg-black rounded border border-zinc-800 p-[1px]">
                                                 <button onClick={() => setMode(key, 'image')} className={`px-1.5 py-0.5 text-[8px] uppercase font-medium rounded-sm ${sizeChartMode[key] === 'image' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-white'}`}>Img</button>
@@ -133,17 +136,6 @@ export const OutfitControl: React.FC<OutfitControlProps> = ({ outfit, onChange }
                                             )}
                                          </div>
                                     </div>
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wide">Fit Notes</label>
-                                    <input 
-                                        type="text" 
-                                        value={item.fitNotes}
-                                        onChange={(e) => updateItem(key, 'fitNotes', e.target.value)}
-                                        placeholder="Oversized, slim fit..."
-                                        className="w-full bg-black border border-zinc-800 px-3 py-2 text-xs text-white focus:border-zinc-500 font-mono rounded-md"
-                                    />
                                 </div>
                           </div>
                       )}

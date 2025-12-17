@@ -7,10 +7,31 @@ interface UpgradeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUpgrade: (tier: SubscriptionTier) => void;
+  currentTier: SubscriptionTier;
 }
 
-export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onUpgrade }) => {
+export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onUpgrade, currentTier }) => {
   if (!isOpen) return null;
+
+  const tierOrder = {
+    [SubscriptionTier.Free]: 0,
+    [SubscriptionTier.Starter]: 1,
+    [SubscriptionTier.Creator]: 2,
+    [SubscriptionTier.Studio]: 3,
+  };
+
+  const currentLevel = tierOrder[currentTier];
+
+  const getButtonProps = (tier: SubscriptionTier, baseText: string) => {
+      const level = tierOrder[tier];
+      if (level === currentLevel) return { text: "Current Plan", disabled: true, style: "cursor-default opacity-50 bg-zinc-800 text-zinc-400 border-zinc-700 hover:bg-zinc-800 hover:text-zinc-400" };
+      if (level > currentLevel) return { text: "Upgrade", disabled: false, style: "" };
+      return { text: "Downgrade", disabled: false, style: "bg-zinc-900 text-zinc-500 hover:text-white border-zinc-800" };
+  };
+
+  const starterProps = getButtonProps(SubscriptionTier.Starter, "Select Starter");
+  const creatorProps = getButtonProps(SubscriptionTier.Creator, "Get Creator Access");
+  const studioProps = getButtonProps(SubscriptionTier.Studio, "Select Studio");
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md">
@@ -32,10 +53,18 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                     </div>
                     <ul className="space-y-3 mb-6 flex-1 text-sm text-zinc-500">
                         <li>5 Daily Drafts</li>
-                        <li>Standard Quality</li>
-                        <li>Watermarked</li>
+                        <li>Gemini Flash 2.5 Model</li>
                     </ul>
-                    <button onClick={onClose} className="w-full bg-zinc-900/50 text-zinc-500 py-2.5 rounded-md border border-zinc-800 text-xs font-medium cursor-default">Active</button>
+                    <button 
+                        onClick={() => currentTier !== SubscriptionTier.Free && onUpgrade(SubscriptionTier.Free)} 
+                        disabled={currentTier === SubscriptionTier.Free}
+                        className={`w-full py-2.5 rounded-md border border-zinc-800 text-xs font-medium 
+                        ${currentTier === SubscriptionTier.Free 
+                            ? 'bg-zinc-900/50 text-zinc-500 cursor-default' 
+                            : 'bg-zinc-900 text-zinc-500 hover:text-white hover:bg-zinc-800 cursor-pointer'}`}
+                    >
+                        {currentTier === SubscriptionTier.Free ? "Active" : "Downgrade"}
+                    </button>
                 </div>
 
                 {/* STARTER */}
@@ -45,11 +74,17 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                         <div className="text-2xl font-bold text-white">$9<span className="text-sm text-zinc-500 font-normal">/mo</span></div>
                     </div>
                     <ul className="space-y-3 mb-8 flex-1 text-sm text-zinc-400">
-                        <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> <span className="text-zinc-200">100 Fast Drafts</span></li>
-                        <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> Flash Model Only</li>
-                        <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> No Watermark</li>
+                        <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> <span className="text-zinc-200">100 Credits</span></li>
+                        <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> 100 Fast Drafts</li>
+                        <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> Gemini Flash 2.5 Model</li>
                     </ul>
-                    <button onClick={() => onUpgrade(SubscriptionTier.Starter)} className="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-bold py-3 rounded-md border border-zinc-700 text-xs transition-all">Upgrade to Starter</button>
+                    <button 
+                        onClick={() => !starterProps.disabled && onUpgrade(SubscriptionTier.Starter)}
+                        disabled={starterProps.disabled}
+                        className={`w-full font-bold py-3 rounded-md border border-zinc-700 text-xs transition-all ${starterProps.style || 'bg-zinc-900 hover:bg-zinc-800 text-white'}`}
+                    >
+                        {starterProps.text}
+                    </button>
                 </div>
 
                 {/* CREATOR - HERO */}
@@ -58,22 +93,26 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                     <div>
                         <div className="flex justify-between items-start mb-2 mt-2">
                             <div>
-                                <div className="text-black font-extrabold uppercase text-[10px] tracking-widest mb-1">Recommended</div>
+                                <div className="text-black font-extrabold uppercase text-[10px] tracking-widest mb-1">Most Popular</div>
                                 <div className="text-3xl font-black text-black tracking-tight">$29<span className="text-sm text-zinc-600 font-medium">/mo</span></div>
                             </div>
                             <Crown size={20} className="text-black fill-black/10" />
                         </div>
                         <div className="h-px bg-zinc-200 w-full my-4"></div>
                         <ul className="space-y-3 mb-8 text-sm text-zinc-800">
-                             <li className="flex items-center gap-2"><Check size={14} className="text-black stroke-[3px]" /> <span className="font-bold">50 Studio Quality</span></li>
+                             <li className="flex items-center gap-2"><Check size={14} className="text-black stroke-[3px]" /> <span className="font-bold">500 Credits</span></li>
+                             <li className="flex items-center gap-2"><Check size={14} className="text-black" /> 50 Studio Quality</li>
                              <li className="flex items-center gap-2"><Check size={14} className="text-black" /> <span className="text-zinc-600">or 500 Fast Drafts</span></li>
-                             <li className="flex items-center gap-2"><Check size={14} className="text-black" /> <span className="font-medium">Pro Model (V3)</span></li>
+                             <li className="flex items-center gap-2"><Check size={14} className="text-black" /> Gemini Pro V3</li>
                              <li className="flex items-center gap-2"><Check size={14} className="text-black" /> 2K Resolution</li>
-                             <li className="flex items-center gap-2"><Check size={14} className="text-black" /> Commercial Rights</li>
                         </ul>
                     </div>
-                    <button onClick={() => onUpgrade(SubscriptionTier.Creator)} className="w-full bg-black text-white hover:bg-zinc-800 font-bold py-3.5 rounded-md text-xs transition-all flex items-center justify-center gap-2 shadow-lg">
-                        Get Creator Access <ArrowRight size={12} />
+                    <button 
+                        onClick={() => !creatorProps.disabled && onUpgrade(SubscriptionTier.Creator)}
+                        disabled={creatorProps.disabled}
+                        className={`w-full font-bold py-3.5 rounded-md text-xs transition-all flex items-center justify-center gap-2 shadow-lg ${creatorProps.style || 'bg-black text-white hover:bg-zinc-800'}`}
+                    >
+                        {creatorProps.text} {creatorProps.text === "Upgrade" && <ArrowRight size={12} />}
                     </button>
                 </div>
 
@@ -84,11 +123,18 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                         <div className="text-2xl font-bold text-white">$99<span className="text-sm text-zinc-500 font-normal">/mo</span></div>
                     </div>
                     <ul className="space-y-3 mb-8 flex-1 text-sm text-zinc-400">
-                        <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> <span className="text-zinc-200">200 Studio Quality</span></li>
-                        <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> 4K Ultra HD</li>
-                        <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> Priority Support</li>
+                        <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> <span className="text-zinc-200">2000 Credits</span></li>
+                        <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> 200 Studio Quality</li>
+                        <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> <span className="text-zinc-500">or 2000 Fast Drafts</span></li>
+                        <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> Gemini Pro V3</li>
                     </ul>
-                    <button onClick={() => onUpgrade(SubscriptionTier.Studio)} className="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-bold py-3 rounded-md border border-zinc-700 text-xs transition-all">Upgrade to Studio</button>
+                    <button 
+                        onClick={() => !studioProps.disabled && onUpgrade(SubscriptionTier.Studio)}
+                        disabled={studioProps.disabled}
+                        className={`w-full font-bold py-3 rounded-md border border-zinc-700 text-xs transition-all ${studioProps.style || 'bg-zinc-900 hover:bg-zinc-800 text-white'}`}
+                    >
+                         {studioProps.text}
+                    </button>
                 </div>
             </div>
             
