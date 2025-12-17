@@ -13,7 +13,7 @@ import { generatePhotoshootImage } from './services/gemini';
 import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier, Project, Generation } from './types';
 
-const APP_VERSION = "v1.9.1"; 
+const APP_VERSION = "v1.9.2"; 
 
 const POSES = [
     "Standing naturally, arms relaxed", "Walking towards camera, confident stride", "Leaning slightly against a wall", 
@@ -109,6 +109,7 @@ const App: React.FC = () => {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showSaveMenu, setShowSaveMenu] = useState(false);
+  const [showProjectSelector, setShowProjectSelector] = useState(false);
   const [guestCredits, setGuestCredits] = useState<number>(() => {
     const saved = localStorage.getItem('fashion_guest_credits');
     return saved !== null ? parseInt(saved, 10) : 5;
@@ -127,6 +128,7 @@ const App: React.FC = () => {
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
 
   const saveMenuRef = useRef<HTMLDivElement>(null);
+  const projectSelectorRef = useRef<HTMLDivElement>(null);
 
   const [options, setOptions] = useState<PhotoshootOptions>({
     sex: ModelSex.Female, ethnicity: ModelEthnicity.Mixed, age: ModelAge.YoungAdult,
@@ -156,6 +158,9 @@ const App: React.FC = () => {
     const handleClickOutside = (event: MouseEvent) => {
       if (saveMenuRef.current && !saveMenuRef.current.contains(event.target as Node)) {
         setShowSaveMenu(false);
+      }
+      if (projectSelectorRef.current && !projectSelectorRef.current.contains(event.target as Node)) {
+        setShowProjectSelector(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -312,7 +317,7 @@ const App: React.FC = () => {
             const newBalance = userProfile.credits - cost;
             setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
             supabase.from('profiles').update({ credits: newBalance }).eq('id', session.user.id);
-            if (userProfile.tier !== SubscriptionTier.Free) saveToLibrary(result, activeProjectId);
+            // AUTO-SAVE REMOVED PER REQUEST. User must click "Save to Archive" manually.
           } catch (err: any) { setError(err.message || 'Error'); } finally { setIsLoading(false); }
       }
   }
@@ -418,26 +423,44 @@ const App: React.FC = () => {
             {session && (
                 <div className="flex flex-col gap-1.5">
                     <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Working Folder</label>
-                    <div className="bg-zinc-950 border border-zinc-800 rounded-md p-1 flex items-center gap-1 group transition-all hover:border-zinc-600 focus-within:border-zinc-500">
-                        <div className="relative flex-1">
-                            <select 
-                                value={activeProjectId || ''} 
-                                onChange={(e) => setActiveProjectId(e.target.value || null)}
-                                className="w-full bg-transparent border-none text-[11px] font-mono font-bold text-white pl-8 pr-8 py-2.5 focus:ring-0 cursor-pointer appearance-none uppercase tracking-wide truncate"
+                    <div className="relative" ref={projectSelectorRef}>
+                        <div className="bg-zinc-950 border border-zinc-800 rounded-md p-1 flex items-center gap-1 group transition-all hover:border-zinc-600 focus-within:border-zinc-500">
+                            <button 
+                                onClick={() => setShowProjectSelector(!showProjectSelector)}
+                                className="w-full bg-transparent border-none text-[11px] font-mono font-bold text-white pl-8 pr-8 py-2.5 focus:ring-0 cursor-pointer flex items-center justify-between uppercase tracking-wide truncate"
                             >
-                                <option value="" className="bg-black text-white">Default Archive</option>
-                                {projects.map(p => <option key={p.id} value={p.id} className="bg-black text-white">{p.name}</option>)}
-                            </select>
-                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none group-focus-within:text-white transition-colors">
-                                <Folder size={14} />
-                            </div>
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none group-focus-within:text-white transition-colors">
-                                <ChevronDown size={14} />
-                            </div>
+                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none group-focus-within:text-white transition-colors">
+                                    <Folder size={14} />
+                                </div>
+                                <span className="truncate">{activeProjectName}</span>
+                                <div className="absolute right-12 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none group-focus-within:text-white transition-colors">
+                                    <ChevronDown size={14} className={`transition-transform duration-200 ${showProjectSelector ? 'rotate-180' : ''}`} />
+                                </div>
+                            </button>
+                            <button onClick={() => createProject()} className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-900 rounded-md transition-all shrink-0" title="New Folder">
+                                <Plus size={16}/>
+                            </button>
                         </div>
-                        <button onClick={() => createProject()} className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-900 rounded-md transition-all shrink-0" title="New Folder">
-                            <Plus size={16}/>
-                        </button>
+
+                        {showProjectSelector && (
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-black border border-zinc-800 rounded-md shadow-2xl z-50 overflow-hidden animate-fade-in py-1">
+                                <button 
+                                    onClick={() => { setActiveProjectId(null); setShowProjectSelector(false); }}
+                                    className={`w-full text-left px-4 py-2.5 text-[10px] font-bold transition-colors uppercase tracking-widest flex items-center gap-3 ${activeProjectId === null ? 'bg-white text-black' : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'}`}
+                                >
+                                    <Hexagon size={12} className={activeProjectId === null ? 'text-black' : 'text-zinc-600'} /> Default Archive
+                                </button>
+                                {projects.map(p => (
+                                    <button 
+                                        key={p.id}
+                                        onClick={() => { setActiveProjectId(p.id); setShowProjectSelector(false); }}
+                                        className={`w-full text-left px-4 py-2.5 text-[10px] font-bold transition-colors uppercase tracking-widest flex items-center gap-3 ${activeProjectId === p.id ? 'bg-white text-black' : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'}`}
+                                    >
+                                        <Folder size={12} className={activeProjectId === p.id ? 'text-black' : 'text-zinc-600'} /> {p.name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

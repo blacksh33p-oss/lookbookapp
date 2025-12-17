@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { X, Loader2, Download, Trash2, ExternalLink, RotateCw, Folder, LayoutGrid, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Loader2, Download, Trash2, ExternalLink, RotateCw, Folder, LayoutGrid, ChevronDown, Hexagon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Generation, Project } from '../types';
 
@@ -25,6 +25,8 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(initialProjectId);
+  const [showSelector, setShowSelector] = useState(false);
+  const selectorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setCurrentProjectId(initialProjectId);
@@ -36,11 +38,20 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({
     }
   }, [isOpen, currentProjectId, retryCount, session?.user?.id]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        if (selectorRef.current && !selectorRef.current.contains(event.target as Node)) {
+            setShowSelector(false);
+        }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const fetchGenerations = async () => {
     if (!session?.user?.id) return;
     setIsLoading(true);
     
-    // Mobile safety: ensure loading state clears if fetch is silent
     const timeout = setTimeout(() => setIsLoading(false), 6000);
 
     try {
@@ -53,8 +64,6 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({
       if (currentProjectId) {
         query = query.eq('project_id', currentProjectId);
       } else {
-        // If "Main Archive" is selected, show only items without a project ID or all items?
-        // Let's make "Main Archive" show everything NOT in a folder for true organization
         query = query.is('project_id', null);
       }
 
@@ -82,10 +91,13 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({
 
   const handleProjectSwitch = (id: string | null) => {
     setCurrentProjectId(id);
-    onProjectChange(id); // Sync with sidebar
+    onProjectChange(id); 
+    setShowSelector(false);
   };
 
   if (!isOpen) return null;
+
+  const currentProjectName = currentProjectId === null ? "General Archive" : projects.find(p => p.id === currentProjectId)?.name || "Folder";
 
   return (
     <div className="fixed inset-0 z-[100] overflow-hidden">
@@ -93,7 +105,7 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({
       <div className="absolute right-0 top-0 bottom-0 h-full w-full max-w-lg bg-black border-l border-zinc-800 shadow-2xl animate-fade-in flex flex-col">
         {/* Header */}
         <div className="p-4 sm:p-6 border-b border-zinc-800 bg-black/80 backdrop-blur-md">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-6">
             <h2 className="text-base sm:text-lg font-bold text-white tracking-tight uppercase">Archive Browser</h2>
             <div className="flex items-center gap-3">
               <button 
@@ -109,22 +121,40 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({
             </div>
           </div>
 
-          {/* Folder Switcher within Drawer */}
-          <div className="relative group">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500">
-                <Folder size={14} />
-              </div>
-              <select 
-                value={currentProjectId || ''} 
-                onChange={(e) => handleProjectSwitch(e.target.value || null)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-md pl-10 pr-10 py-2.5 text-[10px] font-bold text-white uppercase tracking-widest focus:border-zinc-500 transition-all appearance-none cursor-pointer"
+          {/* CUSTOM FOLDER SWITCHER (Matching website style) */}
+          <div className="relative" ref={selectorRef}>
+              <button 
+                onClick={() => setShowSelector(!showSelector)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-md pl-10 pr-10 py-3 text-[11px] font-mono font-bold text-white uppercase tracking-widest focus:border-white transition-all appearance-none cursor-pointer flex items-center justify-between group"
               >
-                <option value="">General Archive</option>
-                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500">
-                <ChevronDown size={14} />
-              </div>
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 group-hover:text-white transition-colors">
+                    <Folder size={14} />
+                </div>
+                <span className="truncate">{currentProjectName}</span>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 group-hover:text-white transition-colors">
+                    <ChevronDown size={14} className={`transition-transform duration-200 ${showSelector ? 'rotate-180' : ''}`} />
+                </div>
+              </button>
+
+              {showSelector && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-black border border-zinc-800 rounded-md shadow-2xl z-[110] overflow-hidden animate-fade-in py-1">
+                      <button 
+                        onClick={() => handleProjectSwitch(null)}
+                        className={`w-full text-left px-4 py-3 text-[10px] font-bold transition-colors uppercase tracking-widest flex items-center gap-3 ${currentProjectId === null ? 'bg-white text-black' : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'}`}
+                      >
+                        <Hexagon size={12} className={currentProjectId === null ? 'text-black' : 'text-zinc-600'} /> General Archive
+                      </button>
+                      {projects.map(p => (
+                        <button 
+                            key={p.id}
+                            onClick={() => handleProjectSwitch(p.id)}
+                            className={`w-full text-left px-4 py-3 text-[10px] font-bold transition-colors uppercase tracking-widest flex items-center gap-3 ${currentProjectId === p.id ? 'bg-white text-black' : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'}`}
+                        >
+                            <Folder size={12} className={currentProjectId === p.id ? 'text-black' : 'text-zinc-600'} /> {p.name}
+                        </button>
+                      ))}
+                  </div>
+              )}
           </div>
         </div>
 
