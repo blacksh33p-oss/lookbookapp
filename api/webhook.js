@@ -43,7 +43,7 @@ export default async function handler(req, res) {
   const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '').trim();
   
   if (req.method === 'GET') {
-      return res.status(200).json({ status: 'Active', version: 'v1.7.2-SaaS-Logic' });
+      return res.status(200).json({ status: 'Active', version: 'v1.7.3-SaaS-Logic-Fixed' });
   }
   
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -123,29 +123,39 @@ export default async function handler(req, res) {
           
           productInfo = productInfo.toLowerCase();
 
-          let newTier = 'Creator'; // Default
-          let monthlyCredits = 500;
-          
+          // STRICT DETECTION: Do not default to 'Creator' to avoid free upgrades.
+          let newTier = null;
+          let monthlyCredits = 5;
+
           if (productInfo.includes('studio') || productInfo.includes('agency')) {
               newTier = 'Studio';
               monthlyCredits = 2000;
+          } else if (productInfo.includes('creator') || productInfo.includes('pro')) {
+              newTier = 'Creator';
+              monthlyCredits = 500;
           } else if (productInfo.includes('starter') || productInfo.includes('basic')) {
               newTier = 'Starter';
               monthlyCredits = 100;
           }
 
-          // 3. Handle Cancellations & Deactivations
-          if (event.type === 'subscription.canceled') {
-              // Standard SaaS: Cancellation means "Do not renew", NOT "Remove access immediately".
-              // We do NOTHING here. Access remains until 'subscription.deactivated' fires at end of cycle.
-              log(`Subscription canceled. User retains access until period ends. No DB Update.`);
-              continue; 
-          }
-
+          // Special Case: Deactivation always leads to Free
           if (event.type === 'subscription.deactivated') {
               newTier = 'Free';
-              monthlyCredits = 5; 
+              monthlyCredits = 5;
               log(`Subscription Deactivated/Expired. Downgrading to Free.`);
+          }
+
+          if (!newTier) {
+              log(`SKIPPING: Could not identify valid tier from product info: ${productInfo}`);
+              continue;
+          }
+
+          // 3. Handle Cancellations
+          if (event.type === 'subscription.canceled') {
+              // Standard SaaS: Cancellation means "Do not renew". 
+              // We do nothing. User stays on current plan until 'subscription.deactivated' fires later.
+              log(`Subscription canceled. User retains access until period ends. No DB Update.`);
+              continue; 
           }
 
           // 4. Fetch CURRENT Database State
@@ -159,31 +169,36 @@ export default async function handler(req, res) {
           const existingCredits = (currentProfile && typeof currentProfile.credits === 'number') ? currentProfile.credits : 0;
           
           // 5. SAAS DOWNGRADE PROTECTION LOGIC
-          const currentLevel = TIER_LEVELS[currentTier] || 0;
-          const newLevel = TIER_LEVELS[newTier] || 0;
+          // Use safe access to TIER_LEVELS to handle potential casing mismatch in DB
+          const currentLevel = TIER_LEVELS[currentTier] !== undefined ? TIER_LEVELS[currentTier] : 0;
+          const newLevel = TIER_LEVELS[newTier] !== undefined ? TIER_LEVELS[newTier] : 0;
 
-          // IF this is just an 'update' event (e.g. user clicked switch plan in portal), 
+          // IF this is just an 'update' event (e.g. scheduled change), 
           // AND it looks like a downgrade, 
-          // AND it's not a 'deactivation' (expiry),
-          // THEN we ignore it. We wait for the 'charge.completed' or 'activated' event which signals the NEW period has actually started.
+          // AND it's not a 'deactivation',
+          // THEN we ignore it. We wait for the period to actually end (deactivated) or a new order (charge).
           if (event.type === 'subscription.updated' && newLevel < currentLevel) {
-              log(`Downgrade detected (from ${currentTier} to ${newTier}). Deferring update until next billing cycle/charge event.`);
+              log(`Downgrade detected (from ${currentTier} to ${newTier}) via update event. Deferring update until next billing cycle/charge event.`);
               continue; // EXIT LOOP. Do not update DB.
           }
 
           // 6. Calculate Final Credits
           let finalCredits = existingCredits;
 
-          // If it's a payment event, add credits.
-          // Note: If user upgrades mid-cycle, FastSpring often charges pro-rated amount immediately -> 'order.completed' or 'charge.completed' fires -> We add credits.
+          // Payment Events: Always add credits (Top-up logic)
           if (['order.completed', 'subscription.activated', 'subscription.charge.completed'].includes(event.type)) {
+              // If previously Free, we set to monthly allowance. 
+              // If upgrading/renewing, we add to existing (rollover) or reset? 
+              // For simplicity and generosity: We Add.
+              
+              // Edge case: If immediate switch (upgrade/downgrade order), we grant the new plan's credits.
               finalCredits = existingCredits + monthlyCredits;
-              log(`Payment event detected. Adding ${monthlyCredits} credits.`);
+              log(`Payment/Activation event. Adding ${monthlyCredits} credits.`);
           } else if (event.type === 'subscription.deactivated') {
               finalCredits = 5; // Reset to guest limit
           } else if (newLevel > currentLevel) {
-              // If it's a pure upgrade event (no charge event yet?), we might want to bump credits or wait.
-              // Usually upgrades come with a charge event, but if we see a tier bump, we ensure they have at least the base credits.
+              // Pure tier upgrade without explicit charge event (rare, but possible in some flows)
+              // Ensure they have at least the base credits for the new tier
               if (finalCredits < monthlyCredits) finalCredits = monthlyCredits;
           }
 
@@ -203,7 +218,7 @@ export default async function handler(req, res) {
           if (!updateError && updateData && updateData.length > 0) {
               success = true;
           } else {
-              // Insert fallback
+              // Insert fallback for new users
               const { error: insertError } = await supabase
                   .from('profiles')
                   .insert({

@@ -1,7 +1,7 @@
 
 
 import React from 'react';
-import { X, Check, Zap, Crown, Building2, User, ArrowRight, ExternalLink } from 'lucide-react';
+import { X, Check, Zap, Crown, Building2, User, ArrowRight, ExternalLink, Info } from 'lucide-react';
 import { SubscriptionTier } from '../types';
 
 interface UpgradeModalProps {
@@ -40,14 +40,14 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
 
            if (targetLevel > currentLevel) {
                return { 
-                   text: "Upgrade", 
+                   text: "Upgrade (Immediate)", 
                    disabled: false, 
                    style: "" // Uses default styles defined in JSX (usually bold/highlighted)
                };
            } else {
                // Downgrade / Switch
                return { 
-                   text: "Switch Plan", 
+                   text: "Switch (Immediate)", 
                    disabled: false, 
                    style: "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white border-zinc-800" 
                };
@@ -74,7 +74,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
         <div className="p-8 lg:p-12 relative">
             <div className="text-center mb-12">
                 <h2 className="text-3xl font-bold text-white mb-2 tracking-tight">
-                    {isPaidUser ? "Your Plan" : "Upgrade Plan"}
+                    {isPaidUser ? "Manage Plan" : "Upgrade Plan"}
                 </h2>
                 <p className="text-zinc-500 text-sm">Unlock studio-quality AI generation.</p>
             </div>
@@ -190,12 +190,16 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
             {/* MANAGEMENT FOOTER FOR PAID USERS */}
             {isPaidUser && (
                 <div className="mt-8 pt-8 border-t border-zinc-900 text-center">
-                    <p className="text-zinc-400 text-sm mb-4">
-                        Manage your subscription.
+                    <div className="inline-flex items-center gap-2 bg-amber-900/10 border border-amber-900/30 px-3 py-1.5 rounded-full mb-4">
+                        <Info size={12} className="text-amber-500" />
+                        <span className="text-[10px] text-amber-500 font-mono">Plan switches processed immediately.</span>
+                    </div>
+                    <p className="text-zinc-400 text-xs mb-4">
+                        To cancel or update payment details, visit the portal.
                     </p>
                     <button 
                         onClick={() => onUpgrade()} 
-                        className="bg-white text-black hover:bg-zinc-200 px-6 py-2.5 rounded-md font-bold text-xs inline-flex items-center gap-2"
+                        className="bg-zinc-900 border border-zinc-700 text-white hover:bg-zinc-800 px-6 py-2.5 rounded-md font-bold text-xs inline-flex items-center gap-2"
                     >
                         Manage Subscription <ExternalLink size={12} />
                     </button>
