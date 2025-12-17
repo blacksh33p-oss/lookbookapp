@@ -16,7 +16,7 @@ const readStream = async (req) => {
 };
 
 export default async function handler(req, res) {
-  const LOG_PREFIX = '[FastSpring V14-SchemaFix]'; 
+  const LOG_PREFIX = '[FastSpring V15-UpgradeFix]'; 
   const trace = []; 
 
   const log = (msg) => {
@@ -34,7 +34,7 @@ export default async function handler(req, res) {
   const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '').trim();
   
   if (req.method === 'GET') {
-      return res.status(200).json({ status: 'Active', version: 'v14-SchemaFix' });
+      return res.status(200).json({ status: 'Active', version: 'v15-UpgradeFix' });
   }
   
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -68,7 +68,8 @@ export default async function handler(req, res) {
       for (const event of payload.events) {
           log(`Event: ${event.type} (ID: ${event.id})`);
           
-          if (!['order.completed', 'subscription.activated', 'subscription.charge.completed'].includes(event.type)) {
+          // Added 'subscription.updated' to handle upgrades/downgrades
+          if (!['order.completed', 'subscription.activated', 'subscription.charge.completed', 'subscription.updated'].includes(event.type)) {
              continue;
           }
 
@@ -108,21 +109,40 @@ export default async function handler(req, res) {
           }
 
           // 3. Determine Plan
-          const itemsJSON = JSON.stringify(data.items || []).toLowerCase();
-          let tier = 'Creator';
-          let creditsToAdd = 500;
+          // We search the entire data structure for product keys because FastSpring structure varies by event type.
+          // Order events have 'items'. Subscription events have 'subscription.product'.
+          let productInfo = '';
+          if (data.items && Array.isArray(data.items)) productInfo += JSON.stringify(data.items);
+          if (data.subscription) productInfo += JSON.stringify(data.subscription);
+          if (data.product) productInfo += String(data.product);
           
-          if (itemsJSON.includes('studio') || itemsJSON.includes('agency')) {
+          productInfo = productInfo.toLowerCase();
+
+          let tier = 'Creator'; // Default fallback
+          let monthlyCredits = 500;
+          
+          if (productInfo.includes('studio') || productInfo.includes('agency')) {
               tier = 'Studio';
-              creditsToAdd = 2000;
-          } else if (itemsJSON.includes('starter') || itemsJSON.includes('basic')) {
+              monthlyCredits = 2000;
+          } else if (productInfo.includes('starter') || productInfo.includes('basic')) {
               tier = 'Starter';
-              creditsToAdd = 100;
+              monthlyCredits = 100;
           }
 
-          log(`User: ${targetUserId} | Tier: ${tier} | Adding: ${creditsToAdd}`);
+          log(`User: ${targetUserId} | Detected Tier: ${tier}`);
 
-          // 4. DB Operation - Strictly use existing columns: id, email, credits, tier
+          // 4. Calculate Credits
+          // Only add credits if this is a payment event or activation. 
+          // Pure 'subscription.updated' might just be a plan switch without immediate charge (or charge event comes separately).
+          let creditsToAdd = 0;
+          if (['order.completed', 'subscription.activated', 'subscription.charge.completed'].includes(event.type)) {
+              creditsToAdd = monthlyCredits;
+              log(`Payment event detected. Adding ${creditsToAdd} credits.`);
+          } else {
+              log(`Non-payment event (${event.type}). Updating tier only.`);
+          }
+
+          // 5. DB Operation
           
           // A. Fetch current credits
           const { data: currentProfile } = await supabase
@@ -134,14 +154,12 @@ export default async function handler(req, res) {
           const existingCredits = (currentProfile && typeof currentProfile.credits === 'number') ? currentProfile.credits : 0;
           const finalCredits = existingCredits + creditsToAdd;
 
-          // B. Attempt UPDATE first (Safest)
-          // We DO NOT update 'email' here to avoid unique constraint issues if it's correct.
-          // We DO NOT update 'updated_at' because the column does not exist.
+          // B. Attempt UPDATE
           const { data: updateData, error: updateError } = await supabase
               .from('profiles')
               .update({ 
-                  credits: finalCredits, 
-                  tier: tier 
+                  tier: tier, // Always update tier
+                  credits: finalCredits // Update credits (either adds, or keeps same if 0 added)
               })
               .eq('id', targetUserId)
               .select();
@@ -149,13 +167,12 @@ export default async function handler(req, res) {
           let success = false;
 
           if (!updateError && updateData && updateData.length > 0) {
-              log(`UPDATE Success. Credits: ${finalCredits}`);
+              log(`UPDATE Success. New Tier: ${tier}, Credits: ${finalCredits}`);
               success = true;
           } else {
               // C. If UPDATE failed (row missing), attempt INSERT
-              log(`UPDATE failed or empty. Attempting INSERT.`);
+              log(`UPDATE failed. Attempting INSERT.`);
               
-              // If we don't have the email from payload, try to fetch it from Auth
               let finalEmail = emailFound;
               if (!finalEmail) {
                   const { data: authUser } = await supabase.auth.admin.getUserById(targetUserId);
@@ -166,14 +183,13 @@ export default async function handler(req, res) {
                   .from('profiles')
                   .insert({
                       id: targetUserId,
-                      email: finalEmail || 'unknown@user.com', // Required by schema
+                      email: finalEmail || 'unknown@user.com',
                       credits: finalCredits,
                       tier: tier
-                      // No updated_at, no username, no full_name
                   });
               
               if (!insertError) {
-                  log(`INSERT Success. Credits: ${finalCredits}`);
+                  log(`INSERT Success. Tier: ${tier}, Credits: ${finalCredits}`);
                   success = true;
               } else {
                   log(`INSERT Error: ${insertError.message}`);
