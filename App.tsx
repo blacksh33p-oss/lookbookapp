@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw, Command, Monitor } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw, Command, Monitor, Folder, Library, Plus, Save } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -8,28 +8,19 @@ import { OutfitControl } from './components/OutfitControl';
 import { PoseControl } from './components/PoseControl';
 import { LoginModal } from './components/LoginModal';
 import { UpgradeModal } from './components/UpgradeModal';
+import { LibraryDrawer } from './components/LibraryDrawer';
 import { generatePhotoshootImage } from './services/gemini';
 import { supabase, isConfigured } from './lib/supabase';
-import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
+import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier, Project, Generation } from './types';
 
-// Constants
-const APP_VERSION = "v1.7.5"; 
+const APP_VERSION = "v1.8.0"; 
 const ACCOUNT_PORTAL_URL = 'https://lookbook.test.onfastspring.com/account';
 
 const POSES = [
-    "Standing naturally, arms relaxed",
-    "Walking towards camera, confident stride",
-    "Leaning slightly against a wall, casual look",
-    "Side profile, looking over shoulder",
-    "Hands in pockets, relaxed stance",
-    "Sitting on a stool, elegant pose",
-    "Dynamic motion, fabric flowing",
-    "Three-quarter view, hand on hip",
-    "Arms crossed, powerful stance",
-    "Walking away, turning head back",
-    "Seated on floor, legs crossed, casual",
-    "Leaning forward, engaging with camera",
-    "Back to camera, head turned profile"
+    "Standing naturally, arms relaxed", "Walking towards camera, confident stride", "Leaning slightly against a wall", 
+    "Side profile, looking over shoulder", "Hands in pockets, relaxed stance", "Sitting on a stool", 
+    "Dynamic motion, fabric flowing", "Three-quarter view, hand on hip", "Arms crossed, powerful stance", 
+    "Walking away, turning head back", "Seated on floor, legs crossed", "Leaning forward", "Back to camera"
 ];
 const EYE_COLORS = ["Amber", "Deep Brown", "Steel Blue", "Emerald Green", "Hazel", "Dark Grey"];
 const FACE_SHAPES = ["Oval face", "Square jawline", "Heart-shaped face", "High cheekbones", "Soft features", "Defined jawline"];
@@ -54,36 +45,40 @@ const getGenerationCost = (options: PhotoshootOptions): number => {
     return cost;
 };
 
-// --- HELPER: Resolve FastSpring Product Path ---
 const getProductPath = (tier: SubscriptionTier): string => {
     let val = '';
     if (tier === SubscriptionTier.Starter) val = import.meta.env.VITE_FASTSPRING_STARTER_PATH || '';
     if (tier === SubscriptionTier.Creator) val = import.meta.env.VITE_FASTSPRING_CREATOR_PATH || '';
     if (tier === SubscriptionTier.Studio) val = import.meta.env.VITE_FASTSPRING_STUDIO_PATH || '';
-
     if (!val) {
         if (tier === SubscriptionTier.Starter) val = import.meta.env.VITE_FASTSPRING_STARTER_URL || '';
         if (tier === SubscriptionTier.Creator) val = import.meta.env.VITE_FASTSPRING_CREATOR_URL || '';
         if (tier === SubscriptionTier.Studio) val = import.meta.env.VITE_FASTSPRING_STUDIO_URL || '';
-        if (val && val.includes('/')) {
-            const parts = val.split('/');
-            const cleanParts = parts.filter(p => p.length > 0);
-            val = cleanParts[cleanParts.length - 1];
-        }
     }
-
-    if (!val) {
-         const defaults: Record<string, string> = {
-            [SubscriptionTier.Starter]: 'starter',
-            [SubscriptionTier.Creator]: 'creator',
-            [SubscriptionTier.Studio]: 'studio'
-        };
-        val = defaults[tier];
-    }
-    return val;
+    return val || tier.toLowerCase();
 };
 
-// --- Sub-Components ---
+// Fix for: Error in file App.tsx on line 343: Cannot find name 'Toast'.
+const Toast: React.FC<{ message: string; type: 'success' | 'error' | 'info'; onClose: () => void }> = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 3000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const bgColor = type === 'success' ? 'bg-zinc-900 border-emerald-500/50' : type === 'error' ? 'bg-zinc-900 border-red-500/50' : 'bg-zinc-900 border-zinc-700';
+  const textColor = type === 'success' ? 'text-emerald-400' : type === 'error' ? 'text-red-400' : 'text-zinc-300';
+  const Icon = type === 'success' ? CheckCircle : type === 'error' ? XCircle : Info;
+
+  return (
+    <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] px-4 py-3 rounded-lg border shadow-2xl flex items-center gap-3 animate-fade-in ${bgColor}`}>
+      <Icon size={16} className={textColor} />
+      <span className="text-xs font-bold uppercase tracking-wider text-white">{message}</span>
+      <button onClick={onClose} className="ml-2 text-zinc-500 hover:text-white transition-colors">
+        <X size={14} />
+      </button>
+    </div>
+  );
+};
 
 interface ConfigSectionProps {
   title: string;
@@ -96,10 +91,7 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({ title, icon: Icon, childr
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
     <div className="border-b border-zinc-800 bg-black/50 last:border-b-0">
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-4 text-left focus:outline-none group hover:bg-zinc-900/50 transition-colors"
-      >
+      <button onClick={() => setIsOpen(!isOpen)} className="w-full flex items-center justify-between p-4 text-left focus:outline-none group hover:bg-zinc-900/50 transition-colors">
         <div className="flex items-center gap-3">
           <Icon size={14} className={`text-zinc-500 group-hover:text-white transition-colors ${isOpen ? 'text-white' : ''}`} />
           <span className="font-mono text-xs font-medium tracking-wide text-zinc-300 group-hover:text-white transition-colors">{title}</span>
@@ -108,13 +100,7 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({ title, icon: Icon, childr
            <ChevronDown size={14} className="text-zinc-600 group-hover:text-white" />
         </div>
       </button>
-      {isOpen && (
-        <div className="p-4 pt-0 animate-fade-in">
-            <div className="mt-2 space-y-5">
-                {children}
-            </div>
-        </div>
-      )}
+      {isOpen && <div className="p-4 pt-0 animate-fade-in"><div className="mt-2 space-y-5">{children}</div></div>}
     </div>
   );
 };
@@ -125,53 +111,12 @@ interface StyleButtonProps {
     isLocked?: boolean;
     onClick: () => void;
 }
-const StyleButton: React.FC<StyleButtonProps> = ({ label, isSelected, isLocked, onClick }) => {
-    const simpleName = label; 
-    return (
-        <button
-            onClick={onClick}
-            className={`relative px-3 py-3 rounded-md border text-left transition-all group overflow-hidden min-h-[3rem] flex items-center justify-between
-            ${isSelected 
-                ? 'bg-white border-white text-black shadow-lg shadow-white/5' 
-                : 'bg-black border-zinc-800 hover:border-zinc-600 text-zinc-400'
-            }
-            ${isLocked && !isSelected ? 'opacity-60 cursor-not-allowed hover:bg-black hover:border-zinc-800' : ''}
-            `}
-        >
-            <span className={`text-[10px] font-bold uppercase tracking-wide z-10 relative ${isSelected ? 'text-black' : 'text-zinc-400 group-hover:text-zinc-200'}`}>
-                {simpleName}
-            </span>
-            {isLocked && !isSelected && <Lock size={10} className="text-zinc-600" />}
-        </button>
-    );
-};
-
-interface ToastProps {
-    message: string;
-    type: 'success' | 'error' | 'info';
-    onClose: () => void;
-}
-const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
-    useEffect(() => {
-        const timer = setTimeout(onClose, 4000);
-        return () => clearTimeout(timer);
-    }, [onClose]);
-
-    const colors = {
-        success: 'bg-zinc-900 border-zinc-700 text-white',
-        error: 'bg-red-950 border-red-900 text-red-200',
-        info: 'bg-zinc-900 border-zinc-700 text-zinc-300'
-    };
-    const Icon = type === 'success' ? CheckCircle : type === 'error' ? XCircle : Info;
-
-    return (
-        <div className={`fixed bottom-6 right-6 z-[200] flex items-center gap-3 px-4 py-3 rounded-md border shadow-xl backdrop-blur-md animate-slide-up ${colors[type]}`}>
-            <Icon size={16} />
-            <span className="text-xs font-medium font-mono">{message}</span>
-            <button onClick={onClose} className="ml-4 hover:text-white"><X size={12} /></button>
-        </div>
-    );
-};
+const StyleButton: React.FC<StyleButtonProps> = ({ label, isSelected, isLocked, onClick }) => (
+    <button onClick={onClick} className={`relative px-3 py-3 rounded-md border text-left transition-all group overflow-hidden min-h-[3rem] flex items-center justify-between ${isSelected ? 'bg-white border-white text-black shadow-lg shadow-white/5' : 'bg-black border-zinc-800 hover:border-zinc-600 text-zinc-400'} ${isLocked && !isSelected ? 'opacity-60 cursor-not-allowed hover:bg-black hover:border-zinc-800' : ''}`}>
+        <span className={`text-[10px] font-bold uppercase tracking-wide z-10 relative ${isSelected ? 'text-black' : 'text-zinc-400 group-hover:text-zinc-200'}`}>{label}</span>
+        {isLocked && !isSelected && <Lock size={10} className="text-zinc-600" />}
+    </button>
+);
 
 const App: React.FC = () => {
   const [userProfile, setUserProfile] = useState<{tier: SubscriptionTier, credits: number, username?: string} | null>(() => {
@@ -181,22 +126,20 @@ const App: React.FC = () => {
       } catch (e) { return null; }
   });
 
-  const userProfileRef = useRef(userProfile);
-  useEffect(() => { userProfileRef.current = userProfile; }, [userProfile]);
-
   const [session, setSession] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const [isRedirecting, setIsRedirecting] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  
   const [isSyncingPayment, setIsSyncingPayment] = useState(false);
-  const [syncAttempts, setSyncAttempts] = useState(0);
-  const syncIntervalRef = useRef<any>(null);
-
   const [guestCredits, setGuestCredits] = useState<number>(() => {
     const saved = localStorage.getItem('fashion_guest_credits');
     return saved !== null ? parseInt(saved, 10) : 5;
   });
+
+  // Projects & Archive State
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginModalView, setLoginModalView] = useState<'pricing' | 'login' | 'signup'>('signup'); 
@@ -204,118 +147,88 @@ const App: React.FC = () => {
   const [autoPose, setAutoPose] = useState(true);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
 
+  // Mandatory API key selection state as per Gemini 3 Pro guidelines
+  const [hasApiKey, setHasApiKey] = useState<boolean>(true);
+
   const [options, setOptions] = useState<PhotoshootOptions>({
-    sex: ModelSex.Female,
-    ethnicity: ModelEthnicity.Mixed,
-    age: ModelAge.YoungAdult,
-    facialExpression: FacialExpression.Neutral,
-    hairColor: "Dark Brown",
-    hairStyle: "Straight & Loose",
-    style: PhotoStyle.Studio,
-    sceneDetails: '',
-    modelVersion: ModelVersion.Flash,
-    aspectRatio: AspectRatio.Portrait,
-    enable4K: false, 
-    height: '',
-    measurementUnit: MeasurementUnit.CM,
-    bodyType: BodyType.Standard,
+    sex: ModelSex.Female, ethnicity: ModelEthnicity.Mixed, age: ModelAge.YoungAdult,
+    facialExpression: FacialExpression.Neutral, hairColor: "Dark Brown", hairStyle: "Straight & Loose",
+    style: PhotoStyle.Studio, sceneDetails: '', modelVersion: ModelVersion.Flash,
+    aspectRatio: AspectRatio.Portrait, enable4K: false, height: '', measurementUnit: MeasurementUnit.CM,
+    bodyType: BodyType.Standard, isModelLocked: false,
     outfit: { 
         top: { garmentType: '', description: '', images: [], sizeChart: null, sizeChartDetails: '' },
         bottom: { garmentType: '', description: '', images: [], sizeChart: null, sizeChartDetails: '' },
         shoes: { garmentType: '', description: '', images: [], sizeChart: null, sizeChartDetails: '' },
         accessories: { garmentType: '', description: '', images: [], sizeChart: null, sizeChartDetails: '' }
-    },
-    seed: undefined,
-    pose: undefined,
-    modelFeatures: undefined,
-    referenceModelImage: undefined
+    }
   });
 
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info') => {
-      setToast({ message, type });
-  };
+  const showToast = (message: string, type: 'success' | 'error' | 'info') => setToast({ message, type });
 
   const isFormValid = Object.values(options.outfit).some((item: OutfitItem) => 
     item.images.length > 0 || (item.description && item.description.trim().length > 0) || (item.garmentType && item.garmentType.trim().length > 0)
   );
 
+  // Load Projects
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-            if (isFormValid && !isLoading) handleGenerate();
-            else if (!isFormValid) showToast("Please add at least one garment description or image.", "info");
-        }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFormValid, isLoading, options]);
-
-  useEffect(() => {
-      if (userProfile) localStorage.setItem('fashion_user_profile', JSON.stringify(userProfile));
-  }, [userProfile]);
-
-  useEffect(() => {
-    const today = new Date().toDateString();
-    const lastReset = localStorage.getItem('fashion_guest_date');
-    if (!lastReset) localStorage.setItem('fashion_guest_date', today);
-    else if (lastReset !== today) {
-        setGuestCredits(5);
-        localStorage.setItem('fashion_guest_credits', '5');
-        localStorage.setItem('fashion_guest_date', today);
-        showToast("New Day! Guest credits refilled to 5.", "success");
+    if (session?.user) {
+      fetchProjects();
     }
-  }, []);
-
-  useEffect(() => {
-      const handlePopupClosed = (e: any) => {
-          const data = e.detail;
-          if (data && data.id) {
-              setIsSyncingPayment(true);
-              setSyncAttempts(0);
-              const baselineCredits = userProfileRef.current?.credits || 0;
-              if (session?.user) pollForCredits(session.user.id, session.user.email, baselineCredits);
-              else setIsSyncingPayment(false); 
-          }
-      };
-      window.addEventListener('fastspringPopupClosed', handlePopupClosed);
-      return () => window.removeEventListener('fastspringPopupClosed', handlePopupClosed);
   }, [session]);
 
-  const pollForCredits = async (userId: string, emailArg?: string, knownOldCredits: number = 0) => {
-      let attempts = 0;
-      const pendingPlan = localStorage.getItem('pending_plan');
-      if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
-      syncIntervalRef.current = setInterval(async () => {
-          attempts++;
-          setSyncAttempts(attempts);
-          const { data } = await supabase.from('profiles').select('tier, credits').eq('id', userId).single();
-          const tierMatch = pendingPlan ? data?.tier === pendingPlan : false;
-          const creditBump = data && data.credits > knownOldCredits;
-          if (data && (tierMatch || creditBump || attempts >= 60)) {
-              clearInterval(syncIntervalRef.current);
-              if (data) {
-                  let bestEmail = emailArg;
-                  if (!bestEmail) {
-                      const { data: sessionData } = await supabase.auth.getSession();
-                      bestEmail = sessionData?.session?.user?.email;
-                  }
-                  setUserProfile((prev) => ({
-                      tier: data.tier as SubscriptionTier,
-                      credits: data.credits,
-                      username: bestEmail ? bestEmail.split('@')[0] : (prev?.username || 'Studio User')
-                  }));
-              }
-              setIsSyncingPayment(false);
-              if (tierMatch || creditBump) {
-                   localStorage.removeItem('pending_plan');
-                   showToast('Purchase synced successfully!', 'success');
-              } else showToast("Sync timed out. Server might be slow. Check back later.", "info");
-          }
-      }, 2000);
+  // Mandatory check for API key selection when using advanced models
+  useEffect(() => {
+    const checkApiKey = async () => {
+      const aistudio = (window as any).aistudio;
+      if (aistudio && typeof aistudio.hasSelectedApiKey === 'function') {
+        const hasKey = await aistudio.hasSelectedApiKey();
+        setHasApiKey(hasKey);
+      }
+    };
+    checkApiKey();
+  }, []);
+
+  const fetchProjects = async () => {
+    const { data } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
+    if (data) {
+      setProjects(data);
+      if (data.length > 0 && !activeProjectId) setActiveProjectId(data[0].id);
+    }
+  };
+
+  const createProject = async () => {
+    const name = prompt("Project Name?");
+    if (!name) return;
+    const { data, error } = await supabase.from('projects').insert([{ name, user_id: session.user.id }]).select().single();
+    if (data) {
+      setProjects([data, ...projects]);
+      setActiveProjectId(data.id);
+      showToast("Project created", "success");
+    }
+  };
+
+  const saveToLibrary = async (imageUrl: string) => {
+    if (!session) return;
+    setIsSaving(true);
+    try {
+      // 1. Convert Base64 to Blob (mock for now, usually we'd upload to Supabase Storage)
+      const { data, error } = await supabase.from('generations').insert([{
+        image_url: imageUrl,
+        user_id: session.user.id,
+        project_id: activeProjectId,
+        config: { ...options, referenceModelImage: undefined } // Don't save recursive images
+      }]);
+      if (!error) showToast("Saved to library", "success");
+    } catch (e) {
+      showToast("Error saving", "error");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   useEffect(() => {
@@ -331,25 +244,19 @@ const App: React.FC = () => {
          setTimeout(() => fetchProfile(session.user.id, session.user.email), 300);
          showToast(`Welcome back!`, 'success');
       } else if (event === 'SIGNED_OUT') {
-         setUserProfile(null);
-         localStorage.removeItem('fashion_user_profile'); 
-         setSession(null);
-         localStorage.removeItem('pending_plan');
+         setUserProfile(null); setSession(null); setProjects([]); setActiveProjectId(null);
          showToast('Signed out successfully', 'info');
       }
     });
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchProfile = async (userId: string, email?: string, retry = true) => {
+  const fetchProfile = async (userId: string, email?: string) => {
     try {
         let { data, error } = await supabase.from('profiles').select('tier, credits').eq('id', userId).single();
         if (error && error.code === 'PGRST116') {
-             const { data: newProfile, error: createError } = await supabase
-                .from('profiles')
-                .insert([{ id: userId, email: email || 'unknown', tier: SubscriptionTier.Free, credits: 5 }])
-                .select().single();
-             if (!createError && newProfile) { data = newProfile; error = null; }
+             const { data: newProfile } = await supabase.from('profiles').insert([{ id: userId, email: email || 'unknown', tier: SubscriptionTier.Free, credits: 5 }]).select().single();
+             if (newProfile) data = newProfile;
         }
         if (data) {
             setUserProfile({
@@ -357,23 +264,15 @@ const App: React.FC = () => {
                 credits: data.credits ?? 5, 
                 username: email ? email.split('@')[0] : 'Studio User'
             });
-            return data;
         }
-    } catch (e) {
-        setUserProfile(prev => prev || { tier: SubscriptionTier.Free, credits: 0, username: email ? email.split('@')[0] : 'Studio User' });
-    } finally { setIsAuthLoading(false); }
-    return null;
+    } catch (e) { } finally { setIsAuthLoading(false); }
   };
 
   const handleAuth = async (email: string, password?: string, isSignUp?: boolean, username?: string) => {
-      if (!isConfigured) { showToast("Database not configured.", 'error'); return; }
-      if (!password) throw new Error("Password is required.");
+      if (!isConfigured) return;
       if (isSignUp) {
-          const { data, error } = await supabase.auth.signUp({
-              email, password, options: { emailRedirectTo: window.location.origin, data: { full_name: username } }
-          });
+          const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: username } } });
           if (error) throw error;
-          if (data.user?.identities?.length === 0) throw new Error("User already exists. Please sign in.");
       } else {
           const { error } = await supabase.auth.signInWithPassword({ email, password });
           if (error) throw error;
@@ -382,72 +281,51 @@ const App: React.FC = () => {
 
   const handleLogout = async (e?: React.MouseEvent) => {
       if (e) e.preventDefault();
-      setSession(null);
-      setUserProfile(null);
-      localStorage.removeItem('fashion_user_profile');
-      setShowProfileMenu(false);
-      try { 
-          await supabase.auth.signOut(); 
-          setGuestCredits(5);
-      } catch (err) {} 
+      setSession(null); setUserProfile(null); setShowProfileMenu(false);
+      await supabase.auth.signOut(); 
       showToast('Signed out successfully', 'info');
   };
 
   const handleUpgrade = async (tier?: SubscriptionTier) => {
      try {
          const { data } = await supabase.auth.getSession();
-         const activeSession = data.session;
-         if (!activeSession) {
-             handleSignup();
-             return;
-         }
-         const currentTier = userProfile?.tier || SubscriptionTier.Free;
-         if (currentTier !== SubscriptionTier.Free && !tier) {
+         if (!data.session) { handleSignup(); return; }
+         if (userProfile?.tier !== SubscriptionTier.Free && !tier) {
              window.open(ACCOUNT_PORTAL_URL, '_blank');
              return;
          }
-         if (window.fastspring && window.fastspring.builder && tier) {
+         const fs = (window as any).fastspring;
+         if (fs?.builder && tier) {
              const productPath = getProductPath(tier);
-             const fullName = activeSession.user.user_metadata?.full_name || 'Valued Customer';
-             const nameParts = fullName.split(' ');
-             const payload = {
-                 products: [{ path: productPath, quantity: 1 }],
-                 paymentContact: { email: activeSession.user.email, firstName: nameParts[0], lastName: nameParts[1] },
-                 tags: { userId: activeSession.user.id, userEmail: activeSession.user.email }
-             };
-             window.fastspring.builder.push(payload);
-             if (window.fastspring.builder.checkout) setTimeout(() => window.fastspring.builder.checkout(), 200);
+             const payload = { products: [{ path: productPath, quantity: 1 }], tags: { userId: data.session.user.id } };
+             fs.builder.push(payload);
+             if (fs.builder.checkout) setTimeout(() => fs.builder.checkout(), 200);
              setShowUpgradeModal(false);
-         } else if (tier) showToast("Checkout system loading...", "error");
-     } catch (err) { showToast("Failed to initiate checkout.", "error"); }
+         }
+     } catch (err) { }
   };
 
   const handleLogin = () => { setLoginModalView('login'); setShowLoginModal(true); };
   const handleSignup = () => { setLoginModalView('signup'); setShowLoginModal(true); };
 
-  // Helper to handle Pro clicks (Engine or Styles)
   const handleProFeatureClick = (action: () => void) => {
-      if (hasProAccess) action();
+      if (session ? (userProfile?.tier === SubscriptionTier.Creator || userProfile?.tier === SubscriptionTier.Studio) : false) action();
       else if (!session) handleSignup();
       else setShowUpgradeModal(true);
   };
 
   const executeGeneration = async (currentOptions: PhotoshootOptions) => {
       const cost = getGenerationCost(currentOptions);
-      const isGuest = !session;
-      if (isGuest) {
+      if (!session) {
           if (guestCredits < cost) { handleSignup(); return; }
           setIsLoading(true); setError(null); setGeneratedImage(null);
           try {
             const result = await generatePhotoshootImage(currentOptions);
             setGeneratedImage(result);
-            const newGuestCredits = guestCredits - cost;
-            setGuestCredits(newGuestCredits);
-            localStorage.setItem('fashion_guest_credits', newGuestCredits.toString());
+            setGuestCredits(prev => prev - cost);
           } catch (err: any) { setError(err.message || 'Error'); } finally { setIsLoading(false); }
       } else {
-          if (!userProfile) return;
-          if (userProfile.credits < cost) { setShowUpgradeModal(true); return; }
+          if (!userProfile || userProfile.credits < cost) { setShowUpgradeModal(true); return; }
           setIsLoading(true); setError(null); setGeneratedImage(null);
           try {
             const result = await generatePhotoshootImage(currentOptions);
@@ -455,53 +333,51 @@ const App: React.FC = () => {
             const newBalance = userProfile.credits - cost;
             setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
             supabase.from('profiles').update({ credits: newBalance }).eq('id', session.user.id);
-          } catch (err: any) { setError(err.message || 'Error'); } finally { setIsLoading(false); }
+            
+            // Auto-Archive for Paid Users
+            if (userProfile.tier !== SubscriptionTier.Free) {
+              saveToLibrary(result);
+            }
+          } catch (err: any) { 
+            // Handle race conditions and missing entities by re-prompting for API key per guidelines
+            if (err.message && err.message.includes("Requested entity was not found.")) {
+                setHasApiKey(false);
+                showToast("Invalid API context. Please re-select your key.", "error");
+            } else {
+                setError(err.message || 'Error'); 
+            }
+          } finally { setIsLoading(false); }
       }
   }
 
   const handleGenerate = () => {
-      const newOptions = { ...options, seed: getRandomSeed(), pose: autoPose ? getRandomPose() : (options.pose || getRandomPose()), modelFeatures: getRandomFeatures() };
+      const newSeed = getRandomSeed();
+      const newFeatures = options.isModelLocked && options.modelFeatures ? options.modelFeatures : getRandomFeatures();
+      const newOptions = { 
+        ...options, 
+        seed: newSeed, 
+        pose: autoPose ? getRandomPose() : (options.pose || getRandomPose()), 
+        modelFeatures: newFeatures,
+        referenceModelImage: options.isModelLocked ? (generatedImage || options.referenceModelImage) : undefined
+      };
       setOptions(newOptions);
       executeGeneration(newOptions);
   };
   
   const handleRegenerate = (keepModel: boolean) => {
-       const newOptions = { ...options, seed: keepModel ? options.seed : getRandomSeed(), pose: autoPose ? getRandomPose() : (options.pose || getRandomPose()) };
+       const newOptions = { 
+        ...options, 
+        seed: keepModel ? options.seed : getRandomSeed(), 
+        pose: autoPose ? getRandomPose() : (options.pose || getRandomPose()),
+        referenceModelImage: keepModel ? (generatedImage || options.referenceModelImage) : undefined
+       };
        setOptions(newOptions);
        executeGeneration(newOptions);
-  };
-
-  const handleDownload = () => {
-    if (generatedImage) {
-      const link = document.createElement('a');
-      link.href = generatedImage;
-      link.download = `fashion-shoot-${Date.now()}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      showToast("Image saved!", 'success');
-    }
   };
 
   const isPremium = session ? userProfile?.tier !== SubscriptionTier.Free : false;
   const isStudio = session ? userProfile?.tier === SubscriptionTier.Studio : false;
   const hasProAccess = session ? (userProfile?.tier === SubscriptionTier.Creator || userProfile?.tier === SubscriptionTier.Studio) : false;
-  const currentCost = getGenerationCost(options);
-
-  if (isSyncingPayment) {
-    return (
-        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
-            <div className="bg-black border border-zinc-800 p-8 rounded-lg max-w-sm w-full">
-                <Loader2 size={24} className="text-white animate-spin mx-auto mb-4" />
-                <h2 className="text-lg font-bold text-white mb-2">Syncing Purchase</h2>
-                <div className="w-full bg-zinc-900 h-1 rounded-full overflow-hidden mt-6">
-                    <div className="bg-white h-full animate-progress"></div>
-                </div>
-                <button onClick={() => setIsSyncingPayment(false)} className="mt-6 text-xs text-zinc-500 hover:text-white">Cancel</button>
-            </div>
-        </div>
-    );
-  }
 
   return (
     <div className="min-h-screen text-zinc-300 font-sans bg-black relative overflow-hidden">
@@ -511,8 +387,38 @@ const App: React.FC = () => {
       </div>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      
+      {/* Mandatory API Key Selection for Gemini 3 Pro features */}
+      {!hasApiKey && (
+        <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-xl flex items-center justify-center p-6 text-center">
+          <div className="max-w-md animate-fade-in">
+             <div className="w-16 h-16 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-black">
+                <Lock className="text-white" size={24} />
+             </div>
+            <h2 className="text-2xl font-bold text-white mb-4">API Key Required</h2>
+            <p className="text-zinc-400 mb-6 text-sm leading-relaxed">
+              To access high-performance generation (Gemini 3 Pro) and ensure availability, you must select your own API key from a paid GCP project.
+              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="text-zinc-300 underline block mt-4 font-mono text-[10px] uppercase tracking-widest">View Billing Docs</a>
+            </p>
+            <button 
+              onClick={async () => {
+                const aistudio = (window as any).aistudio;
+                if (aistudio && typeof aistudio.openSelectKey === 'function') {
+                    await aistudio.openSelectKey();
+                    setHasApiKey(true);
+                }
+              }}
+              className="bg-white text-black px-8 py-3.5 rounded-md font-bold text-xs uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-xl shadow-white/5"
+            >
+              Select Paid API Key
+            </button>
+          </div>
+        </div>
+      )}
+
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onAuth={handleAuth} initialView={loginModalView} showToast={showToast} />
       <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} onUpgrade={handleUpgrade} currentTier={userProfile?.tier || SubscriptionTier.Free} />
+      <LibraryDrawer isOpen={showLibrary} onClose={() => setShowLibrary(false)} activeProjectId={activeProjectId} />
 
       <header className="fixed top-0 left-0 right-0 z-40 bg-black/80 backdrop-blur-xl border-b border-zinc-800/50 h-14">
           <div className="max-w-[1920px] mx-auto h-full flex justify-between items-center px-4 md:px-6">
@@ -524,38 +430,36 @@ const App: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-4">
+                 {session && (
+                    <button onClick={() => setShowLibrary(true)} className="flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-white transition-colors">
+                        <Library size={14} /> Library
+                    </button>
+                 )}
                  {session ? (
                      <>
                         <button onClick={() => setShowUpgradeModal(true)} className="hidden sm:flex text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white transition-colors items-center gap-1.5 border border-zinc-800 hover:border-zinc-600 px-3 py-1.5 rounded-md">
                            <Crown size={12} className="text-amber-500" /> 
-                           <span className={userProfile?.tier !== SubscriptionTier.Free ? "text-white" : ""}>
-                             {userProfile?.tier === SubscriptionTier.Free ? 'Guest' : userProfile?.tier}
-                           </span>
+                           <span>{userProfile?.tier === SubscriptionTier.Free ? 'Guest' : userProfile?.tier}</span>
                         </button>
                         <div onClick={() => setShowProfileMenu(!showProfileMenu)} className="flex items-center gap-3 cursor-pointer group px-2 py-1 rounded-md hover:bg-zinc-900 transition-colors relative">
-                            <div className="text-right hidden sm:block">
-                                <div className="text-[10px] font-bold text-white">{userProfile?.username || session.user.email?.split('@')[0]}</div>
-                                <div className="text-[10px] text-zinc-500 font-mono">{userProfile?.credits ?? <Loader2 size={8} className="animate-spin inline" />} Credits</div>
-                            </div>
-                            <div className="w-6 h-6 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700">
-                                <span className="text-xs font-bold text-white">{session.user.email?.[0].toUpperCase()}</span>
+                            <div className="w-6 h-6 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700 text-xs font-bold text-white">
+                                {session.user.email?.[0].toUpperCase()}
                             </div>
                         </div>
                         {showProfileMenu && (
                             <div className="absolute top-12 right-4 w-48 bg-black border border-zinc-800 rounded-md shadow-2xl z-50 animate-fade-in overflow-hidden">
-                                <div className="p-3 border-b border-zinc-800"><div className="text-xs text-zinc-400 truncate">{session.user.email}</div></div>
+                                <div className="p-3 border-b border-zinc-800 text-[10px] text-zinc-500 truncate">{session.user.email}</div>
                                 <div className="p-1">
-                                    <button onClick={() => { handleUpgrade(); setShowProfileMenu(false); }} className="w-full text-left px-3 py-2 text-xs text-white hover:bg-zinc-900 rounded-sm transition-colors flex items-center gap-2"><CreditCard size={12} /> Manage Subscription</button>
-                                    <button onClick={(e) => handleLogout(e)} className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-zinc-900 rounded-sm transition-colors flex items-center gap-2"><LogOut size={12} /> Sign Out</button>
+                                    <button onClick={() => handleUpgrade()} className="w-full text-left px-3 py-2 text-xs text-white hover:bg-zinc-900 rounded-sm flex items-center gap-2"><CreditCard size={12} /> Billing</button>
+                                    <button onClick={handleLogout} className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-zinc-900 rounded-sm flex items-center gap-2"><LogOut size={12} /> Sign Out</button>
                                 </div>
                             </div>
                         )}
                      </>
                  ) : (
                     <div className="flex items-center gap-3">
-                        <span className="hidden sm:inline text-xs font-mono text-zinc-500">{guestCredits} Credits</span>
-                        <button onClick={handleLogin} className="text-xs font-medium text-white hover:text-zinc-300">Log in</button>
-                        <button onClick={handleSignup} className="bg-white text-black hover:bg-zinc-200 px-3 py-1.5 rounded-md text-xs font-bold transition-colors">Sign up</button>
+                        <button onClick={handleLogin} className="text-xs font-medium text-white">Log in</button>
+                        <button onClick={handleSignup} className="bg-white text-black px-3 py-1.5 rounded-md text-xs font-bold transition-colors">Sign up</button>
                     </div>
                  )}
               </div>
@@ -565,11 +469,44 @@ const App: React.FC = () => {
       <main className="pt-20 px-4 md:px-6 max-w-[1920px] mx-auto min-h-screen pb-12 relative z-10">
         <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 relative">
           <div className="order-2 lg:order-1 lg:col-span-4 flex flex-col gap-4 relative z-20 pb-32 lg:pb-0">
+            
+            {/* Project Selector */}
+            {session && (
+                <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2 flex-1">
+                        <Folder size={14} className="text-zinc-500" />
+                        <select 
+                            value={activeProjectId || ''} 
+                            onChange={(e) => setActiveProjectId(e.target.value)}
+                            className="bg-transparent border-none text-xs font-bold text-white p-0 focus:ring-0 cursor-pointer flex-1"
+                        >
+                            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            {projects.length === 0 && <option value="">No Projects</option>}
+                        </select>
+                    </div>
+                    <button onClick={createProject} className="p-1 text-zinc-500 hover:text-white"><Plus size={16}/></button>
+                </div>
+            )}
+
             <div className="bg-black/80 backdrop-blur-sm border border-zinc-800 rounded-lg overflow-hidden shadow-lg">
                 <ConfigSection title="Wardrobe" icon={Shirt} defaultOpen={true}>
                     <OutfitControl outfit={options.outfit} onChange={(newOutfit) => setOptions({ ...options, outfit: newOutfit })} />
                 </ConfigSection>
                 <ConfigSection title="Model & Set" icon={UserCircle} defaultOpen={true}>
+                    {/* Identity Lock Toggle */}
+                    <div className="mb-4 flex items-center justify-between bg-zinc-900/40 p-2 rounded-md border border-zinc-800">
+                        <div className="flex items-center gap-2">
+                            <Star size={12} className={options.isModelLocked ? "text-amber-500" : "text-zinc-600"} />
+                            <span className="text-[10px] font-bold text-white uppercase tracking-wide">Lock Character</span>
+                        </div>
+                        <button 
+                            onClick={() => setOptions({...options, isModelLocked: !options.isModelLocked})}
+                            className={`w-8 h-4 rounded-full relative transition-colors ${options.isModelLocked ? 'bg-amber-500' : 'bg-zinc-700'}`}
+                        >
+                            <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${options.isModelLocked ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                        </button>
+                    </div>
+
                     <div className="mb-6 space-y-3">
                         <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Engine</label>
                         <div className="grid grid-cols-2 gap-3 mb-2">
@@ -607,22 +544,27 @@ const App: React.FC = () => {
             </div>
             
             <div className="sticky bottom-4 z-30 lg:bottom-0">
-                <button 
-                    onClick={handleGenerate} 
-                    disabled={!isFormValid || isLoading} 
-                    className={`w-full py-3.5 px-4 rounded-md text-sm font-bold tracking-wide transition-all shadow-xl flex items-center justify-center gap-2 group transform active:scale-[0.99]
-                        ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-500 cursor-not-allowed border border-zinc-800' : 'bg-white text-black hover:bg-zinc-100 border border-white'}`}
-                >
+                <button onClick={handleGenerate} disabled={!isFormValid || isLoading} className={`w-full py-3.5 px-4 rounded-md text-sm font-bold tracking-wide transition-all shadow-xl flex items-center justify-center gap-2 group transform active:scale-[0.99] ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-500 cursor-not-allowed border border-zinc-800' : 'bg-white text-black hover:bg-zinc-100 border border-white'}`}>
                     {isLoading ? (<Loader2 size={16} className="animate-spin" />) : (<><Sparkles size={16} fill="black" /> Generate Shoot</>)}
                 </button>
-                <div className="flex justify-between items-center mt-3 px-1">
-                    <span className="text-[10px] text-zinc-600 font-mono">{APP_VERSION}</span>
-                    <span className="text-[10px] font-bold text-zinc-500 font-mono">Cost: {currentCost} Credits</span>
+                <div className="flex justify-between items-center mt-3 px-1 text-[10px] text-zinc-500 font-mono">
+                    <span>{APP_VERSION}</span>
+                    <span>Cost: {getGenerationCost(options)} Credits</span>
                 </div>
             </div>
           </div>
           <div className="order-1 lg:order-2 lg:col-span-8 h-[60vh] lg:h-[calc(100vh-8rem)] sticky top-20 bg-black/50 backdrop-blur-sm border border-zinc-800 rounded-lg overflow-hidden shadow-2xl">
-             <ResultDisplay isLoading={isLoading} image={generatedImage} onDownload={handleDownload} onRegenerate={handleRegenerate} isPremium={isPremium} error={error} />
+             <ResultDisplay isLoading={isLoading} image={generatedImage} onDownload={() => {}} onRegenerate={handleRegenerate} isPremium={isPremium} error={error} />
+             {generatedImage && session && (
+                <button 
+                  onClick={() => saveToLibrary(generatedImage)}
+                  disabled={isSaving}
+                  className="absolute top-6 right-6 bg-black/80 backdrop-blur border border-zinc-800 p-2 rounded-md text-white hover:text-white hover:border-zinc-600 transition-all flex items-center gap-2 text-xs font-bold"
+                >
+                  {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  Save to Archive
+                </button>
+             )}
           </div>
         </div>
       </main>

@@ -1,5 +1,4 @@
 
-
 export enum ModelSex {
   Female = 'Female',
   Male = 'Male',
@@ -33,19 +32,14 @@ export enum FacialExpression {
 }
 
 export enum PhotoStyle {
-  // Standard Styles (Clean, Commercial)
   Studio = 'Studio',
   Urban = 'Urban',
   Nature = 'Nature',
-  Coastal = 'Coastal', // Replaces 'Beach'
-  
-  // Pro Styles (Editorial, High Concept)
+  Coastal = 'Coastal',
   Luxury = 'Luxury',
-  Chromatic = 'Chromatic', // Replaces 'Cyberpunk'
+  Chromatic = 'Chromatic',
   Minimalist = 'Minimalist',
   Film = 'Analog Film',
-  
-  // Renowned Photographer Styles
   Newton = 'Newton',
   Lindbergh = 'Lindbergh',
   Leibovitz = 'Leibovitz',
@@ -82,17 +76,17 @@ export enum AspectRatio {
 
 export enum SubscriptionTier {
   Free = 'Free',
-  Starter = 'Starter', // $9/mo
-  Creator = 'Creator', // $29/mo
-  Studio = 'Studio'    // $99/mo
+  Starter = 'Starter',
+  Creator = 'Creator',
+  Studio = 'Studio'
 }
 
 export interface OutfitItem {
-  garmentType: string; // e.g. "Oversized Blazer" instead of just "Top"
+  garmentType: string;
   description: string;
-  images: string[]; // Array of base64 strings
-  sizeChart: string | null; // Image of size chart
-  sizeChartDetails: string; // Manual text entry for size chart
+  images: string[];
+  sizeChart: string | null;
+  sizeChartDetails: string;
 }
 
 export interface OutfitDetails {
@@ -109,30 +103,33 @@ export interface PhotoshootOptions {
   facialExpression: FacialExpression;
   hairColor: string;
   hairStyle: string;
-
   style: PhotoStyle;
   sceneDetails: string;
   modelVersion: ModelVersion;
   aspectRatio: AspectRatio;
-  enable4K: boolean; // Only for Studio Plan
-  
-  // Model Body Configuration
+  enable4K: boolean;
   height: string; 
   measurementUnit: MeasurementUnit;
   bodyType: BodyType;
-  
-  // Outfit
   outfit: OutfitDetails;
-
-  // Generation State
   seed?: number;
   pose?: string;
   modelFeatures?: string;
-  referenceModelImage?: string; // Previous generation result to maintain identity
+  referenceModelImage?: string;
+  isModelLocked?: boolean;
 }
 
-export interface GeneratedImage {
+export interface Project {
   id: string;
-  url: string;
-  timestamp: number;
+  name: string;
+  user_id: string;
+  created_at: string;
+}
+
+export interface Generation {
+  id: string;
+  image_url: string;
+  project_id: string | null;
+  config: Partial<PhotoshootOptions>;
+  created_at: string;
 }
