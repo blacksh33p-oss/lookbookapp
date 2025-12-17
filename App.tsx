@@ -14,7 +14,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.6.1"; 
+const APP_VERSION = "v1.6.2"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -574,6 +574,7 @@ const App: React.FC = () => {
              setShowUpgradeModal(false);
 
              // Open Checkout Popup
+             // Updated SBL 1.0.6 session object structure
              window.fastspring.builder.push({
                  products: [
                      { path: productPath, quantity: 1 }
@@ -582,8 +583,10 @@ const App: React.FC = () => {
                      userId: activeSession.user.id,
                      userEmail: activeSession.user.email
                  },
-                 email: activeSession.user.email,
-                 firstName: activeSession.user.user_metadata?.full_name || ''
+                 contact: {
+                    email: activeSession.user.email,
+                    firstName: activeSession.user.user_metadata?.full_name || ''
+                 }
              });
 
          } else {
