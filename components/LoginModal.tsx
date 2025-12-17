@@ -113,62 +113,67 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                     <div className="bg-black border border-zinc-800 rounded-lg p-6 hover:border-zinc-600 transition-colors cursor-pointer flex flex-col" onClick={() => handleTierSelect(SubscriptionTier.Free)}>
+                     {/* GUEST TIER */}
+                     <div className="bg-black border border-zinc-800 rounded-lg p-6 hover:border-zinc-600 transition-colors cursor-pointer flex flex-col group" onClick={() => handleTierSelect(SubscriptionTier.Free)}>
                         <div className="mb-4">
                             <div className="text-white font-bold text-lg mb-1">Guest</div>
-                            <div className="text-zinc-500 text-xs">For testing.</div>
+                            <div className="text-zinc-500 text-xs">For quick tests.</div>
                         </div>
-                        <ul className="space-y-2 mb-6 flex-1 text-sm text-zinc-400">
-                            <li>5 Images / Day</li>
-                            <li>Standard Model</li>
-                            <li>1K Resolution</li>
+                        <ul className="space-y-3 mb-6 flex-1 text-sm text-zinc-400">
+                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-600" /> 5 Daily Drafts</li>
+                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-600" /> Standard Speed</li>
+                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-600" /> Personal Use</li>
                         </ul>
-                        <button className="w-full bg-zinc-900 text-white font-medium py-2 rounded-md border border-zinc-800 text-xs">Select</button>
+                        <button className="w-full bg-zinc-900 text-zinc-400 font-medium py-3 rounded-md border border-zinc-800 text-xs group-hover:bg-zinc-800 group-hover:text-white transition-all">Try Free</button>
                     </div>
 
-                    <div className="bg-black border border-zinc-800 rounded-lg p-6 hover:border-zinc-600 transition-colors cursor-pointer flex flex-col" onClick={() => handleTierSelect(SubscriptionTier.Starter)}>
+                    {/* STARTER TIER */}
+                    <div className="bg-black border border-zinc-800 rounded-lg p-6 hover:border-zinc-500 transition-colors cursor-pointer flex flex-col group" onClick={() => handleTierSelect(SubscriptionTier.Starter)}>
                         <div className="mb-4">
                             <div className="text-white font-bold text-lg mb-1">Starter</div>
                             <div className="text-zinc-500 text-xs">$9/mo</div>
                         </div>
-                        <ul className="space-y-2 mb-6 flex-1 text-sm text-zinc-400">
-                            <li>100 Standard Images/Mo</li>
-                            <li>Flash Model Only</li>
-                            <li>1K Resolution</li>
-                            <li>No Watermark</li>
+                        <ul className="space-y-3 mb-6 flex-1 text-sm text-zinc-400">
+                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> <span className="text-zinc-200">100 Fast Drafts</span></li>
+                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> No Watermark</li>
+                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> Commercial Rights</li>
                         </ul>
-                        <button className="w-full bg-zinc-900 text-white font-medium py-2 rounded-md border border-zinc-800 text-xs">Select</button>
+                        <button className="w-full bg-zinc-900 text-white font-medium py-3 rounded-md border border-zinc-800 text-xs group-hover:bg-zinc-800 group-hover:border-zinc-600 transition-all">Select Starter</button>
                     </div>
 
-                    <div className="bg-zinc-900/30 border border-zinc-700 rounded-lg p-6 hover:border-white transition-colors cursor-pointer flex flex-col relative" onClick={() => handleTierSelect(SubscriptionTier.Creator)}>
-                        <div className="mb-4">
+                    {/* CREATOR TIER (ANCHOR) */}
+                    <div className="bg-white border border-transparent rounded-lg p-6 cursor-pointer flex flex-col relative transform hover:-translate-y-1 transition-all duration-300 shadow-xl shadow-white/5" onClick={() => handleTierSelect(SubscriptionTier.Creator)}>
+                        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-zinc-200 via-zinc-400 to-zinc-200"></div>
+                        <div className="mb-4 mt-2">
                             <div className="flex justify-between items-center mb-1">
-                                <div className="text-white font-bold text-lg">Creator</div>
-                                <span className="bg-white text-black text-[9px] font-bold px-1.5 py-0.5 rounded-sm uppercase">Popular</span>
+                                <div className="text-black font-extrabold text-xl tracking-tight">Creator</div>
+                                <span className="bg-black text-white text-[9px] font-bold px-2 py-1 rounded-full uppercase tracking-widest shadow-lg">Best Value</span>
                             </div>
-                            <div className="text-zinc-500 text-xs">$29/mo</div>
+                            <div className="text-zinc-600 text-xs font-medium">$29/mo</div>
                         </div>
-                        <ul className="space-y-2 mb-6 flex-1 text-sm text-zinc-300">
-                             <li><strong className="text-white">50 Pro</strong> or 500 Standard</li>
-                             <li>Gemini 3 Pro + Flash</li>
-                             <li>2K Resolution</li>
-                             <li>Commercial Rights</li>
+                        <ul className="space-y-3 mb-8 flex-1 text-sm text-zinc-700">
+                             <li className="flex items-center gap-2"><Check size={14} className="text-black stroke-[3px]" /> <span className="font-bold">50 Studio Quality</span></li>
+                             <li className="flex items-center gap-2"><Check size={14} className="text-black" /> <span className="text-zinc-600">or 500 Fast Drafts</span></li>
+                             <li className="flex items-center gap-2"><Check size={14} className="text-black" /> Pro Model (V3)</li>
+                             <li className="flex items-center gap-2"><Check size={14} className="text-black" /> 2K Resolution</li>
                         </ul>
-                        <button className="w-full bg-white text-black font-bold py-2 rounded-md text-xs">Select</button>
+                        <button className="w-full bg-black text-white font-bold py-3.5 rounded-md text-xs hover:bg-zinc-800 hover:shadow-lg transition-all flex items-center justify-center gap-2">
+                            Get Pro Access <ArrowRight size={12} />
+                        </button>
                     </div>
 
-                    <div className="bg-black border border-zinc-800 rounded-lg p-6 hover:border-zinc-600 transition-colors cursor-pointer flex flex-col" onClick={() => handleTierSelect(SubscriptionTier.Studio)}>
+                    {/* STUDIO TIER */}
+                    <div className="bg-black border border-zinc-800 rounded-lg p-6 hover:border-zinc-500 transition-colors cursor-pointer flex flex-col group" onClick={() => handleTierSelect(SubscriptionTier.Studio)}>
                         <div className="mb-4">
                             <div className="text-white font-bold text-lg mb-1">Studio</div>
                             <div className="text-zinc-500 text-xs">$99/mo</div>
                         </div>
-                        <ul className="space-y-2 mb-6 flex-1 text-sm text-zinc-400">
-                            <li><strong className="text-white">200 Pro</strong> or 2k Standard</li>
-                            <li>4K Ultra HD</li>
-                            <li>Priority Queue</li>
-                            <li>Commercial Rights</li>
+                        <ul className="space-y-3 mb-6 flex-1 text-sm text-zinc-400">
+                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> <span className="text-zinc-200">200 Studio Quality</span></li>
+                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> 4K Ultra HD</li>
+                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> Priority Support</li>
                         </ul>
-                        <button className="w-full bg-zinc-900 text-white font-medium py-2 rounded-md border border-zinc-800 text-xs">Select</button>
+                        <button className="w-full bg-zinc-900 text-white font-medium py-3 rounded-md border border-zinc-800 text-xs group-hover:bg-zinc-800 group-hover:border-zinc-600 transition-all">Select Studio</button>
                     </div>
                 </div>
              </div>
