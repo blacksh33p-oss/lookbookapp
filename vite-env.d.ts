@@ -37,6 +37,7 @@ interface Window {
         builder: {
             push: (session: any) => void;
             reset: () => void;
+            checkout: () => void;
             // Add other builder methods if needed
         };
     };

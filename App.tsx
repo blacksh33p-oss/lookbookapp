@@ -14,7 +14,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.6.7"; 
+const APP_VERSION = "v1.6.8"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -627,16 +627,8 @@ const App: React.FC = () => {
                  return;
              }
              
-             console.log("Initializing checkout for path:", productPath);
+             console.log(`Initializing checkout for path: ${productPath}`);
 
-             // 1. Reset Builder to clear old carts
-             try { 
-                 window.fastspring.builder.reset(); 
-                 console.log("FastSpring builder reset.");
-             } catch(e) { 
-                 console.log('Builder reset skipped/failed', e); 
-             }
-             
              // 2. Prepare Name Payload
              const fullName = activeSession.user.user_metadata?.full_name || 'Valued Customer';
              const nameParts = fullName.split(' ');
@@ -659,12 +651,26 @@ const App: React.FC = () => {
                  }
              };
 
-             console.log("Pushing FastSpring session...", payload);
+             console.log("Pushing FastSpring session (Payload below):");
+             console.log(JSON.stringify(payload, null, 2));
 
              // 4. Push to FastSpring
              try {
+                 // Removed reset() call which can sometimes race with push in certain SBL versions
+                 // window.fastspring.builder.reset(); 
+
                  window.fastspring.builder.push(payload);
-                 // Close Modal after successful push
+                 
+                 // FORCE CHECKOUT: Explicitly request checkout to open
+                 // This handles cases where SBL thinks it's already in a session and doesn't auto-pop
+                 if (window.fastspring.builder.checkout) {
+                     console.log("Forcing checkout() open...");
+                     setTimeout(() => {
+                         window.fastspring.builder.checkout();
+                     }, 200);
+                 }
+                 
+                 // Close Modal
                  setShowUpgradeModal(false);
              } catch(err: any) {
                  console.error("FastSpring Push Error:", err);
