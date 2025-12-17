@@ -13,7 +13,7 @@ import { generatePhotoshootImage } from './services/gemini';
 import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier, Project, Generation } from './types';
 
-const APP_VERSION = "v1.9.5"; 
+const APP_VERSION = "v1.9.6"; 
 
 const POSES = [
     "Standing naturally, arms relaxed", "Walking towards camera, confident stride", "Leaning slightly against a wall", 
@@ -268,12 +268,17 @@ const App: React.FC = () => {
   };
 
   const handleGenerate = async () => {
-      // Mandatory API key selection for Gemini 3 Pro model
-      if (options.modelVersion === ModelVersion.Pro) {
-        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-        if (!hasKey) {
-          await (window as any).aistudio.openSelectKey();
-          // Proceed immediately per guidelines - injection happens in background
+      // Safety guard for window.aistudio which is only available in specific environments
+      const aistudio = (window as any).aistudio;
+      
+      if (options.modelVersion === ModelVersion.Pro && aistudio) {
+        try {
+          const hasKey = await aistudio.hasSelectedApiKey();
+          if (!hasKey) {
+            await aistudio.openSelectKey();
+          }
+        } catch (e) {
+          console.warn("AI Studio key selection failed or not supported in this context:", e);
         }
       }
 
@@ -317,13 +322,10 @@ const App: React.FC = () => {
       } catch (err: any) { 
           console.error("Execute Generation Error:", err);
           
-          // Guidelines: handle requested entity not found by re-triggering key selection
-          if (err.message?.includes("Requested entity was not found.") && currentOptions.modelVersion === ModelVersion.Pro) {
-              await (window as any).aistudio.openSelectKey();
+          const aistudio = (window as any).aistudio;
+          if (err.message?.includes("Requested entity was not found.") && currentOptions.modelVersion === ModelVersion.Pro && aistudio) {
+              await aistudio.openSelectKey();
               setError("API Key verification failed. Please ensure you select a key from a paid GCP project.");
-          } else if (err.message?.includes("API Key is missing")) {
-              await (window as any).aistudio.openSelectKey();
-              setError("Please select your Gemini API key to use the Pro model.");
           } else {
               setError(err.message || 'Generation failed. Please check your garment photos and try again.');
           }
@@ -486,7 +488,7 @@ const App: React.FC = () => {
                                 onClick={() => setOptions({...options, modelVersion: ModelVersion.Flash})} 
                                 className={`flex flex-col items-center justify-center py-3 rounded-md border transition-all ${options.modelVersion === ModelVersion.Flash ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-700'}`}
                             >
-                                <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Flash ? 'text-black' : 'text-zinc-400'}`}>Flash 2.5</span>
+                                <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Flash ? 'text-black' : 'text-zinc-400'}`}>Flash 3</span>
                             </button>
                             <button 
                                 onClick={() => handleProFeatureClick(() => setOptions({...options, modelVersion: ModelVersion.Pro}))} 

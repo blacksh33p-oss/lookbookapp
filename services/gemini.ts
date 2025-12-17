@@ -37,21 +37,13 @@ const getModelName = (version: ModelVersion): string => {
   switch (version) {
     case ModelVersion.Pro: return 'gemini-3-pro-image-preview';
     case ModelVersion.Flash:
-    default: return 'gemini-2.5-flash-image';
+    default: return 'gemini-3-flash-preview';
   }
 };
 
 export const generatePhotoshootImage = async (options: PhotoshootOptions): Promise<string> => {
-  // Always fetch dynamic API key from runtime environment
-  // We check window.process.env.API_KEY which is where the key is injected in AI Studio.
-  const apiKey = (window as any).process?.env?.API_KEY || (process as any).env?.API_KEY;
-  
-  if (!apiKey && options.modelVersion === ModelVersion.Pro) {
-      throw new Error("Gemini Pro requires a selected API key. Please select one using the Pro engine button.");
-  }
-
-  // Use this apiKey directly when initializing the client.
-  const ai = new GoogleGenAI({ apiKey: apiKey || "" });
+  // Always create a new instance using the environment variable as per guidelines
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const heightStr = options.height ? `Model Height: ${options.height} ${options.measurementUnit}` : 'Height: Standard Model Height';
   const bodyTypeStr = `Body Type: ${options.bodyType}`;
@@ -121,7 +113,6 @@ export const generatePhotoshootImage = async (options: PhotoshootOptions): Promi
 
   if (options.modelVersion === ModelVersion.Pro) {
     imageConfig.imageSize = options.enable4K ? '4K' : '2K';
-    // Using google_search tool specifically for Pro image generation as per SDK example
     tools.push({ google_search: {} });
   }
 
