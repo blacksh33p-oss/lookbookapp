@@ -14,7 +14,9 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.7.0"; 
+const APP_VERSION = "v1.7.1"; 
+const ACCOUNT_PORTAL_URL = 'https://lookbook.test.onfastspring.com/account';
+
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -614,16 +616,30 @@ const App: React.FC = () => {
              return;
          }
 
-         // DOWNGRADE LOGIC: REDIRECT TO PORTAL
-         if (tier === SubscriptionTier.Free) {
-             console.log("User requested downgrade. Redirecting to Account Portal.");
-             showToast("Opening subscription portal...", "info");
-             // Using the standard FastSpring account URL structure based on the storefront ID from index.html
-             window.open('https://lookbook.test.onfastspring.com/account', '_blank');
+         const currentTier = userProfile?.tier || SubscriptionTier.Free;
+
+         // ---------------------------------------------------------
+         // SCENARIO 1: EXISTING SUBSCRIBER (Manage/Change Plan)
+         // ---------------------------------------------------------
+         // If the user is ALREADY on a paid plan (Starter, Creator, Studio), 
+         // we CANNOT just open a checkout for a new plan because FastSpring 
+         // would create a *second* subscription. 
+         // Instead, we send them to the Self-Serve Account Portal to "Change Plan".
+         if (currentTier !== SubscriptionTier.Free) {
+             console.log("User is existing subscriber. Redirecting to Account Portal for plan change.");
+             showToast("Opening subscription management portal...", "info");
+             // The Account Portal URL is generally based on the storefront URL.
+             // Using the one configured in index.html: lookbook.test.onfastspring.com
+             window.open(ACCOUNT_PORTAL_URL, '_blank');
              return;
          }
 
-         // FASTSPRING POPUP LOGIC
+         // ---------------------------------------------------------
+         // SCENARIO 2: NEW SUBSCRIBER (Purchase)
+         // ---------------------------------------------------------
+         // User is on Free tier. They are buying their first subscription.
+         // We open the Popup Checkout.
+         
          if (window.fastspring && window.fastspring.builder) {
              const productPath = getProductPath(tier);
              
@@ -635,13 +651,12 @@ const App: React.FC = () => {
              
              console.log(`Initializing checkout for path: ${productPath}`);
 
-             // 2. Prepare Name Payload
+             // Prepare Payload
              const fullName = activeSession.user.user_metadata?.full_name || 'Valued Customer';
              const nameParts = fullName.split(' ');
              const firstName = nameParts[0];
              const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : undefined;
 
-             // 3. Prepare Payload
              const payload = {
                  products: [
                      { path: productPath, quantity: 1 }
@@ -657,26 +672,17 @@ const App: React.FC = () => {
                  }
              };
 
-             console.log("Pushing FastSpring session (Payload below):");
-             console.log(JSON.stringify(payload, null, 2));
-
-             // 4. Push to FastSpring
+             // Push to FastSpring
              try {
-                 // Removed reset() call which can sometimes race with push in certain SBL versions
-                 // window.fastspring.builder.reset(); 
-
                  window.fastspring.builder.push(payload);
                  
-                 // FORCE CHECKOUT: Explicitly request checkout to open
-                 // This handles cases where SBL thinks it's already in a session and doesn't auto-pop
+                 // Force checkout open if needed
                  if (window.fastspring.builder.checkout) {
-                     console.log("Forcing checkout() open...");
                      setTimeout(() => {
                          window.fastspring.builder.checkout();
                      }, 200);
                  }
                  
-                 // Close Modal
                  setShowUpgradeModal(false);
              } catch(err: any) {
                  console.error("FastSpring Push Error:", err);
@@ -684,8 +690,8 @@ const App: React.FC = () => {
              }
 
          } else {
-             console.error("FastSpring script not loaded or builder undefined. window.fastspring:", window.fastspring);
-             showToast("Checkout system loading... please refresh and try again.", "error");
+             console.error("FastSpring script not loaded.");
+             showToast("Checkout system loading... please refresh.", "error");
          }
 
      } catch (err) {

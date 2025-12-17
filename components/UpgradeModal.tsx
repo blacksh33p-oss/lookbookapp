@@ -1,8 +1,5 @@
 
 
-
-
-
 import React from 'react';
 import { X, Check, Zap, Crown, Building2, User, ArrowRight } from 'lucide-react';
 import { SubscriptionTier } from '../types';
@@ -24,13 +21,43 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
     [SubscriptionTier.Studio]: 3,
   };
 
-  const currentLevel = tierOrder[currentTier];
-
-  const getButtonProps = (tier: SubscriptionTier, baseText: string) => {
+  const getButtonProps = (tier: SubscriptionTier, defaultText: string) => {
       const level = tierOrder[tier];
-      if (level === currentLevel) return { text: "Current Plan", disabled: true, style: "cursor-default opacity-50 bg-zinc-800 text-zinc-400 border-zinc-700 hover:bg-zinc-800 hover:text-zinc-400" };
-      if (level > currentLevel) return { text: "Upgrade", disabled: false, style: "" };
-      return { text: "Manage Subscription", disabled: false, style: "bg-zinc-900 text-zinc-500 hover:text-white border-zinc-800" };
+      const currentLevel = tierOrder[currentTier];
+
+      // 1. Current Plan (Disabled)
+      if (tier === currentTier) {
+          return { 
+              text: "Current Plan", 
+              disabled: true, 
+              style: "cursor-default opacity-50 bg-zinc-800 text-zinc-400 border-zinc-700 hover:bg-zinc-800 hover:text-zinc-400" 
+          };
+      }
+
+      // 2. Existing Subscriber (Paid) -> Switching Plans (Portal)
+      if (currentTier !== SubscriptionTier.Free) {
+          // Going to Free = Cancel/Manage
+          if (tier === SubscriptionTier.Free) {
+              return { 
+                  text: "Manage Subscription", 
+                  disabled: false, 
+                  style: "bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800" 
+              };
+          }
+          // Changing Paid Plan = Switch
+          return { 
+              text: "Switch Plan", 
+              disabled: false, 
+              style: "bg-white text-black border-white hover:bg-zinc-200 shadow-lg" 
+          };
+      }
+
+      // 3. New Subscriber (Free) -> Upgrade (Checkout)
+      return { 
+          text: defaultText, 
+          disabled: false, 
+          style: "" // Uses default styles defined in JSX
+      };
   };
 
   const starterProps = getButtonProps(SubscriptionTier.Starter, "Select Starter");
@@ -59,13 +86,14 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                         <li>5 Daily Drafts</li>
                         <li>Gemini Flash 2.5 Model</li>
                     </ul>
+                    {/* Free Card Button Logic */}
                     <button 
                         onClick={() => currentTier !== SubscriptionTier.Free && onUpgrade(SubscriptionTier.Free)} 
                         disabled={currentTier === SubscriptionTier.Free}
                         className={`w-full py-2.5 rounded-md border border-zinc-800 text-xs font-medium 
                         ${currentTier === SubscriptionTier.Free 
                             ? 'bg-zinc-900/50 text-zinc-500 cursor-default' 
-                            : 'bg-zinc-900 text-zinc-500 hover:text-white hover:bg-zinc-800 cursor-pointer'}`}
+                            : 'bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800 cursor-pointer'}`}
                     >
                         {currentTier === SubscriptionTier.Free ? "Active" : "Manage Subscription"}
                     </button>
@@ -116,7 +144,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                         disabled={creatorProps.disabled}
                         className={`w-full font-bold py-3.5 rounded-md text-xs transition-all flex items-center justify-center gap-2 shadow-lg ${creatorProps.style || 'bg-black text-white hover:bg-zinc-800'}`}
                     >
-                        {creatorProps.text} {creatorProps.text === "Upgrade" && <ArrowRight size={12} />}
+                        {creatorProps.text} {creatorProps.text === "Get Creator Access" && <ArrowRight size={12} />}
                     </button>
                 </div>
 
