@@ -128,6 +128,7 @@ export interface Project {
 
 export interface Generation {
   id: string;
+  user_id: string;
   image_url: string;
   project_id: string | null;
   config: Partial<PhotoshootOptions>;

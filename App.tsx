@@ -13,7 +13,7 @@ import { generatePhotoshootImage } from './services/gemini';
 import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier, Project, Generation } from './types';
 
-const APP_VERSION = "v1.8.1"; 
+const APP_VERSION = "v1.8.3"; 
 const ACCOUNT_PORTAL_URL = 'https://lookbook.test.onfastspring.com/account';
 
 const POSES = [
@@ -60,7 +60,7 @@ const getProductPath = (tier: SubscriptionTier): string => {
 
 const Toast: React.FC<{ message: string; type: 'success' | 'error' | 'info'; onClose: () => void }> = ({ message, type, onClose }) => {
   useEffect(() => {
-    const timer = setTimeout(onClose, 3000);
+    const timer = setTimeout(onClose, 4000);
     return () => clearTimeout(timer);
   }, [onClose]);
 
@@ -118,13 +118,7 @@ const StyleButton: React.FC<StyleButtonProps> = ({ label, isSelected, isLocked, 
 );
 
 const App: React.FC = () => {
-  const [userProfile, setUserProfile] = useState<{tier: SubscriptionTier, credits: number, username?: string} | null>(() => {
-      try {
-          const cached = localStorage.getItem('fashion_user_profile');
-          return cached ? JSON.parse(cached) : null;
-      } catch (e) { return null; }
-  });
-
+  const [userProfile, setUserProfile] = useState<{tier: SubscriptionTier, credits: number, username?: string} | null>(null);
   const [session, setSession] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -133,7 +127,6 @@ const App: React.FC = () => {
     return saved !== null ? parseInt(saved, 10) : 5;
   });
 
-  // Projects & Archive State
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [showLibrary, setShowLibrary] = useState(false);
@@ -177,33 +170,38 @@ const App: React.FC = () => {
     }
   }, [session]);
 
-  useEffect(() => {
-    const checkApiKey = async () => {
-      const aistudio = (window as any).aistudio;
-      if (aistudio && typeof aistudio.hasSelectedApiKey === 'function') {
-        const hasKey = await aistudio.hasSelectedApiKey();
-        setHasApiKey(hasKey);
-      }
-    };
-    checkApiKey();
-  }, []);
-
   const fetchProjects = async () => {
-    const { data } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
-    if (data) {
-      setProjects(data);
-      if (data.length > 0 && !activeProjectId) setActiveProjectId(data[0].id);
+    try {
+      const { data, error } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
+      if (error) {
+          if (error.code === '42P01') console.warn("Table 'projects' not found. Run SQL script.");
+          return;
+      }
+      if (data) {
+        setProjects(data);
+        if (data.length > 0 && !activeProjectId) setActiveProjectId(data[0].id);
+      }
+    } catch (e) {
+      console.error("Fetch projects exception:", e);
     }
   };
 
   const createProject = async () => {
     const name = prompt("Project Name?");
     if (!name) return;
-    const { data } = await supabase.from('projects').insert([{ name, user_id: session.user.id }]).select().single();
-    if (data) {
-      setProjects([data, ...projects]);
-      setActiveProjectId(data.id);
-      showToast("Project created", "success");
+    try {
+      const { data, error } = await supabase.from('projects').insert([{ name, user_id: session.user.id }]).select().single();
+      if (error) {
+        showToast(`Failed to create project: ${error.message}`, "error");
+        return;
+      }
+      if (data) {
+        setProjects([data, ...projects]);
+        setActiveProjectId(data.id);
+        showToast(`Project "${name}" created`, "success");
+      }
+    } catch (e) {
+      showToast("Error creating project", "error");
     }
   };
 
@@ -221,13 +219,12 @@ const App: React.FC = () => {
       const { error } = await supabase.from('generations').insert([payload]);
       
       if (error) {
-        console.error("Supabase insert error:", error);
-        showToast(`Failed to save: ${error.message}`, "error");
+        console.error("Save error:", error);
+        showToast(`Error: ${error.message}`, "error");
       } else {
         showToast("Saved to library", "success");
       }
     } catch (e: any) {
-      console.error("Save to library exception:", e);
       showToast("Error saving to archive", "error");
     } finally {
       setIsSaving(false);
@@ -245,10 +242,8 @@ const App: React.FC = () => {
       if (event === 'SIGNED_IN' && session) {
          setShowLoginModal(false);
          setTimeout(() => fetchProfile(session.user.id, session.user.email), 300);
-         showToast(`Welcome back!`, 'success');
       } else if (event === 'SIGNED_OUT') {
          setUserProfile(null); setSession(null); setProjects([]); setActiveProjectId(null);
-         showToast('Signed out successfully', 'info');
       }
     });
     return () => subscription.unsubscribe();
@@ -274,7 +269,7 @@ const App: React.FC = () => {
   const handleAuth = async (email: string, password?: string, isSignUp?: boolean, username?: string) => {
       if (!isConfigured) return;
       if (isSignUp) {
-          const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: username } } });
+          const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: username } } });
           if (error) throw error;
       } else {
           const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -282,39 +277,23 @@ const App: React.FC = () => {
       }
   };
 
-  const handleLogout = async (e?: React.MouseEvent) => {
-      if (e) e.preventDefault();
-      setSession(null); setUserProfile(null); setShowProfileMenu(false);
+  const handleLogout = async () => {
       await supabase.auth.signOut(); 
       showToast('Signed out successfully', 'info');
   };
 
-  const handleUpgrade = async (tier?: SubscriptionTier) => {
-     try {
-         const { data } = await supabase.auth.getSession();
-         if (!data.session) { handleSignup(); return; }
-         if (userProfile?.tier !== SubscriptionTier.Free && !tier) {
-             window.open(ACCOUNT_PORTAL_URL, '_blank');
-             return;
-         }
-         const fs = (window as any).fastspring;
-         if (fs?.builder && tier) {
-             const productPath = getProductPath(tier);
-             const payload = { products: [{ path: productPath, quantity: 1 }], tags: { userId: data.session.user.id } };
-             fs.builder.push(payload);
-             if (fs.builder.checkout) setTimeout(() => fs.builder.checkout(), 200);
-             setShowUpgradeModal(false);
-         }
-     } catch (err) { }
-  };
-
-  const handleLogin = () => { setLoginModalView('login'); setShowLoginModal(true); };
-  const handleSignup = () => { setLoginModalView('signup'); setShowLoginModal(true); };
-
-  const handleProFeatureClick = (action: () => void) => {
-      if (session ? (userProfile?.tier === SubscriptionTier.Creator || userProfile?.tier === SubscriptionTier.Studio) : false) action();
-      else if (!session) handleSignup();
-      else setShowUpgradeModal(true);
+  const handleGenerate = () => {
+      const newSeed = getRandomSeed();
+      const newFeatures = options.isModelLocked && options.modelFeatures ? options.modelFeatures : getRandomFeatures();
+      const newOptions = { 
+        ...options, 
+        seed: newSeed, 
+        pose: autoPose ? getRandomPose() : (options.pose || getRandomPose()), 
+        modelFeatures: newFeatures,
+        referenceModelImage: options.isModelLocked ? (generatedImage || options.referenceModelImage) : undefined
+      };
+      setOptions(newOptions);
+      executeGeneration(newOptions);
   };
 
   const executeGeneration = async (currentOptions: PhotoshootOptions) => {
@@ -336,55 +315,41 @@ const App: React.FC = () => {
             const newBalance = userProfile.credits - cost;
             setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
             supabase.from('profiles').update({ credits: newBalance }).eq('id', session.user.id);
-            
-            if (userProfile.tier !== SubscriptionTier.Free) {
-              saveToLibrary(result);
-            }
-          } catch (err: any) { 
-            if (err.message && err.message.includes("Requested entity was not found.")) {
-                setHasApiKey(false);
-                showToast("Invalid API context. Please re-select your key.", "error");
-            } else {
-                setError(err.message || 'Error'); 
-            }
-          } finally { setIsLoading(false); }
+            if (userProfile.tier !== SubscriptionTier.Free) saveToLibrary(result);
+          } catch (err: any) { setError(err.message || 'Error'); } finally { setIsLoading(false); }
       }
   }
 
-  const handleGenerate = () => {
-      const newSeed = getRandomSeed();
-      const newFeatures = options.isModelLocked && options.modelFeatures ? options.modelFeatures : getRandomFeatures();
-      const newOptions = { 
-        ...options, 
-        seed: newSeed, 
-        pose: autoPose ? getRandomPose() : (options.pose || getRandomPose()), 
-        modelFeatures: newFeatures,
-        referenceModelImage: options.isModelLocked ? (generatedImage || options.referenceModelImage) : undefined
-      };
-      setOptions(newOptions);
-      executeGeneration(newOptions);
+  const handleUpgrade = (tier?: SubscriptionTier) => {
+     if (userProfile?.tier !== SubscriptionTier.Free && !tier) {
+         window.open(ACCOUNT_PORTAL_URL, '_blank');
+         return;
+     }
+     const fs = (window as any).fastspring;
+     if (fs?.builder && tier) {
+         const productPath = getProductPath(tier);
+         fs.builder.push({ products: [{ path: productPath, quantity: 1 }], tags: { userId: session.user.id } });
+         if (fs.builder.checkout) fs.builder.checkout();
+         setShowUpgradeModal(false);
+     }
   };
-  
-  const handleRegenerate = (keepModel: boolean) => {
-       const newOptions = { 
-        ...options, 
-        seed: keepModel ? options.seed : getRandomSeed(), 
-        pose: autoPose ? getRandomPose() : (options.pose || getRandomPose()),
-        referenceModelImage: keepModel ? (generatedImage || options.referenceModelImage) : undefined
-       };
-       setOptions(newOptions);
-       executeGeneration(newOptions);
+
+  const handleLogin = () => { setLoginModalView('login'); setShowLoginModal(true); };
+  const handleSignup = () => { setLoginModalView('signup'); setShowLoginModal(true); };
+
+  const handleProFeatureClick = (action: () => void) => {
+      if (session ? (userProfile?.tier === SubscriptionTier.Creator || userProfile?.tier === SubscriptionTier.Studio) : false) action();
+      else if (!session) handleSignup();
+      else setShowUpgradeModal(true);
   };
 
   const handleDownload = () => {
     if (generatedImage) {
       const link = document.createElement('a');
       link.href = generatedImage;
-      link.download = `fashion-studio-shoot-${Date.now()}.png`;
-      document.body.appendChild(link);
+      link.download = `shoot-${Date.now()}.png`;
       link.click();
-      document.body.removeChild(link);
-      showToast("Image downloaded", "success");
+      showToast("Download started", "success");
     }
   };
 
@@ -400,34 +365,6 @@ const App: React.FC = () => {
       </div>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-      
-      {!hasApiKey && (
-        <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-xl flex items-center justify-center p-6 text-center">
-          <div className="max-w-md animate-fade-in">
-             <div className="w-16 h-16 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-black">
-                <Lock className="text-white" size={24} />
-             </div>
-            <h2 className="text-2xl font-bold text-white mb-4">API Key Required</h2>
-            <p className="text-zinc-400 mb-6 text-sm leading-relaxed">
-              To access high-performance generation (Gemini 3 Pro) and ensure availability, you must select your own API key from a paid GCP project.
-              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="text-zinc-300 underline block mt-4 font-mono text-[10px] uppercase tracking-widest">View Billing Docs</a>
-            </p>
-            <button 
-              onClick={async () => {
-                const aistudio = (window as any).aistudio;
-                if (aistudio && typeof aistudio.openSelectKey === 'function') {
-                    await aistudio.openSelectKey();
-                    setHasApiKey(true);
-                }
-              }}
-              className="bg-white text-black px-8 py-3.5 rounded-md font-bold text-xs uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-xl shadow-white/5"
-            >
-              Select Paid API Key
-            </button>
-          </div>
-        </div>
-      )}
-
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onAuth={handleAuth} initialView={loginModalView} showToast={showToast} />
       <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} onUpgrade={handleUpgrade} currentTier={userProfile?.tier || SubscriptionTier.Free} />
       <LibraryDrawer isOpen={showLibrary} onClose={() => setShowLibrary(false)} activeProjectId={activeProjectId} />
@@ -438,35 +375,31 @@ const App: React.FC = () => {
                   <div className="w-6 h-6 bg-white text-black rounded-sm flex items-center justify-center shadow-lg shadow-white/10">
                      <Hexagon size={14} fill="currentColor" strokeWidth={0} />
                   </div>
-                  <h1 className="text-sm font-bold tracking-tight text-white font-mono">FashionStudio<span className="text-zinc-500">.ai</span></h1>
+                  <h1 className="text-sm font-bold tracking-tight text-white font-mono uppercase">FashionStudio<span className="text-zinc-500">.ai</span></h1>
               </div>
 
               <div className="flex items-center gap-4">
                  {session && (
                     <button onClick={() => setShowLibrary(true)} className="flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-white transition-colors">
-                        <Library size={14} /> Library
+                        <Library size={14} /> Archive
                     </button>
                  )}
                  {session ? (
                      <>
                         <button onClick={() => setShowUpgradeModal(true)} className="hidden sm:flex text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white transition-colors items-center gap-1.5 border border-zinc-800 hover:border-zinc-600 px-3 py-1.5 rounded-md">
                            <Crown size={12} className="text-amber-500" /> 
-                           <span>{userProfile?.tier === SubscriptionTier.Free ? 'Guest' : userProfile?.tier}</span>
+                           <span>{userProfile?.tier}</span>
                         </button>
-                        <div onClick={() => setShowProfileMenu(!showProfileMenu)} className="flex items-center gap-3 cursor-pointer group px-2 py-1 rounded-md hover:bg-zinc-900 transition-colors relative">
-                            <div className="w-6 h-6 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700 text-xs font-bold text-white">
-                                {session.user.email?.[0].toUpperCase()}
-                            </div>
-                        </div>
-                        {showProfileMenu && (
-                            <div className="absolute top-12 right-4 w-48 bg-black border border-zinc-800 rounded-md shadow-2xl z-50 animate-fade-in overflow-hidden">
-                                <div className="p-3 border-b border-zinc-800 text-[10px] text-zinc-500 truncate">{session.user.email}</div>
-                                <div className="p-1">
-                                    <button onClick={() => handleUpgrade()} className="w-full text-left px-3 py-2 text-xs text-white hover:bg-zinc-900 rounded-sm flex items-center gap-2"><CreditCard size={12} /> Billing</button>
-                                    <button onClick={handleLogout} className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-zinc-900 rounded-sm flex items-center gap-2"><LogOut size={12} /> Sign Out</button>
+                        <div onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-6 h-6 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700 text-[10px] font-bold text-white cursor-pointer relative">
+                            {session.user.email?.[0].toUpperCase()}
+                            {showProfileMenu && (
+                                <div className="absolute top-10 right-0 w-48 bg-black border border-zinc-800 rounded-md shadow-2xl z-50 overflow-hidden">
+                                    <div className="p-3 border-b border-zinc-800 text-[10px] text-zinc-500 truncate">{session.user.email}</div>
+                                    <button onClick={() => handleUpgrade()} className="w-full text-left px-3 py-2.5 text-[10px] text-white hover:bg-zinc-900 flex items-center gap-2 uppercase font-bold"><CreditCard size={12} /> Billing</button>
+                                    <button onClick={handleLogout} className="w-full text-left px-3 py-2.5 text-[10px] text-red-400 hover:bg-zinc-900 flex items-center gap-2 uppercase font-bold"><LogOut size={12} /> Sign Out</button>
                                 </div>
-                            </div>
-                        )}
+                            )}
+                        </div>
                      </>
                  ) : (
                     <div className="flex items-center gap-3">
@@ -489,13 +422,13 @@ const App: React.FC = () => {
                         <select 
                             value={activeProjectId || ''} 
                             onChange={(e) => setActiveProjectId(e.target.value || null)}
-                            className="bg-transparent border-none text-xs font-bold text-white p-0 focus:ring-0 cursor-pointer flex-1"
+                            className="bg-transparent border-none text-[10px] font-bold text-white p-0 focus:ring-0 cursor-pointer flex-1 uppercase tracking-widest"
                         >
-                            <option value="">All Generations</option>
+                            <option value="">Main Archive</option>
                             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
                     </div>
-                    <button onClick={createProject} className="p-1 text-zinc-500 hover:text-white"><Plus size={16}/></button>
+                    <button onClick={createProject} className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-900 rounded-md transition-colors"><Plus size={14}/></button>
                 </div>
             )}
 
@@ -504,30 +437,14 @@ const App: React.FC = () => {
                     <OutfitControl outfit={options.outfit} onChange={(newOutfit) => setOptions({ ...options, outfit: newOutfit })} />
                 </ConfigSection>
                 <ConfigSection title="Model & Set" icon={UserCircle} defaultOpen={true}>
-                    <div className="mb-4 flex items-center justify-between bg-zinc-900/40 p-2 rounded-md border border-zinc-800">
+                    <div className="mb-4 flex items-center justify-between bg-zinc-900/40 p-2.5 rounded-md border border-zinc-800">
                         <div className="flex items-center gap-2">
                             <Star size={12} className={options.isModelLocked ? "text-amber-500" : "text-zinc-600"} />
-                            <span className="text-[10px] font-bold text-white uppercase tracking-wide">Lock Character</span>
+                            <span className="text-[10px] font-bold text-white uppercase tracking-wider">Lock Identity</span>
                         </div>
-                        <button 
-                            onClick={() => setOptions({...options, isModelLocked: !options.isModelLocked})}
-                            className={`w-8 h-4 rounded-full relative transition-colors ${options.isModelLocked ? 'bg-amber-500' : 'bg-zinc-700'}`}
-                        >
+                        <button onClick={() => setOptions({...options, isModelLocked: !options.isModelLocked})} className={`w-8 h-4 rounded-full relative transition-colors ${options.isModelLocked ? 'bg-amber-500' : 'bg-zinc-700'}`}>
                             <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${options.isModelLocked ? 'translate-x-4' : 'translate-x-0'}`}></div>
                         </button>
-                    </div>
-
-                    <div className="mb-6 space-y-3">
-                        <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Engine</label>
-                        <div className="grid grid-cols-2 gap-3 mb-2">
-                            <button onClick={() => setOptions({...options, modelVersion: ModelVersion.Flash})} className={`flex flex-col items-center justify-center py-3 px-2 rounded-md border transition-all ${options.modelVersion === ModelVersion.Flash ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-600'}`}>
-                                <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Flash ? 'text-black' : 'text-white'}`}>Flash 2.5</span>
-                            </button>
-                            <button onClick={() => handleProFeatureClick(() => setOptions({...options, modelVersion: ModelVersion.Pro}))} className={`flex flex-col items-center justify-center py-3 px-2 rounded-md border transition-all relative ${options.modelVersion === ModelVersion.Pro ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-600'}`}>
-                                {!hasProAccess && <Lock size={10} className="absolute top-2 right-2 text-zinc-500" />}
-                                <span className={`text-[10px] font-bold uppercase ${options.modelVersion === ModelVersion.Pro ? 'text-black' : 'text-white'}`}>Pro 3</span>
-                            </button>
-                        </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <Dropdown label="Sex" value={options.sex} options={Object.values(ModelSex)} onChange={(val) => setOptions({ ...options, sex: val })} />
@@ -537,10 +454,10 @@ const App: React.FC = () => {
                     </div>
                     <div className="h-px bg-zinc-900 my-4"></div>
                     <div className="space-y-3">
-                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Style</label>
-                      <div className="grid grid-cols-2 gap-2 max-h-[240px] overflow-y-auto pr-2 custom-scrollbar">
+                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Photo Style</label>
+                      <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
                          {STANDARD_STYLES.map(style => (<StyleButton key={style} label={style} isSelected={options.style === style} onClick={() => setOptions({...options, style: style as PhotoStyle})} />))}
-                         <div className="col-span-2 text-[9px] font-bold text-zinc-500 uppercase tracking-wider mt-2 mb-1 pl-1">Pro Styles</div>
+                         <div className="col-span-2 text-[9px] font-bold text-zinc-500 uppercase tracking-wider mt-2 mb-1 pl-1">Studio Styles</div>
                          {PRO_STYLES.map(style => (<StyleButton key={style} label={style} isSelected={options.style === style} isLocked={!hasProAccess} onClick={() => handleProFeatureClick(() => setOptions({...options, style: style as PhotoStyle}))} />))}
                       </div>
                     </div>
@@ -548,31 +465,26 @@ const App: React.FC = () => {
                 <ConfigSection title="Pose" icon={Move}>
                     <PoseControl selectedPose={options.pose} onPoseChange={(p) => setOptions({ ...options, pose: p })} isAutoMode={autoPose} onToggleAutoMode={setAutoPose} isPremium={isPremium} onUpgrade={() => handleProFeatureClick(() => {})} />
                 </ConfigSection>
-                <ConfigSection title="Size" icon={Ruler}>
+                <ConfigSection title="Model Specs" icon={Ruler}>
                     <SizeControl options={options} onChange={setOptions} isPremium={isStudio} onUpgradeRequest={() => handleProFeatureClick(() => {})} />
                 </ConfigSection>
             </div>
             
-            <div className="sticky bottom-4 z-30 lg:bottom-0">
-                <button onClick={handleGenerate} disabled={!isFormValid || isLoading} className={`w-full py-3.5 px-4 rounded-md text-sm font-bold tracking-wide transition-all shadow-xl flex items-center justify-center gap-2 group transform active:scale-[0.99] ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-500 cursor-not-allowed border border-zinc-800' : 'bg-white text-black hover:bg-zinc-100 border border-white'}`}>
-                    {isLoading ? (<Loader2 size={16} className="animate-spin" />) : (<><Sparkles size={16} fill="black" /> Generate Shoot</>)}
-                </button>
-                <div className="flex justify-between items-center mt-3 px-1 text-[10px] text-zinc-500 font-mono">
-                    <span>{APP_VERSION}</span>
-                    <span>Cost: {getGenerationCost(options)} Credits</span>
-                </div>
-            </div>
+            <button onClick={handleGenerate} disabled={!isFormValid || isLoading} className={`w-full py-4 rounded-md text-[11px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 transform active:scale-[0.98] ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-600 border border-zinc-800' : 'bg-white text-black hover:bg-zinc-200'}`}>
+                {isLoading ? <Loader2 size={16} className="animate-spin" /> : <><Sparkles size={16} fill="black" /> Generate Shoot</>}
+            </button>
           </div>
-          <div className="order-1 lg:order-2 lg:col-span-8 h-[60vh] lg:h-[calc(100vh-8rem)] sticky top-20 bg-black/50 backdrop-blur-sm border border-zinc-800 rounded-lg overflow-hidden shadow-2xl">
-             <ResultDisplay isLoading={isLoading} image={generatedImage} onDownload={handleDownload} onRegenerate={handleRegenerate} isPremium={isPremium} error={error} />
+
+          <div className="order-1 lg:order-2 lg:col-span-8 h-[60vh] lg:h-[calc(100vh-8rem)] sticky top-20 bg-black border border-zinc-800 rounded-lg overflow-hidden shadow-2xl relative">
+             <ResultDisplay isLoading={isLoading} image={generatedImage} onDownload={handleDownload} onRegenerate={(keep) => {
+                 setOptions({...options, isModelLocked: keep});
+                 handleGenerate();
+             }} isPremium={isPremium} error={error} />
+             
              {generatedImage && session && (
-                <button 
-                  onClick={() => saveToLibrary(generatedImage)}
-                  disabled={isSaving}
-                  className="absolute top-6 right-6 bg-black/80 backdrop-blur border border-zinc-800 p-2 rounded-md text-white hover:text-white hover:border-zinc-600 transition-all flex items-center gap-2 text-xs font-bold"
-                >
+                <button onClick={() => saveToLibrary(generatedImage)} disabled={isSaving} className="absolute top-6 right-6 bg-black/80 backdrop-blur border border-zinc-800 px-4 py-2 rounded-md text-white hover:border-zinc-500 transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider">
                   {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                  Save to Archive
+                  {isSaving ? "Saving..." : "Save to Archive"}
                 </button>
              )}
           </div>
