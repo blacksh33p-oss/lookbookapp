@@ -8,6 +8,13 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     
+    <!-- Runtime Environment Shim -->
+    <script type="text/javascript">
+        if (typeof window !== 'undefined') {
+            window.process = window.process || { env: {} };
+        }
+    </script>
+
     <!-- FastSpring Global Callback -->
     <script type="text/javascript">
         window.onPopupClosed = function(data) {

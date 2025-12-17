@@ -9,10 +9,11 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
-    // We remove the hard-definition of process.env.API_KEY to let the runtime 
-    // environment (like AI Studio) inject it dynamically when the user selects a key.
+    // We define process.env.API_KEY to ensure it's available in the browser.
+    // Using a fallback to env variables ensures the app works in both local dev
+    // and production environments where the key is injected.
     define: {
-      // Still allow VITE_ prefix variables for other config
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || env.VITE_API_KEY || ''),
     },
     envPrefix: 'VITE_',
     build: {
