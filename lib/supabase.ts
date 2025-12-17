@@ -1,10 +1,9 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Use Vite's native environment variable access.
-// These variables must be prefixed with VITE_ in the .env file or Vercel settings.
-const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
-const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
+// Access variables from process.env which are defined in vite.config.ts or shimmed in index.html.
+const supabaseUrl = (process.env.VITE_SUPABASE_URL || '').trim();
+const supabaseAnonKey = (process.env.VITE_SUPABASE_ANON_KEY || '').trim();
 
 export const isConfigured = !!supabaseUrl && !!supabaseAnonKey && supabaseUrl !== 'https://placeholder.supabase.co' && !supabaseUrl.includes('placeholder');
 

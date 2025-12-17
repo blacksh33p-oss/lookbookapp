@@ -13,7 +13,7 @@ import { generatePhotoshootImage } from './services/gemini';
 import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier, Project, Generation } from './types';
 
-const APP_VERSION = "v1.9.8"; 
+const APP_VERSION = "v1.9.9"; 
 
 const POSES = [
     "Standing naturally, arms relaxed", "Walking towards camera, confident stride", "Leaning slightly against a wall", 
@@ -322,14 +322,21 @@ const App: React.FC = () => {
           console.error("Execute Generation Error:", err);
           
           const aistudio = (window as any).aistudio;
-          if (err.message?.includes("Requested entity was not found.") && currentOptions.modelVersion === ModelVersion.Pro && aistudio) {
+          const errorMessage = err.message || '';
+          
+          // Improved error detection for missing API Key across different SDK versions
+          if (errorMessage.includes("Requested entity was not found.") && currentOptions.modelVersion === ModelVersion.Pro && aistudio) {
               await aistudio.openSelectKey();
               setError("Session reset. Please select a valid paid project API key.");
-          } else if (err.message?.includes("API Key must be set")) {
-              if (aistudio) await aistudio.openSelectKey();
-              setError("API key required. Please select one using the dialog.");
+          } else if (errorMessage.includes("API Key must be set") || errorMessage.includes("An API Key must be set")) {
+              if (aistudio) {
+                  await aistudio.openSelectKey();
+                  setError("API key required. Please select one using the dialog and try again.");
+              } else {
+                  setError("API Key missing. Please ensure it is set in your environment variables.");
+              }
           } else {
-              setError(err.message || 'Generation failed. Please try again.');
+              setError(errorMessage || 'Generation failed. Please try again.');
           }
       } finally { 
           setIsLoading(false); 
