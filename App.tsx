@@ -13,7 +13,7 @@ import { generatePhotoshootImage } from './services/gemini';
 import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier, Project, Generation } from './types';
 
-const APP_VERSION = "v1.9.7"; 
+const APP_VERSION = "v1.9.8"; 
 
 const POSES = [
     "Standing naturally, arms relaxed", "Walking towards camera, confident stride", "Leaning slightly against a wall", 
@@ -325,6 +325,9 @@ const App: React.FC = () => {
           if (err.message?.includes("Requested entity was not found.") && currentOptions.modelVersion === ModelVersion.Pro && aistudio) {
               await aistudio.openSelectKey();
               setError("Session reset. Please select a valid paid project API key.");
+          } else if (err.message?.includes("API Key must be set")) {
+              if (aistudio) await aistudio.openSelectKey();
+              setError("API key required. Please select one using the dialog.");
           } else {
               setError(err.message || 'Generation failed. Please try again.');
           }
@@ -345,8 +348,15 @@ const App: React.FC = () => {
   const handleLogin = () => { setLoginModalView('login'); setShowLoginModal(true); };
   const handleSignup = () => { setLoginModalView('signup'); setShowLoginModal(true); };
 
-  const handleProFeatureClick = (action: () => void) => {
-      if (session ? (userProfile?.tier === SubscriptionTier.Creator || userProfile?.tier === SubscriptionTier.Studio) : false) action();
+  const handleProFeatureClick = async (action: () => void) => {
+      if (session ? (userProfile?.tier === SubscriptionTier.Creator || userProfile?.tier === SubscriptionTier.Studio) : false) {
+          action();
+          // Immediately prompt for key selection when switching to Pro
+          if ((window as any).aistudio) {
+              const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+              if (!hasKey) await (window as any).aistudio.openSelectKey();
+          }
+      }
       else if (!session) handleSignup();
       else setShowUpgradeModal(true);
   };

@@ -42,9 +42,10 @@ const getModelName = (version: ModelVersion): string => {
 };
 
 export const generatePhotoshootImage = async (options: PhotoshootOptions): Promise<string> => {
-  // Always use process.env.API_KEY directly.
-  // In a Vite environment, we rely on the index.html shim to ensure process.env.API_KEY is available at runtime.
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Use a fallback empty string to prevent the SDK constructor from throwing immediately if key is not yet set.
+  // The SDK will handle missing keys gracefully during the actual API call.
+  const apiKey = process.env.API_KEY || "";
+  const ai = new GoogleGenAI({ apiKey });
 
   const heightStr = options.height ? `Model Height: ${options.height} ${options.measurementUnit}` : 'Height: Standard Model Height';
   const bodyTypeStr = `Body Type: ${options.bodyType}`;
