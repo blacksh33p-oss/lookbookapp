@@ -7,11 +7,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     
-    <!-- FastSpring Global Callback - Must be defined before SBL script -->
+    <!-- FastSpring Global Callback -->
     <script type="text/javascript">
         window.onPopupClosed = function(data) {
             console.log("FastSpring Popup Closed:", data);
-            // Dispatch event for React to handle
             if (data) {
                 const event = new CustomEvent('fastspringPopupClosed', { detail: data });
                 window.dispatchEvent(event);
@@ -20,14 +19,13 @@
     </script>
 
     <!-- FastSpring Store Builder Library -->
-    <script 
-        id="fsc-api" 
-        src="https://sbl.onfastspring.com/sbl/1.0.6/fastspring-builder.min.js" 
-        type="text/javascript" 
+    <script
+        id="fsc-api"
+        src="https://sbl.onfastspring.com/sbl/1.0.6/fastspring-builder.min.js"
+        type="text/javascript"
         data-storefront="lookbook.test.onfastspring.com/popup-lookbook"
         data-popup-closed="onPopupClosed"
-        data-debug="true"
-    >
+        data-debug="true">
     </script>
 
     <script>

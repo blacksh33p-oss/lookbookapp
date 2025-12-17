@@ -14,7 +14,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.6.5"; 
+const APP_VERSION = "v1.6.6"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -563,25 +563,26 @@ const App: React.FC = () => {
              console.log("Downgrading to Free");
              
              // Optimistic update for UI (Force UI update regardless of DB Result)
-             setUserProfile(prev => prev ? ({ ...prev, tier: SubscriptionTier.Free }) : null);
+             setUserProfile(prev => {
+                if (!prev) return null;
+                return { ...prev, tier: SubscriptionTier.Free };
+             });
+             
              setShowUpgradeModal(false);
              localStorage.removeItem('pending_plan');
 
              // DB Update (Background)
-             // Note: In some demo Supabase instances, users cannot update their own 'tier' due to RLS.
-             // We optimistically update UI so the user experience isn't broken.
              const { error } = await supabase
                 .from('profiles')
                 .update({ tier: SubscriptionTier.Free })
                 .eq('id', activeSession.user.id);
              
              if (error) {
-                 console.warn("Downgrade DB Error (RLS likely):", error);
+                 console.warn("Downgrade DB Error:", error);
                  // We don't revert UI here to avoid confusing the user in this demo context.
-                 showToast("Plan downgraded to Guest (Local).", "success");
-             } else {
-                 showToast("Plan downgraded to Guest.", "success");
              }
+             
+             showToast("Plan downgraded to Guest.", "success");
              return;
          }
 
@@ -594,7 +595,7 @@ const App: React.FC = () => {
                  return;
              }
              
-             // 1. Reset Builder to clear old carts (Critical for repeated clicks)
+             // 1. Reset Builder to clear old carts
              try { 
                  window.fastspring.builder.reset(); 
                  console.log("FastSpring builder reset.");
@@ -603,7 +604,6 @@ const App: React.FC = () => {
              }
 
              // 2. Prepare Payload
-             // Minimal payload structure to avoid validation errors
              const payload = {
                  products: [
                      { path: productPath, quantity: 1 }
@@ -621,18 +621,14 @@ const App: React.FC = () => {
              console.log("Pushing FastSpring session...", payload);
 
              // 3. Push to FastSpring
-             // We add a small delay to ensuring reset() processed if it was async internally
-             setTimeout(() => {
-                 try {
-                     window.fastspring.builder.push(payload);
-                 } catch(err: any) {
-                     console.error("FastSpring Push Error:", err);
-                     alert("Checkout System Error: " + err.message);
-                 }
-             }, 100);
-             
-             // 4. Close Modal
-             setShowUpgradeModal(false);
+             try {
+                 window.fastspring.builder.push(payload);
+                 // Close Modal after successful push
+                 setShowUpgradeModal(false);
+             } catch(err: any) {
+                 console.error("FastSpring Push Error:", err);
+                 showToast("Checkout System Error: " + err.message, "error");
+             }
 
          } else {
              console.error("FastSpring script not loaded or builder undefined. window.fastspring:", window.fastspring);
