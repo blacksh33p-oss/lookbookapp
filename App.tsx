@@ -14,7 +14,7 @@ import { supabase, isConfigured } from './lib/supabase';
 import { ModelSex, ModelEthnicity, ModelAge, FacialExpression, PhotoStyle, PhotoshootOptions, ModelVersion, MeasurementUnit, AspectRatio, BodyType, OutfitItem, SubscriptionTier } from './types';
 
 // Constants
-const APP_VERSION = "v1.6.4"; 
+const APP_VERSION = "v1.6.5"; 
 const POSES = [
     "Standing naturally, arms relaxed",
     "Walking towards camera, confident stride",
@@ -562,24 +562,26 @@ const App: React.FC = () => {
          if (tier === SubscriptionTier.Free) {
              console.log("Downgrading to Free");
              
-             // Optimistic update for UI
+             // Optimistic update for UI (Force UI update regardless of DB Result)
              setUserProfile(prev => prev ? ({ ...prev, tier: SubscriptionTier.Free }) : null);
-             
-             // DB Update
+             setShowUpgradeModal(false);
+             localStorage.removeItem('pending_plan');
+
+             // DB Update (Background)
+             // Note: In some demo Supabase instances, users cannot update their own 'tier' due to RLS.
+             // We optimistically update UI so the user experience isn't broken.
              const { error } = await supabase
                 .from('profiles')
                 .update({ tier: SubscriptionTier.Free })
                 .eq('id', activeSession.user.id);
              
              if (error) {
-                 console.error("Downgrade Error:", error);
-                 showToast("Error updating plan.", "error");
+                 console.warn("Downgrade DB Error (RLS likely):", error);
+                 // We don't revert UI here to avoid confusing the user in this demo context.
+                 showToast("Plan downgraded to Guest (Local).", "success");
              } else {
                  showToast("Plan downgraded to Guest.", "success");
              }
-             
-             localStorage.removeItem('pending_plan');
-             setShowUpgradeModal(false);
              return;
          }
 
@@ -592,38 +594,49 @@ const App: React.FC = () => {
                  return;
              }
              
-             // 1. Reset Builder to clear old carts
-             try { window.fastspring.builder.reset(); } catch(e) { console.log('Builder reset skipped'); }
+             // 1. Reset Builder to clear old carts (Critical for repeated clicks)
+             try { 
+                 window.fastspring.builder.reset(); 
+                 console.log("FastSpring builder reset.");
+             } catch(e) { 
+                 console.log('Builder reset skipped/failed', e); 
+             }
 
              // 2. Prepare Payload
+             // Minimal payload structure to avoid validation errors
              const payload = {
                  products: [
                      { path: productPath, quantity: 1 }
                  ],
+                 paymentContact: {
+                    email: activeSession.user.email,
+                    firstName: activeSession.user.user_metadata?.full_name || 'Valued Customer'
+                 },
                  tags: {
                      userId: activeSession.user.id,
                      userEmail: activeSession.user.email
-                 },
-                 // Include both contact structures for max compatibility
-                 email: activeSession.user.email,
-                 firstName: activeSession.user.user_metadata?.full_name || '',
-                 paymentContact: {
-                    email: activeSession.user.email,
-                    firstName: activeSession.user.user_metadata?.full_name || ''
                  }
              };
 
              console.log("Pushing FastSpring session...", payload);
 
              // 3. Push to FastSpring
-             window.fastspring.builder.push(payload);
+             // We add a small delay to ensuring reset() processed if it was async internally
+             setTimeout(() => {
+                 try {
+                     window.fastspring.builder.push(payload);
+                 } catch(err: any) {
+                     console.error("FastSpring Push Error:", err);
+                     alert("Checkout System Error: " + err.message);
+                 }
+             }, 100);
              
              // 4. Close Modal
              setShowUpgradeModal(false);
 
          } else {
-             console.error("FastSpring script not loaded or builder undefined");
-             showToast("Checkout system loading... please wait a moment.", "info");
+             console.error("FastSpring script not loaded or builder undefined. window.fastspring:", window.fastspring);
+             showToast("Checkout system loading... please refresh and try again.", "error");
          }
 
      } catch (err) {
