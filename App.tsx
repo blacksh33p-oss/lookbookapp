@@ -135,6 +135,9 @@ const App: React.FC = () => {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [autoPose, setAutoPose] = useState(true);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
+  
+  // NEW FEATURE: Generation Model State
+  const [selectedModel, setSelectedModel] = useState<'flash-2.5' | 'pro-3'>('flash-2.5');
 
   const projectMenuRef = useRef<HTMLDivElement>(null);
 
@@ -151,6 +154,14 @@ const App: React.FC = () => {
         accessories: { garmentType: '', description: '', images: [], sizeChart: null, sizeChartDetails: '' }
     }
   });
+
+  // Sync selectedModel with options.modelVersion
+  useEffect(() => {
+    setOptions(prev => ({
+      ...prev,
+      modelVersion: selectedModel === 'pro-3' ? ModelVersion.Pro : ModelVersion.Flash
+    }));
+  }, [selectedModel]);
 
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -444,8 +455,30 @@ const App: React.FC = () => {
 
       <main className="pt-20 px-6 max-w-[1920px] mx-auto min-h-screen pb-12 relative z-10">
         <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6">
-          <aside className="lg:col-span-4 flex flex-col gap-4 overflow-y-auto max-h-[calc(100vh-8rem)] custom-scrollbar pr-1">
+          {/* TASK 1: FIXED SIDEBAR SCROLLING */}
+          <aside className="lg:col-span-4 flex flex-col gap-4 h-[calc(100vh-6rem)] sticky top-20 overflow-y-auto custom-scrollbar pr-2 pb-8">
             
+            {/* TASK 2: IMAGE GENERATION MODEL PICKER */}
+            <div className="space-y-1.5 mb-2">
+                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Generation Engine</label>
+                <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-1 flex gap-1 shadow-sm">
+                    <button
+                        onClick={() => setSelectedModel('flash-2.5')}
+                        className={`flex-1 py-2 px-2 rounded-md transition-all duration-200 flex flex-col items-center justify-center gap-0.5 ${selectedModel === 'flash-2.5' ? 'bg-zinc-100 text-black shadow-md' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'}`}
+                    >
+                        <span className="text-[10px] font-black uppercase tracking-tight">Flash 2.5</span>
+                        <span className={`text-[8px] font-bold uppercase ${selectedModel === 'flash-2.5' ? 'text-zinc-500' : 'text-zinc-700'}`}>Fast & Efficient</span>
+                    </button>
+                    <button
+                        onClick={() => setSelectedModel('pro-3')}
+                        className={`flex-1 py-2 px-2 rounded-md transition-all duration-200 flex flex-col items-center justify-center gap-0.5 ${selectedModel === 'pro-3' ? 'bg-zinc-100 text-black shadow-md' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'}`}
+                    >
+                        <span className="text-[10px] font-black uppercase tracking-tight">Pro 3</span>
+                        <span className={`text-[8px] font-bold uppercase ${selectedModel === 'pro-3' ? 'text-zinc-500' : 'text-zinc-700'}`}>High Quality</span>
+                    </button>
+                </div>
+            </div>
+
             {/* Folder Selection */}
             {session && isConfigured && (
               <div className="space-y-1.5" ref={projectMenuRef}>
@@ -490,8 +523,6 @@ const App: React.FC = () => {
             )}
 
             <div className="bg-black border border-zinc-800 rounded-lg overflow-hidden shadow-xl">
-                {/* Task 2: Restored Core Feature UI Sections */}
-                
                 {/* 1. WARDROBE SECTION */}
                 <ConfigSection title="Wardrobe & Garments" icon={Shirt} defaultOpen={true}>
                     <OutfitControl 
@@ -582,7 +613,11 @@ const App: React.FC = () => {
                         
                         <div className="grid grid-cols-2 gap-4 pt-4">
                             <Dropdown label="Format / Aspect Ratio" value={options.aspectRatio} options={Object.values(AspectRatio)} onChange={(val) => setOptions({ ...options, aspectRatio: val as AspectRatio })} />
-                            <Dropdown label="Model Engine" value={options.modelVersion} options={Object.values(ModelVersion)} onChange={(val) => setOptions({ ...options, modelVersion: val as ModelVersion })} />
+                            {/* Syncing existing dropdown with top-level selector */}
+                            <Dropdown label="Model Engine" value={options.modelVersion} options={Object.values(ModelVersion)} onChange={(val) => {
+                                setOptions({ ...options, modelVersion: val as ModelVersion });
+                                setSelectedModel(val === ModelVersion.Pro ? 'pro-3' : 'flash-2.5');
+                            }} />
                         </div>
 
                         <div className="flex items-center justify-between p-3 bg-zinc-900/30 border border-zinc-800 rounded-md">
