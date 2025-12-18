@@ -340,10 +340,16 @@ const App: React.FC = () => {
   const handleGenerate = async () => {
       // PRO MODEL REQUIREMENT: Must select a paid API key
       if (selectedModel === 'pro-3') {
-        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-        if (!hasKey) {
-          await (window as any).aistudio.openSelectKey();
-          // Instructions: Assume success and proceed.
+        const aistudio = (window as any).aistudio;
+        if (aistudio && typeof aistudio.hasSelectedApiKey === 'function') {
+          const hasKey = await aistudio.hasSelectedApiKey();
+          if (!hasKey) {
+            if (typeof aistudio.openSelectKey === 'function') {
+              await aistudio.openSelectKey();
+            }
+          }
+        } else {
+          console.warn("AI Studio key selector is not available in this environment. Proceeding with default environment key.");
         }
       }
 
@@ -391,7 +397,10 @@ const App: React.FC = () => {
           // PRO MODEL RECOVERY: If key doesn't have model access, re-prompt key selection
           if (errorMessage.includes("Requested entity was not found")) {
               showToast("API Key missing Pro access. Please select a Paid project key.", "error");
-              await (window as any).aistudio.openSelectKey();
+              const aistudio = (window as any).aistudio;
+              if (aistudio && typeof aistudio.openSelectKey === 'function') {
+                await aistudio.openSelectKey();
+              }
           }
           setError(errorMessage); 
       } finally { 
@@ -634,7 +643,7 @@ const App: React.FC = () => {
                                     placeholder="Freckles, sharp jawline, blue eyes..." 
                                     value={options.modelFeatures} 
                                     onChange={(e) => hasProAccess ? setOptions({...options, modelFeatures: e.target.value}) : handleProInterceptor()} 
-                                    className="w-full h-20 bg-black border border-zinc-800 rounded-md py-2 px-3 text-xs text-white resize-none focus:border-zinc-500" 
+                                    className="w-full h-20 bg-black border border-zinc-800 rounded-md py-2 px-3 text-white resize-none focus:border-zinc-500" 
                                   />
                                   {!hasProAccess && <Lock size={10} className="absolute right-3 top-3 text-amber-500/50" />}
                               </div>

@@ -1,7 +1,9 @@
+
 import { createClient } from '@supabase/supabase-js';
 
 const getEnv = (key: string): string => {
-  const value = (import.meta as any).env?.[key] || (window as any).process?.env?.[key] || '';
+  // Priority: check window.process.env (populated by env-bridge) then import.meta.env
+  const value = (window as any).process?.env?.[key] || (import.meta as any).env?.[key] || '';
   return value.trim();
 };
 
@@ -15,7 +17,7 @@ export const isConfigured =
   !supabaseUrl.includes('placeholder');
 
 if (!isConfigured && typeof window !== 'undefined') {
-  console.warn('FashionStudio: Supabase configuration missing. Archive features disabled.');
+  console.warn('FashionStudio: Supabase configuration missing. Archive features disabled. Check your environment variables.');
 }
 
 // Initialize client

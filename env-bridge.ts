@@ -11,20 +11,25 @@ if (typeof window !== 'undefined') {
   if (!win.process) win.process = { env: {} };
   if (!win.process.env) win.process.env = {};
 
-  // Sync VITE_ prefixed keys to process.env for local development
+  // Sync VITE_ prefixed keys to process.env
   const env = (import.meta as any).env || {};
   Object.keys(env).forEach(key => {
+    // 1. Sync the exact key (e.g., VITE_SUPABASE_URL)
+    win.process.env[key] = env[key];
+    
+    // 2. Also sync the stripped key for convenience (e.g., SUPABASE_URL)
     if (key.startsWith('VITE_')) {
-      const processKey = key.replace('VITE_', '');
-      if (!win.process.env[processKey]) {
-        win.process.env[processKey] = env[key];
+      const strippedKey = key.replace('VITE_', '');
+      if (!win.process.env[strippedKey]) {
+        win.process.env[strippedKey] = env[key];
       }
     }
   });
 
   // Ensure API_KEY specifically is set if VITE_API_KEY exists
-  if (!win.process.env.API_KEY && env.VITE_API_KEY) {
-    win.process.env.API_KEY = env.VITE_API_KEY;
+  // This is the primary key used by the @google/genai SDK
+  if (!win.process.env.API_KEY) {
+    win.process.env.API_KEY = env.VITE_API_KEY || env.VITE_GOOGLE_API_KEY || '';
   }
 }
 
