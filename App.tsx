@@ -218,7 +218,6 @@ const App: React.FC = () => {
   const saveToLibrary = async (imageUrl: string) => {
     if (!session || !imageUrl || !isConfigured) return;
     
-    // TASK 2: START INJECTING STATUS UPDATES
     setIsSaving(true);
     setJustSaved(false);
     setSaveError(false);
@@ -234,18 +233,15 @@ const App: React.FC = () => {
       const { error } = await supabase.from('generations').insert([payload]);
       
       if (error) {
-        // TASK 2: ERROR STATE
         setSaveError(true);
         console.error("Save error:", error);
         showToast(`Error: ${error.message}`, "error");
       } else {
-        // TASK 2: SUCCESS STATE
         setJustSaved(true);
         showToast("Shoot saved to archive", "success");
         setTimeout(() => setJustSaved(false), 3000);
       }
     } catch (e: any) {
-      // TASK 2: ERROR STATE
       setSaveError(true);
       showToast("Error saving to archive", "error");
     } finally {
@@ -294,7 +290,9 @@ const App: React.FC = () => {
   };
 
   const handleAuth = async (email: string, password?: string, isSignUp?: boolean, username?: string) => {
-      if (!isConfigured) return;
+      if (!isConfigured) {
+          throw new Error("Authentication is currently disabled (missing configuration).");
+      }
       if (isSignUp) {
           const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: username } } });
           if (error) throw error;
