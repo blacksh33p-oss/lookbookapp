@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw, Command, Monitor, Folder, Library, Plus, Save, Check, HelpCircle, AlertCircle, MapPin, Wind } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
@@ -79,16 +80,22 @@ interface ConfigSectionProps {
   icon: React.ElementType;
   children: React.ReactNode;
   defaultOpen?: boolean;
+  isLocked?: boolean;
 }
 
-const ConfigSection: React.FC<ConfigSectionProps> = ({ title, icon: Icon, children, defaultOpen = false }) => {
+const ConfigSection: React.FC<ConfigSectionProps> = ({ title, icon: Icon, children, defaultOpen = false, isLocked = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
     <div className="border-b border-zinc-800 bg-black/50 last:border-b-0">
       <button onClick={() => setIsOpen(!isOpen)} className="w-full flex items-center justify-between p-4 text-left focus:outline-none group hover:bg-zinc-900/50 transition-colors">
         <div className="flex items-center gap-3">
-          <Icon size={14} className={`text-zinc-500 group-hover:text-white transition-colors ${isOpen ? 'text-white' : ''}`} />
-          <span className="font-mono text-xs font-medium tracking-wide text-zinc-300 group-hover:text-white transition-colors">{title}</span>
+          <div className="relative">
+            <Icon size={14} className={`text-zinc-500 group-hover:text-white transition-colors ${isOpen ? 'text-white' : ''}`} />
+            {isLocked && <Lock size={8} className="absolute -top-1.5 -right-1.5 text-amber-500" />}
+          </div>
+          <span className="font-mono text-xs font-medium tracking-wide text-zinc-300 group-hover:text-white transition-colors flex items-center gap-2">
+            {title}
+          </span>
         </div>
         <div className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
            <ChevronDown size={14} className="text-zinc-600 group-hover:text-white" />
@@ -136,7 +143,6 @@ const App: React.FC = () => {
   const [autoPose, setAutoPose] = useState(true);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
   
-  // NEW FEATURE: Generation Model State
   const [selectedModel, setSelectedModel] = useState<'flash-2.5' | 'pro-3'>('flash-2.5');
 
   const projectMenuRef = useRef<HTMLDivElement>(null);
@@ -155,7 +161,11 @@ const App: React.FC = () => {
     }
   });
 
-  // Sync selectedModel with options.modelVersion
+  const isPremium = session ? userProfile?.tier !== SubscriptionTier.Free : false;
+  const hasProAccess = session ? (userProfile?.tier === SubscriptionTier.Creator || userProfile?.tier === SubscriptionTier.Studio) : false;
+  // Define isStudio to check if user has access to Studio-tier features like 4K
+  const isStudio = session ? userProfile?.tier === SubscriptionTier.Studio : false;
+
   useEffect(() => {
     setOptions(prev => ({
       ...prev,
@@ -385,15 +395,11 @@ const App: React.FC = () => {
     }
   };
 
-  const isPremium = session ? userProfile?.tier !== SubscriptionTier.Free : false;
-  const isStudio = session ? userProfile?.tier === SubscriptionTier.Studio : false;
-  const hasProAccess = session ? (userProfile?.tier === SubscriptionTier.Creator || userProfile?.tier === SubscriptionTier.Studio) : false;
-
   const activeProjectName = activeProjectId === null ? "Main Archive" : projects.find(p => p.id === activeProjectId)?.name || "Main Archive";
 
   return (
-    <div className="min-h-screen text-zinc-300 font-sans bg-black relative overflow-hidden selection:bg-white selection:text-black">
-      <header className="fixed top-0 left-0 right-0 z-[60] bg-black/80 backdrop-blur-xl border-b border-zinc-800/50 h-14">
+    <div className="h-screen w-full flex flex-col text-zinc-300 font-sans bg-black overflow-hidden selection:bg-white selection:text-black">
+      <header className="flex-shrink-0 z-[60] bg-black/80 backdrop-blur-xl border-b border-zinc-800/50 h-14">
           <div className="max-w-[1920px] mx-auto h-full flex justify-between items-center px-6">
               <div className="flex items-center gap-3">
                   <div className="w-6 h-6 bg-white text-black rounded-sm flex items-center justify-center shadow-lg shadow-white/10 shrink-0">
@@ -403,7 +409,6 @@ const App: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-6">
-                 {/* Task 1: User Stats Display */}
                  {session && userProfile && (
                     <div className="hidden md:flex items-center gap-3 px-3 py-1 bg-zinc-900/50 border border-zinc-800 rounded-full group cursor-pointer hover:border-zinc-700 transition-colors" onClick={() => setShowUpgradeModal(true)}>
                         <div className="flex items-center gap-1.5 px-2 border-r border-zinc-800">
@@ -428,7 +433,6 @@ const App: React.FC = () => {
                             <button className="w-8 h-8 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700 text-xs font-bold text-white uppercase hover:border-white transition-all">
                                 {session.user.email?.[0]}
                             </button>
-                            {/* Profile Dropdown */}
                             <div className="absolute top-full right-0 mt-2 w-48 bg-black border border-zinc-800 rounded-lg shadow-2xl py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all translate-y-2 group-hover:translate-y-0 z-[100]">
                                 <div className="px-4 py-3 border-b border-zinc-900">
                                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Signed in as</p>
@@ -453,208 +457,212 @@ const App: React.FC = () => {
           </div>
       </header>
 
-      <main className="pt-20 px-6 max-w-[1920px] mx-auto min-h-screen pb-12 relative z-10">
-        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6">
-          {/* TASK 1: FIXED SIDEBAR SCROLLING */}
-          <aside className="lg:col-span-4 flex flex-col gap-4 h-[calc(100vh-6rem)] sticky top-20 overflow-y-auto custom-scrollbar pr-2 pb-8">
-            
-            {/* TASK 2: IMAGE GENERATION MODEL PICKER */}
-            <div className="space-y-1.5 mb-2">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Generation Engine</label>
-                <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-1 flex gap-1 shadow-sm">
-                    <button
-                        onClick={() => setSelectedModel('flash-2.5')}
-                        className={`flex-1 py-2 px-2 rounded-md transition-all duration-200 flex flex-col items-center justify-center gap-0.5 ${selectedModel === 'flash-2.5' ? 'bg-zinc-100 text-black shadow-md' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'}`}
-                    >
-                        <span className="text-[10px] font-black uppercase tracking-tight">Flash 2.5</span>
-                        <span className={`text-[8px] font-bold uppercase ${selectedModel === 'flash-2.5' ? 'text-zinc-500' : 'text-zinc-700'}`}>Fast & Efficient</span>
-                    </button>
-                    <button
-                        onClick={() => setSelectedModel('pro-3')}
-                        className={`flex-1 py-2 px-2 rounded-md transition-all duration-200 flex flex-col items-center justify-center gap-0.5 ${selectedModel === 'pro-3' ? 'bg-zinc-100 text-black shadow-md' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'}`}
-                    >
-                        <span className="text-[10px] font-black uppercase tracking-tight">Pro 3</span>
-                        <span className={`text-[8px] font-bold uppercase ${selectedModel === 'pro-3' ? 'text-zinc-500' : 'text-zinc-700'}`}>High Quality</span>
-                    </button>
-                </div>
+      {/* Main Container - Independent Scrolling Logic */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden max-w-[1920px] mx-auto w-full px-6 py-6 gap-6">
+        
+        {/* Sidebar - Independent Scroll */}
+        <aside className="w-full lg:w-[400px] flex-shrink-0 flex flex-col gap-4 overflow-y-auto custom-scrollbar pb-12 pr-2">
+          
+          <div className="space-y-1.5 mb-2">
+              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Generation Engine</label>
+              <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-1 flex gap-1 shadow-sm">
+                  <button
+                      onClick={() => setSelectedModel('flash-2.5')}
+                      className={`flex-1 py-2 px-2 rounded-md transition-all duration-200 flex flex-col items-center justify-center gap-0.5 ${selectedModel === 'flash-2.5' ? 'bg-zinc-100 text-black shadow-md' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'}`}
+                  >
+                      <span className="text-[10px] font-black uppercase tracking-tight">Flash 2.5</span>
+                      <span className={`text-[8px] font-bold uppercase ${selectedModel === 'flash-2.5' ? 'text-zinc-500' : 'text-zinc-700'}`}>Fast & Efficient</span>
+                  </button>
+                  <button
+                      onClick={() => hasProAccess ? setSelectedModel('pro-3') : setShowUpgradeModal(true)}
+                      className={`flex-1 py-2 px-2 rounded-md transition-all duration-200 flex flex-col items-center justify-center gap-0.5 relative
+                        ${selectedModel === 'pro-3' ? 'bg-zinc-100 text-black shadow-md' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'}
+                        ${!hasProAccess ? 'opacity-60' : ''}`}
+                  >
+                      {!hasProAccess && <Lock size={10} className="absolute top-1.5 right-1.5 text-amber-500" />}
+                      <span className="text-[10px] font-black uppercase tracking-tight">Pro 3</span>
+                      <span className={`text-[8px] font-bold uppercase ${selectedModel === 'pro-3' ? 'text-zinc-500' : 'text-zinc-700'}`}>High Quality</span>
+                  </button>
+              </div>
+          </div>
+
+          {session && isConfigured && (
+            <div className="space-y-1.5" ref={projectMenuRef}>
+              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Working Folder</label>
+              <div className={`relative transition-all duration-200 bg-zinc-950 border rounded-lg p-1 flex items-center group
+                ${saveError ? 'border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.2)]' : 'border-zinc-800 hover:border-zinc-600 focus-within:border-zinc-500'}
+              `}>
+                  <button 
+                      onClick={() => setShowProjectDropdown(!showProjectDropdown)}
+                      className="flex-1 flex items-center gap-3 px-3 py-2 text-left hover:bg-zinc-900 rounded-md transition-all group outline-none"
+                  >
+                      <Folder size={14} className={`transition-colors ${showProjectDropdown ? 'text-white' : 'text-zinc-500 group-hover:text-zinc-300'}`} />
+                      <span className="text-[10px] font-bold text-white uppercase tracking-widest truncate">{activeProjectName}</span>
+                      <ChevronDown size={14} className={`ml-auto text-zinc-600 transition-transform duration-200 ${showProjectDropdown ? 'rotate-180 text-white' : ''}`} />
+                  </button>
+                  <div className="w-px h-6 bg-zinc-800 mx-1"></div>
+                  <button onClick={createProject} className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-900 rounded-md transition-colors" title="New Folder">
+                      <Plus size={16}/>
+                  </button>
+
+                  {showProjectDropdown && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-black border border-zinc-800 rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.8)] z-[70] overflow-hidden animate-fade-in py-1 border-t-0">
+                        <button 
+                            onClick={() => { setActiveProjectId(null); setShowProjectDropdown(false); }}
+                            className={`w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 transition-colors ${activeProjectId === null ? 'bg-zinc-900 text-white border-l-2 border-white' : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-white'}`}
+                        >
+                            <Library size={12} /> Main Archive
+                        </button>
+                        {projects.map(p => (
+                            <button 
+                                key={p.id}
+                                onClick={() => { setActiveProjectId(p.id); setShowProjectDropdown(false); }}
+                                className={`w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 transition-colors ${activeProjectId === p.id ? 'bg-zinc-900 text-white border-l-2 border-white' : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-white'}`}
+                            >
+                                <Folder size={12} /> {p.name}
+                            </button>
+                        ))}
+                    </div>
+                  )}
+              </div>
             </div>
+          )}
 
-            {/* Folder Selection */}
-            {session && isConfigured && (
-              <div className="space-y-1.5" ref={projectMenuRef}>
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Working Folder</label>
-                <div className={`relative transition-all duration-200 bg-zinc-950 border rounded-lg p-1 flex items-center group
-                  ${saveError ? 'border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.2)]' : 'border-zinc-800 hover:border-zinc-600 focus-within:border-zinc-500'}
-                `}>
-                    <button 
-                        onClick={() => setShowProjectDropdown(!showProjectDropdown)}
-                        className="flex-1 flex items-center gap-3 px-3 py-2 text-left hover:bg-zinc-900 rounded-md transition-all group outline-none"
-                    >
-                        <Folder size={14} className={`transition-colors ${showProjectDropdown ? 'text-white' : 'text-zinc-500 group-hover:text-zinc-300'}`} />
-                        <span className="text-[10px] font-bold text-white uppercase tracking-widest truncate">{activeProjectName}</span>
-                        <ChevronDown size={14} className={`ml-auto text-zinc-600 transition-transform duration-200 ${showProjectDropdown ? 'rotate-180 text-white' : ''}`} />
-                    </button>
-                    <div className="w-px h-6 bg-zinc-800 mx-1"></div>
-                    <button onClick={createProject} className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-900 rounded-md transition-colors" title="New Folder">
-                        <Plus size={16}/>
-                    </button>
+          <div className="bg-black border border-zinc-800 rounded-lg overflow-hidden shadow-xl">
+              <ConfigSection title="Wardrobe & Garments" icon={Shirt} defaultOpen={true}>
+                  <OutfitControl 
+                      outfit={options.outfit} 
+                      onChange={(newOutfit) => setOptions({ ...options, outfit: newOutfit })} 
+                  />
+              </ConfigSection>
 
-                    {showProjectDropdown && (
-                      <div className="absolute top-full left-0 right-0 mt-2 bg-black border border-zinc-800 rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.8)] z-[70] overflow-hidden animate-fade-in py-1 border-t-0">
-                          <button 
-                              onClick={() => { setActiveProjectId(null); setShowProjectDropdown(false); }}
-                              className={`w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 transition-colors ${activeProjectId === null ? 'bg-zinc-900 text-white border-l-2 border-white' : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-white'}`}
-                          >
-                              <Library size={12} /> Main Archive
-                          </button>
-                          {projects.map(p => (
-                              <button 
-                                  key={p.id}
-                                  onClick={() => { setActiveProjectId(p.id); setShowProjectDropdown(false); }}
-                                  className={`w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 transition-colors ${activeProjectId === p.id ? 'bg-zinc-900 text-white border-l-2 border-white' : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-white'}`}
-                              >
-                                  <Folder size={12} /> {p.name}
-                              </button>
+              <ConfigSection title="Model Specs & Identity" icon={UserCircle} isLocked={!hasProAccess}>
+                  <div className={`grid grid-cols-2 gap-4 transition-all ${!hasProAccess ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
+                      <Dropdown label="Sex" value={options.sex} options={Object.values(ModelSex)} onChange={(val) => setOptions({ ...options, sex: val })} />
+                      <Dropdown label="Ethnicity" value={options.ethnicity} options={Object.values(ModelEthnicity)} onChange={(val) => setOptions({ ...options, ethnicity: val })} />
+                      <Dropdown label="Age Range" value={options.age} options={Object.values(ModelAge)} onChange={(val) => setOptions({ ...options, age: val })} />
+                      <Dropdown label="Expression" value={options.facialExpression} options={Object.values(FacialExpression)} onChange={(val) => setOptions({ ...options, facialExpression: val })} />
+                  </div>
+                  
+                  <div className={`space-y-3 pt-2 transition-all ${!hasProAccess ? 'opacity-50 grayscale' : ''}`}>
+                      <div className="space-y-1.5" onClick={() => !hasProAccess && showToast("Upgrade to Pro to customize model features", "info")}>
+                          <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Hair Specification</label>
+                          <input 
+                              type="text"
+                              disabled={!hasProAccess}
+                              placeholder="e.g. Platinum Blonde, Slicked Back"
+                              value={options.hairStyle}
+                              onChange={(e) => setOptions({...options, hairStyle: e.target.value})}
+                              className="w-full bg-black border border-zinc-800 rounded-md py-2 px-3 text-xs text-white focus:border-zinc-500 font-mono disabled:cursor-not-allowed"
+                          />
+                      </div>
+                      <div className="space-y-1.5" onClick={() => !hasProAccess && showToast("Upgrade to Pro to customize model features", "info")}>
+                          <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Custom Features</label>
+                          <textarea 
+                              disabled={!hasProAccess}
+                              placeholder="Freckles, sharp jawline, blue eyes..."
+                              value={options.modelFeatures}
+                              onChange={(e) => setOptions({...options, modelFeatures: e.target.value})}
+                              className="w-full h-20 bg-black border border-zinc-800 rounded-md py-2 px-3 text-xs text-white focus:border-zinc-500 font-mono resize-none disabled:cursor-not-allowed"
+                          />
+                      </div>
+                  </div>
+              </ConfigSection>
+
+              <ConfigSection title="Physicality & Size" icon={Ruler}>
+                  <SizeControl 
+                      options={options} 
+                      onChange={(newOps) => setOptions(newOps)}
+                      isPremium={isPremium}
+                      onUpgradeRequest={() => setShowUpgradeModal(true)}
+                  />
+              </ConfigSection>
+
+              <ConfigSection title="Model & Set / Pose Control" icon={Move}>
+                  <PoseControl 
+                      selectedPose={options.pose}
+                      onPoseChange={(p) => setOptions({...options, pose: p})}
+                      isAutoMode={autoPose}
+                      onToggleAutoMode={setAutoPose}
+                      isPremium={isPremium}
+                      onUpgrade={() => setShowUpgradeModal(true)}
+                  />
+                  
+                  <div className="space-y-3 pt-4 border-t border-zinc-800">
+                      <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Scene Scenery Details</label>
+                          <textarea 
+                              placeholder="e.g. Modern concrete loft, soft morning light, minimalist furniture..."
+                              value={options.sceneDetails}
+                              onChange={(e) => setOptions({...options, sceneDetails: e.target.value})}
+                              className="w-full h-24 bg-black border border-zinc-800 rounded-md py-2 px-3 text-xs text-white focus:border-zinc-500 font-mono resize-none"
+                          />
+                      </div>
+                  </div>
+              </ConfigSection>
+
+              <ConfigSection title="Art Direction & Output" icon={Palette}>
+                  <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
+                          {STANDARD_STYLES.map(s => (
+                              <StyleButton key={s} label={s} isSelected={options.style === s} onClick={() => setOptions({...options, style: s})} />
                           ))}
                       </div>
-                    )}
-                </div>
-              </div>
-            )}
+                      <div className="grid grid-cols-2 gap-3 pt-2 border-t border-zinc-800/50">
+                          {PRO_STYLES.map(s => (
+                              <StyleButton key={s} label={s} isSelected={options.style === s} isLocked={!hasProAccess} onClick={() => hasProAccess ? setOptions({...options, style: s}) : setShowUpgradeModal(true)} />
+                          ))}
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 pt-4">
+                          <Dropdown label="Format / Aspect Ratio" value={options.aspectRatio} options={Object.values(AspectRatio)} onChange={(val) => setOptions({ ...options, aspectRatio: val as AspectRatio })} />
+                          <Dropdown label="Model Engine" value={options.modelVersion} options={Object.values(ModelVersion)} onChange={(val) => {
+                              if (val === ModelVersion.Pro && !hasProAccess) {
+                                  setShowUpgradeModal(true);
+                                  return;
+                              }
+                              setOptions({ ...options, modelVersion: val as ModelVersion });
+                              setSelectedModel(val === ModelVersion.Pro ? 'pro-3' : 'flash-2.5');
+                          }} />
+                      </div>
 
-            <div className="bg-black border border-zinc-800 rounded-lg overflow-hidden shadow-xl">
-                {/* 1. WARDROBE SECTION */}
-                <ConfigSection title="Wardrobe & Garments" icon={Shirt} defaultOpen={true}>
-                    <OutfitControl 
-                        outfit={options.outfit} 
-                        onChange={(newOutfit) => setOptions({ ...options, outfit: newOutfit })} 
-                    />
-                </ConfigSection>
+                      <div className="flex items-center justify-between p-3 bg-zinc-900/30 border border-zinc-800 rounded-md">
+                          <div className="flex items-center gap-2">
+                              <Monitor size={14} className="text-zinc-500" />
+                              <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-widest">Enable 4K Upscale</span>
+                          </div>
+                          <button 
+                              onClick={() => isStudio ? setOptions({...options, enable4K: !options.enable4K}) : setShowUpgradeModal(true)}
+                              className={`w-10 h-5 rounded-full relative transition-all duration-300 ${options.enable4K ? 'bg-white' : 'bg-zinc-800'}`}
+                          >
+                              <div className={`absolute top-1 w-3 h-3 rounded-full transition-all duration-300 ${options.enable4K ? 'right-1 bg-black' : 'left-1 bg-zinc-600'}`}></div>
+                              {!isStudio && <Lock size={8} className="absolute left-1.5 top-1.5 text-zinc-900 pointer-events-none" />}
+                          </button>
+                      </div>
+                  </div>
+              </ConfigSection>
+          </div>
+          
+          <button 
+              onClick={handleGenerate} 
+              disabled={!isFormValid || isLoading} 
+              className={`w-full py-5 rounded-md text-[11px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 transform active:scale-[0.98] shadow-2xl mt-4 shrink-0
+              ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed' : 'bg-white text-black hover:bg-zinc-200'}`}
+          >
+              {isLoading ? (
+                  <div className="flex items-center gap-3">
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Rendering Scene...</span>
+                  </div>
+              ) : (
+                  <><Sparkles size={16} /> Generate Shoot</>
+              )}
+          </button>
+        </aside>
 
-                {/* 2. MODEL SPECS SECTION */}
-                <ConfigSection title="Model Specs & Identity" icon={UserCircle}>
-                    <div className="grid grid-cols-2 gap-4">
-                        <Dropdown label="Sex" value={options.sex} options={Object.values(ModelSex)} onChange={(val) => setOptions({ ...options, sex: val })} />
-                        <Dropdown label="Ethnicity" value={options.ethnicity} options={Object.values(ModelEthnicity)} onChange={(val) => setOptions({ ...options, ethnicity: val })} />
-                        <Dropdown label="Age Range" value={options.age} options={Object.values(ModelAge)} onChange={(val) => setOptions({ ...options, age: val })} />
-                        <Dropdown label="Expression" value={options.facialExpression} options={Object.values(FacialExpression)} onChange={(val) => setOptions({ ...options, facialExpression: val })} />
-                    </div>
-                    
-                    <div className="space-y-3 pt-2">
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Hair Specification</label>
-                            <input 
-                                type="text"
-                                placeholder="e.g. Platinum Blonde, Slicked Back"
-                                value={options.hairStyle}
-                                onChange={(e) => setOptions({...options, hairStyle: e.target.value})}
-                                className="w-full bg-black border border-zinc-800 rounded-md py-2 px-3 text-xs text-white focus:border-zinc-500 font-mono"
-                            />
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Custom Features</label>
-                            <textarea 
-                                placeholder="Freckles, sharp jawline, blue eyes..."
-                                value={options.modelFeatures}
-                                onChange={(e) => setOptions({...options, modelFeatures: e.target.value})}
-                                className="w-full h-20 bg-black border border-zinc-800 rounded-md py-2 px-3 text-xs text-white focus:border-zinc-500 font-mono resize-none"
-                            />
-                        </div>
-                    </div>
-                </ConfigSection>
-
-                {/* 3. PHYSICALITY SECTION */}
-                <ConfigSection title="Physicality & Size" icon={Ruler}>
-                    <SizeControl 
-                        options={options} 
-                        onChange={(newOps) => setOptions(newOps)}
-                        isPremium={isPremium}
-                        onUpgradeRequest={() => setShowUpgradeModal(true)}
-                    />
-                </ConfigSection>
-
-                {/* 4. POSE & SET SECTION */}
-                <ConfigSection title="Model & Set / Pose Control" icon={Move}>
-                    <PoseControl 
-                        selectedPose={options.pose}
-                        onPoseChange={(p) => setOptions({...options, pose: p})}
-                        isAutoMode={autoPose}
-                        onToggleAutoMode={setAutoPose}
-                        isPremium={isPremium}
-                        onUpgrade={() => setShowUpgradeModal(true)}
-                    />
-                    
-                    <div className="space-y-3 pt-4 border-t border-zinc-800">
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Scene Scenery Details</label>
-                            <textarea 
-                                placeholder="e.g. Modern concrete loft, soft morning light, minimalist furniture..."
-                                value={options.sceneDetails}
-                                onChange={(e) => setOptions({...options, sceneDetails: e.target.value})}
-                                className="w-full h-24 bg-black border border-zinc-800 rounded-md py-2 px-3 text-xs text-white focus:border-zinc-500 font-mono resize-none"
-                            />
-                        </div>
-                    </div>
-                </ConfigSection>
-
-                {/* 5. ART DIRECTION SECTION */}
-                <ConfigSection title="Art Direction & Output" icon={Palette}>
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-3">
-                            {STANDARD_STYLES.map(s => (
-                                <StyleButton key={s} label={s} isSelected={options.style === s} onClick={() => setOptions({...options, style: s})} />
-                            ))}
-                        </div>
-                        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-zinc-800/50">
-                            {PRO_STYLES.map(s => (
-                                <StyleButton key={s} label={s} isSelected={options.style === s} isLocked={!hasProAccess} onClick={() => hasProAccess ? setOptions({...options, style: s}) : setShowUpgradeModal(true)} />
-                            ))}
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-4 pt-4">
-                            <Dropdown label="Format / Aspect Ratio" value={options.aspectRatio} options={Object.values(AspectRatio)} onChange={(val) => setOptions({ ...options, aspectRatio: val as AspectRatio })} />
-                            {/* Syncing existing dropdown with top-level selector */}
-                            <Dropdown label="Model Engine" value={options.modelVersion} options={Object.values(ModelVersion)} onChange={(val) => {
-                                setOptions({ ...options, modelVersion: val as ModelVersion });
-                                setSelectedModel(val === ModelVersion.Pro ? 'pro-3' : 'flash-2.5');
-                            }} />
-                        </div>
-
-                        <div className="flex items-center justify-between p-3 bg-zinc-900/30 border border-zinc-800 rounded-md">
-                            <div className="flex items-center gap-2">
-                                <Monitor size={14} className="text-zinc-500" />
-                                <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-widest">Enable 4K Upscale</span>
-                            </div>
-                            <button 
-                                onClick={() => isStudio ? setOptions({...options, enable4K: !options.enable4K}) : setShowUpgradeModal(true)}
-                                className={`w-10 h-5 rounded-full relative transition-all duration-300 ${options.enable4K ? 'bg-white' : 'bg-zinc-800'}`}
-                            >
-                                <div className={`absolute top-1 w-3 h-3 rounded-full transition-all duration-300 ${options.enable4K ? 'right-1 bg-black' : 'left-1 bg-zinc-600'}`}></div>
-                                {!isStudio && <Lock size={8} className="absolute left-1.5 top-1.5 text-zinc-900 pointer-events-none" />}
-                            </button>
-                        </div>
-                    </div>
-                </ConfigSection>
-            </div>
-            
-            <button 
-                onClick={handleGenerate} 
-                disabled={!isFormValid || isLoading} 
-                className={`w-full py-5 rounded-md text-[11px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 transform active:scale-[0.98] shadow-2xl mt-4
-                ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed' : 'bg-white text-black hover:bg-zinc-200'}`}
-            >
-                {isLoading ? (
-                    <div className="flex items-center gap-3">
-                        <Loader2 size={16} className="animate-spin" />
-                        <span>Rendering Scene...</span>
-                    </div>
-                ) : (
-                    <><Sparkles size={16} /> Generate Shoot</>
-                )}
-            </button>
-          </aside>
-
-          <section className="lg:col-span-8 h-[calc(100vh-8rem)] sticky top-20 bg-black border border-zinc-800 rounded-lg overflow-hidden shadow-2xl relative">
+        {/* Main Content Area - Independent Scroll */}
+        <section className="flex-1 bg-black border border-zinc-800 rounded-lg overflow-y-auto shadow-2xl relative custom-scrollbar">
+           <div className="min-h-full flex flex-col relative">
              <ResultDisplay 
                 isLoading={isLoading} 
                 image={generatedImage} 
@@ -673,7 +681,7 @@ const App: React.FC = () => {
                 <button 
                   onClick={() => saveToLibrary(generatedImage)} 
                   disabled={isSaving || justSaved} 
-                  className={`absolute top-6 right-6 px-6 py-3 rounded-md transition-all duration-300 flex items-center gap-3 text-[10px] font-black uppercase tracking-widest shadow-2xl backdrop-blur-md border
+                  className={`absolute top-6 right-6 px-6 py-3 rounded-md transition-all duration-300 flex items-center gap-3 text-[10px] font-black uppercase tracking-widest shadow-2xl backdrop-blur-md border z-20
                     ${justSaved 
                         ? 'bg-emerald-500 text-white border-emerald-400 scale-105 shadow-emerald-500/20' 
                         : isSaving 
@@ -692,9 +700,9 @@ const App: React.FC = () => {
                   {isSaving ? "Saving Asset..." : justSaved ? "Saved!" : saveError ? "Retry Save" : "Archive Shoot"}
                 </button>
              )}
-          </section>
-        </div>
-      </main>
+           </div>
+        </section>
+      </div>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onAuth={handleAuth} initialView={loginModalView} />
