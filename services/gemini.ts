@@ -11,7 +11,7 @@ const STYLE_PROMPTS: Record<PhotoStyle, string> = {
   [PhotoStyle.Chromatic]: 'Studio Color Gel Lighting, Neon Accent, High Contrast, Chromatic Aberration',
   [PhotoStyle.Minimalist]: 'Minimalist Brutalist Architecture, Sharp Shadows, Clean Lines',
   [PhotoStyle.Film]: 'Analog Film Grain, Kodak Portra 400 aesthetic, Soft focus, Emotional',
-  [PhotoStyle.Newton]: 'Helmut Newton Style, High Contrast Black and White, Powerful Stance, Transparent',
+  [PhotoStyle.Newton]: 'Helmut Newton Style, High Contrast Black and White, Powerful Stance, Voyeuristic',
   [PhotoStyle.Lindbergh]: 'Peter Lindbergh Style, Raw Realism, Cinematic Black and White, Emotional',
   [PhotoStyle.Leibovitz]: 'Annie Leibovitz Style, Dramatic Painterly Lighting, Environmental Portrait',
   [PhotoStyle.Avedon]: 'Richard Avedon Style, Minimalist White Background, Dynamic Motion',
@@ -42,9 +42,14 @@ const getModelName = (version: ModelVersion): string => {
 };
 
 export const generatePhotoshootImage = async (options: PhotoshootOptions): Promise<string> => {
-  // Always use a new GoogleGenAI instance right before making an API call to ensure it always uses the most up-to-date API key.
-  // The API key is obtained exclusively from process.env.API_KEY as per guidelines.
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Always access API_KEY dynamically from process.env to support live updates from key dialogs
+  const API_KEY = (window as any).process?.env?.API_KEY || (import.meta as any).env?.VITE_API_KEY;
+  
+  if (!API_KEY) {
+    throw new Error("API Key is missing. If you are using Gemini 3 Pro, please ensure you have selected a paid project key via the selector.");
+  }
+  
+  const ai = new GoogleGenAI({ apiKey: API_KEY });
 
   const heightStr = options.height ? `Model Height: ${options.height} ${options.measurementUnit}` : 'Height: Standard Model Height';
   const bodyTypeStr = `Body Type: ${options.bodyType}`;
@@ -128,9 +133,9 @@ export const generatePhotoshootImage = async (options: PhotoshootOptions): Promi
         seed: options.seed 
       };
 
-      // The googleSearch tool is only available for gemini-3-pro-image-preview.
+      // Pro models support the google_search tool, which can improve grounding and generation quality
       if (modelName === 'gemini-3-pro-image-preview') {
-        generationConfig.tools = [{ googleSearch: {} }];
+        generationConfig.tools = [{ google_search: {} }];
       }
 
       const response = await ai.models.generateContent({
@@ -141,7 +146,6 @@ export const generatePhotoshootImage = async (options: PhotoshootOptions): Promi
 
       if (response.candidates && response.candidates[0].content && response.candidates[0].content.parts) {
         for (const part of response.candidates[0].content.parts) {
-          // Find the image part, do not assume it is the first part.
           if (part.inlineData && part.inlineData.data) return `data:image/png;base64,${part.inlineData.data}`;
         }
       }
