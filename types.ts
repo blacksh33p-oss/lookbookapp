@@ -31,6 +31,35 @@ export enum FacialExpression {
   Ethereal = 'Ethereal'
 }
 
+export enum HairColor {
+  JetBlack = 'Jet Black',
+  DeepEbony = 'Deep Ebony',
+  ChocolateBrown = 'Chocolate Brown',
+  AshBrown = 'Ash Brown',
+  GoldenBlonde = 'Golden Blonde',
+  PlatinumBlonde = 'Platinum Blonde',
+  HoneyBlonde = 'Honey Blonde',
+  IcySilver = 'Icy Silver',
+  CopperRed = 'Copper Red',
+  Auburn = 'Auburn',
+  PastelPink = 'Pastel Pink',
+  RoyalBlue = 'Royal Blue'
+}
+
+export enum HairStyle {
+  StraightSleek = 'Straight & Sleek',
+  LooseWaves = 'Loose Waves',
+  TexturedBob = 'Textured Bob',
+  SleekHighPony = 'Sleek High Pony',
+  PixieCut = 'Editorial Pixie',
+  TightCurls = 'Tight Curls',
+  TaperedFade = 'Tapered Fade',
+  AfroPuff = 'Afro Puff',
+  MiddlePart = 'Symmetric Middle Part',
+  SlickedBack = 'Slicked Back Wet-Look',
+  BraidedCrown = 'Braided Crown'
+}
+
 export enum PhotoStyle {
   Studio = 'Studio',
   Urban = 'Urban',
@@ -51,6 +80,11 @@ export enum PhotoStyle {
 export enum ModelVersion {
   Flash = 'Standard (Gemini 2.5 Flash)',
   Pro = 'Pro (Gemini 3 Pro)'
+}
+
+export enum LayoutMode {
+  Single = 'Single View',
+  Diptych = 'Diptych (Pro Layout)'
 }
 
 export enum BodyType {
@@ -101,11 +135,12 @@ export interface PhotoshootOptions {
   ethnicity: ModelEthnicity;
   age: ModelAge;
   facialExpression: FacialExpression;
-  hairColor: string;
-  hairStyle: string;
+  hairColor: HairColor | string;
+  hairStyle: HairStyle | string;
   style: PhotoStyle;
   sceneDetails: string;
   modelVersion: ModelVersion;
+  layout: LayoutMode;
   aspectRatio: AspectRatio;
   enable4K: boolean;
   height: string; 

@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { PhotoshootOptions, ModelVersion, OutfitItem, PhotoStyle, FacialExpression } from "../types";
+import { PhotoshootOptions, ModelVersion, OutfitItem, PhotoStyle, FacialExpression, LayoutMode } from "../types";
 
 const STYLE_PROMPTS: Record<PhotoStyle, string> = {
   [PhotoStyle.Studio]: 'High Key Studio Lighting, Clean White Cyclorama, Commercial Look',
@@ -56,7 +56,7 @@ export const generatePhotoshootImage = async (options: PhotoshootOptions): Promi
     const hasImages = item.images && item.images.length > 0;
     if (!item.garmentType && !hasImages && !item.description) return;
     let description = `- ${role.toUpperCase()}: ${item.garmentType || role}`;
-    if (item.description) description += `. Visuals: ${item.description}`;
+    if (item.description) description += `. Details: ${item.description}`;
     if (hasImages) {
       item.images.forEach((img: string, idx: number) => {
           imageInputs.push({ type: `${role} Reference ${idx + 1}`, data: img });
@@ -76,33 +76,43 @@ export const generatePhotoshootImage = async (options: PhotoshootOptions): Promi
 
   const richStylePrompt = STYLE_PROMPTS[options.style] || options.style;
   const richExpressionPrompt = EXPRESSION_PROMPTS[options.facialExpression] || options.facialExpression;
+  const sceneryContext = options.sceneDetails ? `SCENERY & ENVIRONMENT: ${options.sceneDetails}` : '';
+
+  const layoutInstruction = options.layout === LayoutMode.Diptych 
+    ? `CRITICAL LAYOUT: The final output must be a professional diptych (two-panel split) fashion editorial. 
+       - Panel 1 (Left Side): A full-body or medium editorial shot of the model wearing the ensemble.
+       - Panel 2 (Right Side): A high-detail macro close-up focus on the garment's texture, stitching, and fabric detail.
+       Maintain identical lighting, model identity, and background atmosphere across both panels for a cohesive lookbook page.`
+    : '';
 
   const prompt = `
-    Create a high-fashion lookbook image.
+    Create a professional high-fashion lookbook photograph.
     ${options.isModelLocked ? 'CRITICAL: Maintain the exact facial features, hair, and identity from the IDENTITY_REFERENCE image.' : ''}
+    ${layoutInstruction}
 
-    OUTFIT:
+    ART DIRECTION & SCENE (PRIORITY):
+    - Visual Aesthetic: ${richStylePrompt}
+    - Location Details: ${sceneryContext || 'Professional Studio environment'}
+    - Lighting: High-end commercial lighting setup consistent with the visual aesthetic.
+
+    OUTFIT & GARMENTS:
     ${outfitParts.join('\n')}
 
-    MODEL:
-    - Sex: ${options.sex}
-    - Age: ${options.age}
-    - Ethnicity: ${options.ethnicity}
-    - Hair: ${options.hairColor}, ${options.hairStyle}
-    - Expression: ${richExpressionPrompt}
-    - ${heightStr}
-    - ${bodyTypeStr}
-    - Features: ${options.modelFeatures || 'Standard'}
+    MODEL SPECIFICATIONS:
+    - Sex/Identity: ${options.sex}
+    - Age Range: ${options.age}
+    - Ethnicity/Look: ${options.ethnicity}
+    - Hair: ${options.hairColor} color, styled as ${options.hairStyle}
+    - Facial Expression: ${richExpressionPrompt}
+    - Physical Stats: ${heightStr}, ${bodyTypeStr}
+    - Distinct Features: ${options.modelFeatures || 'Refined editorial features'}
     - Pose: ${options.pose || 'Standing naturally'}
 
-    ART DIRECTION:
-    - Style: ${richStylePrompt}
-    - Lighting: Professional commercial lighting.
-
-    TASK:
-    1. **Identity Integrity**: If IDENTITY_REFERENCE is provided, match the person's face and build EXACTLY.
-    2. **Product Fidelity**: Match provided garment reference images exactly.
-    3. **Format**: OUTPUT ONLY THE IMAGE.
+    TASK OBJECTIVES:
+    1. **Product Fidelity**: If garment reference images are provided, match the color, fabric, and design EXACTLY.
+    2. **Scene Atmosphere**: The background and environment must feel high-end and cinematic.
+    3. **Photographic Quality**: Focus on skin texture, fabric drapes, and realistic light shadows.
+    4. **Output**: Return only the image part.
   `;
 
   const executeGeneration = async (modelName: string, config: any) => {

@@ -1,5 +1,6 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Check } from 'lucide-react';
+import { ChevronDown, Check, Lock } from 'lucide-react';
 
 interface DropdownProps<T> {
   label: string;
@@ -7,6 +8,8 @@ interface DropdownProps<T> {
   options: T[];
   onChange: (value: T) => void;
   disabled?: boolean;
+  lockedOptions?: T[];
+  onLockedClick?: () => void;
 }
 
 export const Dropdown = <T extends string>({
@@ -14,7 +17,9 @@ export const Dropdown = <T extends string>({
   value,
   options,
   onChange,
-  disabled
+  disabled,
+  lockedOptions = [],
+  onLockedClick
 }: DropdownProps<T>) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -29,41 +34,49 @@ export const Dropdown = <T extends string>({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const handleOptionClick = (opt: T) => {
+    if (lockedOptions.includes(opt)) {
+        if (onLockedClick) onLockedClick();
+        return;
+    }
+    onChange(opt);
+    setIsOpen(false);
+  };
+
   return (
     <div className="flex flex-col gap-1.5" ref={dropdownRef}>
       <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">{label}</label>
       <div className="relative">
         <button
           type="button"
-          onClick={() => !disabled && setIsOpen(!isOpen)}
           disabled={disabled}
-          className={`w-full flex items-center justify-between bg-black border rounded-md px-3 py-2.5 transition-all duration-200 outline-none
-            ${disabled ? 'opacity-50 cursor-not-allowed border-zinc-900' : 'border-zinc-800 hover:border-zinc-600'}
-            ${isOpen ? 'border-white ring-1 ring-white' : ''}
-          `}
+          onClick={() => setIsOpen(!isOpen)}
+          className={`w-full flex items-center justify-between bg-black border border-zinc-800 rounded-md px-3 py-2.5 text-xs text-white transition-all hover:border-zinc-600 focus:outline-none focus:border-white ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          <span className="text-white text-xs font-mono tracking-tight truncate">{value}</span>
-          <ChevronDown size={14} className={`text-zinc-500 transition-transform duration-200 ${isOpen ? 'rotate-180 text-white' : ''}`} />
+          <span className="truncate">{value}</span>
+          <ChevronDown size={14} className={`text-zinc-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </button>
 
         {isOpen && (
-          <div className="absolute top-full left-0 right-0 mt-1.5 bg-black border border-zinc-800 rounded-md shadow-[0_20px_50px_rgba(0,0,0,0.8)] z-[80] overflow-hidden animate-fade-in max-h-64 overflow-y-auto custom-scrollbar">
-            {options.map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                onClick={() => {
-                  onChange(opt);
-                  setIsOpen(false);
-                }}
-                className={`w-full text-left px-3 py-2.5 text-xs font-mono transition-colors flex items-center justify-between
-                  ${value === opt ? 'bg-zinc-900 text-white' : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-white'}
-                `}
-              >
-                {opt}
-                {value === opt && <Check size={12} className="text-white" />}
-              </button>
-            ))}
+          <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-950 border border-zinc-800 rounded-md shadow-[0_25px_50px_-12px_rgba(0,0,0,1)] z-[100] py-1 animate-fade-in overflow-hidden max-h-[250px] overflow-y-auto custom-scrollbar">
+            {options.map((opt) => {
+              const isLocked = lockedOptions.includes(opt);
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => handleOptionClick(opt)}
+                  className={`w-full flex items-center justify-between px-4 py-2.5 text-xs text-left transition-colors group ${opt === value ? 'bg-zinc-900 text-white font-bold' : 'text-zinc-400 hover:bg-zinc-900/80 hover:text-zinc-200'}`}
+                >
+                  <span className="truncate">{opt}</span>
+                  {opt === value ? (
+                    <Check size={12} className="text-white shrink-0" />
+                  ) : isLocked ? (
+                    <Lock size={10} className="text-zinc-600 group-hover:text-amber-500 shrink-0" />
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

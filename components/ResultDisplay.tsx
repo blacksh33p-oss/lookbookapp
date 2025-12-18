@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Download, RefreshCw, Loader2, User, Users, Camera, Lock, Sparkles, Shirt, Wand2 } from 'lucide-react';
+import { Download, RefreshCw, Loader2, User, Users, Camera, Lock, Sparkles, Shirt, Wand2, ChevronUp } from 'lucide-react';
 
 interface ResultDisplayProps {
   isLoading: boolean;
@@ -144,50 +144,68 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
         />
       </div>
       
-      <div className="absolute bottom-6 right-6 flex items-center gap-2 z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-        <div className="relative" ref={menuRef}>
-            <button
-                onClick={() => setShowMenu(!showMenu)}
-                className="h-9 px-4 bg-black/90 hover:bg-black text-white border border-zinc-800 hover:border-zinc-600 backdrop-blur-md rounded-md font-medium text-xs transition-all flex items-center gap-2"
-            >
-                <RefreshCw size={12} />
-                Regenerate
-            </button>
+      {/* Floating Action Dock */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex items-center">
+        <div className="flex items-center bg-zinc-950/80 backdrop-blur-2xl border border-zinc-800 p-1 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.8)]" ref={menuRef}>
+            
+            {/* Regenerate Trigger */}
+            <div className="relative">
+                <button
+                    onClick={() => setShowMenu(!showMenu)}
+                    className="h-10 pl-5 pr-4 hover:bg-zinc-800/50 text-white rounded-l-full font-bold text-[10px] uppercase tracking-widest transition-all flex items-center gap-3 group"
+                >
+                    <RefreshCw size={14} className={`transition-transform duration-500 ${showMenu ? 'rotate-180' : 'group-hover:rotate-45'}`} />
+                    <span>Regenerate</span>
+                    <ChevronUp size={12} className={`text-zinc-600 transition-transform ${showMenu ? 'rotate-180' : ''}`} />
+                </button>
 
-            {showMenu && (
-                <div className="absolute bottom-full right-0 mb-2 w-56 bg-black border border-zinc-800 rounded-md shadow-2xl z-50 overflow-hidden">
-                    <button
-                        onClick={() => { onRegenerate(true); setShowMenu(false); }}
-                        className="w-full text-left px-4 py-3 hover:bg-zinc-900 flex items-center gap-3 text-zinc-300 transition-colors border-b border-zinc-900"
-                    >
-                            <User size={14} />
-                            <div className="flex-1">
-                            <span className="text-xs font-bold block text-white">Keep Model</span>
-                            <span className="text-[10px] text-zinc-500">Same ID, new pose</span>
+                {/* Regenerate Menu - Floats Upwards */}
+                {showMenu && (
+                    <div className="absolute bottom-full left-0 mb-4 w-56 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] z-50 overflow-hidden animate-slide-up">
+                        <button
+                            onClick={() => { 
+                                onRegenerate(true); 
+                                if (isPremium) setShowMenu(false); 
+                            }}
+                            className={`w-full text-left px-5 py-4 flex items-center gap-4 transition-colors border-b border-zinc-900 ${!isPremium ? 'opacity-50 grayscale' : 'hover:bg-zinc-900 text-zinc-300'}`}
+                        >
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isPremium ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-500'}`}>
+                                    <User size={14} />
+                                </div>
+                                <div className="flex-1">
+                                    <span className={`text-[10px] font-black uppercase tracking-wider block ${isPremium ? 'text-white' : 'text-zinc-500'}`}>Keep Identity</span>
+                                    <span className="text-[9px] text-zinc-600 font-medium">Locked current model</span>
+                                </div>
+                                {!isPremium && <Lock size={10} className="text-amber-500" />}
+                        </button>
+                        <button
+                            onClick={() => { onRegenerate(false); setShowMenu(false); }}
+                            className="w-full text-left px-5 py-4 hover:bg-zinc-900 flex items-center gap-4 text-zinc-300 transition-colors"
+                        >
+                            <div className="w-8 h-8 rounded-full bg-zinc-800 text-white flex items-center justify-center">
+                                <Users size={14} />
                             </div>
-                            {!isPremium && <Lock size={10} className="text-zinc-600" />}
-                    </button>
-                    <button
-                        onClick={() => { onRegenerate(false); setShowMenu(false); }}
-                        className="w-full text-left px-4 py-3 hover:bg-zinc-900 flex items-center gap-3 text-zinc-300 transition-colors"
-                    >
-                        <Users size={14} />
-                        <div className="flex-1">
-                            <span className="text-xs font-bold block text-white">New Model</span>
-                            <span className="text-[10px] text-zinc-500">Roll new character</span>
-                        </div>
-                    </button>
-                </div>
-            )}
-        </div>
+                            <div className="flex-1">
+                                <span className="text-[10px] font-black uppercase tracking-wider block text-white">New Casting</span>
+                                <span className="text-[9px] text-zinc-600 font-medium">Randomize identity</span>
+                            </div>
+                        </button>
+                    </div>
+                )}
+            </div>
 
-        <button
-            onClick={onDownload}
-            className="h-9 px-4 bg-white text-black hover:bg-zinc-200 rounded-md font-medium text-xs transition-all flex items-center gap-2 shadow-sm"
-        >
-            <Download size={12} />
-            Save
-        </button>
+            {/* Separator */}
+            <div className="w-px h-6 bg-zinc-800/50 mx-1"></div>
+
+            {/* Save Button */}
+            <button
+                onClick={onDownload}
+                className="h-10 pl-4 pr-5 hover:bg-zinc-800/50 text-white rounded-r-full font-bold text-[10px] uppercase tracking-widest transition-all flex items-center gap-3 group"
+            >
+                <Download size={14} className="group-hover:-translate-y-0.5 transition-transform" />
+                <span>Save</span>
+            </button>
+        </div>
       </div>
     </div>
   );
