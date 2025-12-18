@@ -1,10 +1,11 @@
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
 /**
  * ENVIRONMENT BRIDGE
- * Ensures core environment variables are available globally.
+ * Ensures core environment variables are available globally and dynamically.
  */
 if (typeof window !== 'undefined') {
   const win = window as any;
@@ -13,15 +14,10 @@ if (typeof window !== 'undefined') {
   
   const env = (import.meta as any).env || {};
   
-  // Ensure keys exist in process.env for service compatibility
-  const keys = ['VITE_API_KEY', 'API_KEY', 'VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'];
-  keys.forEach(key => {
-    if (env[key]) win.process.env[key] = env[key];
-  });
-  
   // Standardize API_KEY for Gemini SDK
-  if (win.process.env.VITE_API_KEY && !win.process.env.API_KEY) {
-    win.process.env.API_KEY = win.process.env.VITE_API_KEY;
+  // We check window.process.env first as it might be injected by the AI Studio environment
+  if (!win.process.env.API_KEY && env.VITE_API_KEY) {
+    win.process.env.API_KEY = env.VITE_API_KEY;
   }
 }
 

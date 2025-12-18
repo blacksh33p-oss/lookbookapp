@@ -338,10 +338,12 @@ const App: React.FC = () => {
   };
 
   const handleGenerate = async () => {
+      // PRO MODEL REQUIREMENT: Must select a paid API key
       if (selectedModel === 'pro-3') {
         const hasKey = await (window as any).aistudio.hasSelectedApiKey();
         if (!hasKey) {
           await (window as any).aistudio.openSelectKey();
+          // Instructions: Assume success and proceed.
         }
       }
 
@@ -362,38 +364,38 @@ const App: React.FC = () => {
 
   const executeGeneration = async (currentOptions: PhotoshootOptions) => {
       const cost = getGenerationCost(currentOptions);
-      if (!session) {
-          if (guestCredits < cost) { setLoginModalView('signup'); setShowLoginModal(true); return; }
-          setIsLoading(true); setError(null); setGeneratedImage(null);
-          try {
-            const result = await generatePhotoshootImage(currentOptions);
-            setGeneratedImage(result);
-            setGuestCredits(prev => prev - cost);
-            localStorage.setItem('fashion_guest_credits', (guestCredits - cost).toString());
-          } catch (err: any) { 
-            if (err.message?.includes("Requested entity was not found")) {
-                await (window as any).aistudio.openSelectKey();
-            }
-            setError(err.message || 'Error'); 
-          } finally { setIsLoading(false); }
-      } else {
-          if (!userProfile || userProfile.credits < cost) { setShowUpgradeModal(true); return; }
-          setIsLoading(true); setError(null); setGeneratedImage(null);
-          try {
-            const result = await generatePhotoshootImage(currentOptions);
-            setGeneratedImage(result);
-            const newBalance = userProfile.credits - cost;
-            setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
-            if (isConfigured) {
-              await supabase.from('profiles').update({ credits: newBalance }).eq('id', session.user.id);
-              if (userProfile.tier !== SubscriptionTier.Free) saveToLibrary(result);
-            }
-          } catch (err: any) { 
-            if (err.message?.includes("Requested entity was not found")) {
-                await (window as any).aistudio.openSelectKey();
-            }
-            setError(err.message || 'Error'); 
-          } finally { setIsLoading(false); }
+      setIsLoading(true); 
+      setError(null); 
+      setGeneratedImage(null);
+
+      try {
+          if (!session) {
+              if (guestCredits < cost) { setLoginModalView('signup'); setShowLoginModal(true); setIsLoading(false); return; }
+              const result = await generatePhotoshootImage(currentOptions);
+              setGeneratedImage(result);
+              setGuestCredits(prev => prev - cost);
+              localStorage.setItem('fashion_guest_credits', (guestCredits - cost).toString());
+          } else {
+              if (!userProfile || userProfile.credits < cost) { setShowUpgradeModal(true); setIsLoading(false); return; }
+              const result = await generatePhotoshootImage(currentOptions);
+              setGeneratedImage(result);
+              const newBalance = userProfile.credits - cost;
+              setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
+              if (isConfigured) {
+                await supabase.from('profiles').update({ credits: newBalance }).eq('id', session.user.id);
+                if (userProfile.tier !== SubscriptionTier.Free) saveToLibrary(result);
+              }
+          }
+      } catch (err: any) { 
+          const errorMessage = err.message || 'Error';
+          // PRO MODEL RECOVERY: If key doesn't have model access, re-prompt key selection
+          if (errorMessage.includes("Requested entity was not found")) {
+              showToast("API Key missing Pro access. Please select a Paid project key.", "error");
+              await (window as any).aistudio.openSelectKey();
+          }
+          setError(errorMessage); 
+      } finally { 
+          setIsLoading(false); 
       }
   }
 
