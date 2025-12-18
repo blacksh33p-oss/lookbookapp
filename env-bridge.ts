@@ -15,7 +15,10 @@ if (typeof window !== 'undefined') {
   const env = (import.meta as any).env || {};
   Object.keys(env).forEach(key => {
     // 1. Sync the exact key (e.g., VITE_SUPABASE_URL)
-    win.process.env[key] = env[key];
+    // We only set it if it doesn't already exist in win.process.env
+    if (!win.process.env[key]) {
+      win.process.env[key] = env[key];
+    }
     
     // 2. Also sync the stripped key for convenience (e.g., SUPABASE_URL)
     if (key.startsWith('VITE_')) {
@@ -26,10 +29,10 @@ if (typeof window !== 'undefined') {
     }
   });
 
-  // Ensure API_KEY specifically is set if VITE_API_KEY exists
-  // This is the primary key used by the @google/genai SDK
+  // Ensure API_KEY specifically is set if it's missing but fallbacks are available
+  // We prioritize any existing process.env.API_KEY (platform injection)
   if (!win.process.env.API_KEY) {
-    win.process.env.API_KEY = env.VITE_API_KEY || env.VITE_GOOGLE_API_KEY || '';
+    win.process.env.API_KEY = env.VITE_API_KEY || env.VITE_GOOGLE_API_KEY || env.VITE_GEMINI_API_KEY || '';
   }
 }
 

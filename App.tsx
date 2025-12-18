@@ -342,14 +342,14 @@ const App: React.FC = () => {
       if (selectedModel === 'pro-3') {
         const aistudio = (window as any).aistudio;
         if (aistudio && typeof aistudio.hasSelectedApiKey === 'function') {
-          const hasKey = await aistudio.hasSelectedApiKey();
-          if (!hasKey) {
-            if (typeof aistudio.openSelectKey === 'function') {
+          try {
+            const hasKey = await aistudio.hasSelectedApiKey();
+            if (!hasKey && typeof aistudio.openSelectKey === 'function') {
               await aistudio.openSelectKey();
             }
+          } catch (e) {
+            // Silently fail if AI Studio tools are missing or restricted
           }
-        } else {
-          console.warn("AI Studio key selector is not available in this environment. Proceeding with default environment key.");
         }
       }
 

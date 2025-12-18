@@ -8,7 +8,7 @@ const STYLE_PROMPTS: Record<PhotoStyle, string> = {
   [PhotoStyle.Nature]: 'Outdoor Natural Environment, Soft Sunlight, Organic Background',
   [PhotoStyle.Coastal]: 'Coastal Golden Hour, Sand and Sky tones, Soft Breeze',
   [PhotoStyle.Luxury]: 'Modern Luxury Interior, Architectural Depth, Expensive Materials',
-  [PhotoStyle.Chromatic]: 'Studio Color Gel Lighting, Neon Accents, High Contrast, Chromatic Aberration',
+  [PhotoStyle.Chromatic]: 'Studio Color Gel Lighting, Neon Accent, High Contrast, Chromatic Aberration',
   [PhotoStyle.Minimalist]: 'Minimalist Brutalist Architecture, Sharp Shadows, Clean Lines',
   [PhotoStyle.Film]: 'Analog Film Grain, Kodak Portra 400 aesthetic, Soft focus, Emotional',
   [PhotoStyle.Newton]: 'Helmut Newton Style, High Contrast Black and White, Powerful Stance, Voyeuristic',
@@ -43,7 +43,6 @@ const getModelName = (version: ModelVersion): string => {
 
 export const generatePhotoshootImage = async (options: PhotoshootOptions): Promise<string> => {
   // Always access API_KEY dynamically from process.env to support live updates from key dialogs
-  // We use the global process polyfilled by env-bridge
   const API_KEY = (window as any).process?.env?.API_KEY || (import.meta as any).env?.VITE_API_KEY;
   
   if (!API_KEY) {
@@ -134,9 +133,9 @@ export const generatePhotoshootImage = async (options: PhotoshootOptions): Promi
         seed: options.seed 
       };
 
-      // Pro models support the googleSearch tool, which can improve grounding and generation quality
+      // Pro models support the google_search tool, which can improve grounding and generation quality
       if (modelName === 'gemini-3-pro-image-preview') {
-        generationConfig.tools = [{ googleSearch: {} }];
+        generationConfig.tools = [{ google_search: {} }];
       }
 
       const response = await ai.models.generateContent({
