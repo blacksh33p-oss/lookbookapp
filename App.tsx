@@ -267,7 +267,10 @@ const App: React.FC = () => {
                         {session.user.email?.[0]}
                     </div>
                  ) : (
-                    <button onClick={() => {setLoginModalView('signup'); setShowLoginModal(true);}} className="bg-white text-black px-4 py-1.5 rounded-md text-xs font-bold hover:bg-zinc-200 transition-colors">Sign up</button>
+                    <div className="flex items-center gap-3 sm:gap-6">
+                        <button onClick={() => {setLoginModalView('login'); setShowLoginModal(true);}} className="text-xs font-bold text-zinc-400 hover:text-white transition-colors">Log in</button>
+                        <button onClick={() => {setLoginModalView('signup'); setShowLoginModal(true);}} className="bg-white text-black px-4 py-1.5 rounded-md text-xs font-bold hover:bg-zinc-200 transition-colors">Sign up</button>
+                    </div>
                  )}
               </div>
           </div>
