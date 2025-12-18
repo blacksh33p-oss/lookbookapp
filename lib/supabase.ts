@@ -1,43 +1,25 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Robust environment variable detector for Vite/Vercel
-const getSafeEnv = (key: string): string => {
-  if (typeof window === 'undefined') return '';
-  
-  try {
-    // Check Vite's import.meta.env first
-    const meta = (import.meta as any);
-    if (meta && meta.env && meta.env[key]) {
-      return meta.env[key];
-    }
-  } catch (e) {}
-
-  try {
-    // Fallback to process.env if available
-    const proc = (window as any).process;
-    if (proc && proc.env && proc.env[key]) {
-      return proc.env[key];
-    }
-  } catch (e) {}
-
-  return '';
+const getEnv = (key: string): string => {
+  const value = (import.meta as any).env?.[key] || (window as any).process?.env?.[key] || '';
+  return value.trim();
 };
 
-const supabaseUrl = getSafeEnv('VITE_SUPABASE_URL').trim();
-const supabaseAnonKey = getSafeEnv('VITE_SUPABASE_ANON_KEY').trim();
+const supabaseUrl = getEnv('VITE_SUPABASE_URL');
+const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY');
 
-// Initialization with strict configuration check
-export const isConfigured = !!supabaseUrl && 
-  !!supabaseAnonKey && 
-  supabaseUrl !== 'https://placeholder.supabase.co' &&
-  supabaseUrl.length > 10;
+// Strict check to see if we have valid-looking credentials
+export const isConfigured = 
+  supabaseUrl.length > 10 && 
+  supabaseAnonKey.length > 10 && 
+  !supabaseUrl.includes('placeholder');
 
 if (!isConfigured && typeof window !== 'undefined') {
-  console.warn('FashionStudio: Supabase not configured. Archive features will be disabled.');
+  console.warn('FashionStudio: Supabase configuration missing. Archive features disabled.');
 }
 
-// Create client with fallback values to prevent initialization crash
-export const supabase: any = createClient(
+// Initialize client
+export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co', 
   supabaseAnonKey || 'placeholder'
 );
