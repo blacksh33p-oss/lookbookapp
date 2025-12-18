@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw, Command, Monitor, Folder, Library, Plus, Save, Check, HelpCircle, AlertCircle } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, LayoutGrid, LayoutList, Hexagon, Sparkles, Move, LogOut, CreditCard, Star, CheckCircle, XCircle, Info, Lock, GitCommit, Crown, RotateCw, X, Loader2, Palette, RefreshCcw, Command, Monitor, Folder, Library, Plus, Save, Check, HelpCircle, AlertCircle, MapPin, Wind } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -390,31 +390,63 @@ const App: React.FC = () => {
                   </div>
                   <h1 className="text-sm font-bold tracking-tight text-white font-mono uppercase">FashionStudio<span className="text-zinc-500">.ai</span></h1>
               </div>
-              <div className="flex items-center gap-4">
-                 {session && (
-                    <button onClick={() => setShowLibrary(true)} className="flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-white transition-colors">
-                        <Library size={14} /> Archive
-                    </button>
-                 )}
-                 {session ? (
-                    <div className="w-8 h-8 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700 text-xs font-bold text-white uppercase cursor-pointer" onClick={() => setShowProfileMenu(!showProfileMenu)}>
-                        {session.user.email?.[0]}
+
+              <div className="flex items-center gap-6">
+                 {/* Task 1: User Stats Display */}
+                 {session && userProfile && (
+                    <div className="hidden md:flex items-center gap-3 px-3 py-1 bg-zinc-900/50 border border-zinc-800 rounded-full group cursor-pointer hover:border-zinc-700 transition-colors" onClick={() => setShowUpgradeModal(true)}>
+                        <div className="flex items-center gap-1.5 px-2 border-r border-zinc-800">
+                           <Zap size={10} className="text-amber-400 fill-amber-400" />
+                           <span className="text-[10px] font-black text-white">{userProfile.credits}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-1">
+                           <Crown size={10} className={`${userProfile.tier !== SubscriptionTier.Free ? 'text-amber-400' : 'text-zinc-600'}`} />
+                           <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{userProfile.tier}</span>
+                        </div>
                     </div>
-                 ) : (
-                    <div className="flex items-center gap-3 sm:gap-6">
-                        <button onClick={handleLogin} className="text-xs font-bold text-zinc-400 hover:text-white transition-colors">Log in</button>
-                        <button onClick={handleSignup} className="bg-white text-black px-4 py-1.5 rounded-md text-xs font-bold hover:bg-zinc-200 transition-colors">Sign up</button>
-                    </div>
                  )}
+
+                 <div className="flex items-center gap-4">
+                    {session && (
+                        <button onClick={() => setShowLibrary(true)} className="flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-white transition-colors">
+                            <Library size={14} /> Archive
+                        </button>
+                    )}
+                    {session ? (
+                        <div className="relative group">
+                            <button className="w-8 h-8 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700 text-xs font-bold text-white uppercase hover:border-white transition-all">
+                                {session.user.email?.[0]}
+                            </button>
+                            {/* Profile Dropdown */}
+                            <div className="absolute top-full right-0 mt-2 w-48 bg-black border border-zinc-800 rounded-lg shadow-2xl py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all translate-y-2 group-hover:translate-y-0 z-[100]">
+                                <div className="px-4 py-3 border-b border-zinc-900">
+                                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Signed in as</p>
+                                    <p className="text-xs text-white truncate font-medium">{session.user.email}</p>
+                                </div>
+                                <button onClick={() => setShowUpgradeModal(true)} className="w-full text-left px-4 py-2.5 text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white flex items-center gap-2">
+                                    <Star size={14} className="text-amber-400" /> Subscription
+                                </button>
+                                <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-xs text-red-400 hover:bg-zinc-900 flex items-center gap-2">
+                                    <LogOut size={14} /> Sign Out
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-3 sm:gap-6">
+                            <button onClick={handleLogin} className="text-xs font-bold text-zinc-400 hover:text-white transition-colors">Log in</button>
+                            <button onClick={handleSignup} className="bg-white text-black px-4 py-1.5 rounded-md text-xs font-bold hover:bg-zinc-200 transition-colors">Sign up</button>
+                        </div>
+                    )}
+                 </div>
               </div>
           </div>
       </header>
 
       <main className="pt-20 px-6 max-w-[1920px] mx-auto min-h-screen pb-12 relative z-10">
         <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-4 flex flex-col gap-4">
+          <aside className="lg:col-span-4 flex flex-col gap-4 overflow-y-auto max-h-[calc(100vh-8rem)] custom-scrollbar pr-1">
             
-            {/* TASK 1: UPGRADED FOLDER DROPDOWN UI */}
+            {/* Folder Selection */}
             {session && isConfigured && (
               <div className="space-y-1.5" ref={projectMenuRef}>
                 <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Working Folder</label>
@@ -454,24 +486,118 @@ const App: React.FC = () => {
                       </div>
                     )}
                 </div>
-                {saveError && (
-                  <p className="text-[9px] text-red-400 flex items-center gap-1 pl-1">
-                    <AlertCircle size={10} /> Folder sync failed. Please re-select.
-                  </p>
-                )}
               </div>
             )}
 
-            <div className="bg-black/80 backdrop-blur-sm border border-zinc-800 rounded-lg overflow-hidden shadow-xl">
-                <ConfigSection title="Wardrobe" icon={Shirt} defaultOpen={true}>
-                    <OutfitControl outfit={options.outfit} onChange={(newOutfit) => setOptions({ ...options, outfit: newOutfit })} />
+            <div className="bg-black border border-zinc-800 rounded-lg overflow-hidden shadow-xl">
+                {/* Task 2: Restored Core Feature UI Sections */}
+                
+                {/* 1. WARDROBE SECTION */}
+                <ConfigSection title="Wardrobe & Garments" icon={Shirt} defaultOpen={true}>
+                    <OutfitControl 
+                        outfit={options.outfit} 
+                        onChange={(newOutfit) => setOptions({ ...options, outfit: newOutfit })} 
+                    />
                 </ConfigSection>
-                <ConfigSection title="Model" icon={UserCircle} defaultOpen={true}>
+
+                {/* 2. MODEL SPECS SECTION */}
+                <ConfigSection title="Model Specs & Identity" icon={UserCircle}>
                     <div className="grid grid-cols-2 gap-4">
                         <Dropdown label="Sex" value={options.sex} options={Object.values(ModelSex)} onChange={(val) => setOptions({ ...options, sex: val })} />
-                        <Dropdown label="Age" value={options.age} options={Object.values(ModelAge)} onChange={(val) => setOptions({ ...options, age: val })} />
                         <Dropdown label="Ethnicity" value={options.ethnicity} options={Object.values(ModelEthnicity)} onChange={(val) => setOptions({ ...options, ethnicity: val })} />
-                        <Dropdown label="Style" value={options.style} options={Object.values(PhotoStyle)} onChange={(val) => setOptions({ ...options, style: val })} />
+                        <Dropdown label="Age Range" value={options.age} options={Object.values(ModelAge)} onChange={(val) => setOptions({ ...options, age: val })} />
+                        <Dropdown label="Expression" value={options.facialExpression} options={Object.values(FacialExpression)} onChange={(val) => setOptions({ ...options, facialExpression: val })} />
+                    </div>
+                    
+                    <div className="space-y-3 pt-2">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Hair Specification</label>
+                            <input 
+                                type="text"
+                                placeholder="e.g. Platinum Blonde, Slicked Back"
+                                value={options.hairStyle}
+                                onChange={(e) => setOptions({...options, hairStyle: e.target.value})}
+                                className="w-full bg-black border border-zinc-800 rounded-md py-2 px-3 text-xs text-white focus:border-zinc-500 font-mono"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Custom Features</label>
+                            <textarea 
+                                placeholder="Freckles, sharp jawline, blue eyes..."
+                                value={options.modelFeatures}
+                                onChange={(e) => setOptions({...options, modelFeatures: e.target.value})}
+                                className="w-full h-20 bg-black border border-zinc-800 rounded-md py-2 px-3 text-xs text-white focus:border-zinc-500 font-mono resize-none"
+                            />
+                        </div>
+                    </div>
+                </ConfigSection>
+
+                {/* 3. PHYSICALITY SECTION */}
+                <ConfigSection title="Physicality & Size" icon={Ruler}>
+                    <SizeControl 
+                        options={options} 
+                        onChange={(newOps) => setOptions(newOps)}
+                        isPremium={isPremium}
+                        onUpgradeRequest={() => setShowUpgradeModal(true)}
+                    />
+                </ConfigSection>
+
+                {/* 4. POSE & SET SECTION */}
+                <ConfigSection title="Model & Set / Pose Control" icon={Move}>
+                    <PoseControl 
+                        selectedPose={options.pose}
+                        onPoseChange={(p) => setOptions({...options, pose: p})}
+                        isAutoMode={autoPose}
+                        onToggleAutoMode={setAutoPose}
+                        isPremium={isPremium}
+                        onUpgrade={() => setShowUpgradeModal(true)}
+                    />
+                    
+                    <div className="space-y-3 pt-4 border-t border-zinc-800">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Scene Scenery Details</label>
+                            <textarea 
+                                placeholder="e.g. Modern concrete loft, soft morning light, minimalist furniture..."
+                                value={options.sceneDetails}
+                                onChange={(e) => setOptions({...options, sceneDetails: e.target.value})}
+                                className="w-full h-24 bg-black border border-zinc-800 rounded-md py-2 px-3 text-xs text-white focus:border-zinc-500 font-mono resize-none"
+                            />
+                        </div>
+                    </div>
+                </ConfigSection>
+
+                {/* 5. ART DIRECTION SECTION */}
+                <ConfigSection title="Art Direction & Output" icon={Palette}>
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                            {STANDARD_STYLES.map(s => (
+                                <StyleButton key={s} label={s} isSelected={options.style === s} onClick={() => setOptions({...options, style: s})} />
+                            ))}
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-zinc-800/50">
+                            {PRO_STYLES.map(s => (
+                                <StyleButton key={s} label={s} isSelected={options.style === s} isLocked={!hasProAccess} onClick={() => hasProAccess ? setOptions({...options, style: s}) : setShowUpgradeModal(true)} />
+                            ))}
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4 pt-4">
+                            <Dropdown label="Format / Aspect Ratio" value={options.aspectRatio} options={Object.values(AspectRatio)} onChange={(val) => setOptions({ ...options, aspectRatio: val as AspectRatio })} />
+                            <Dropdown label="Model Engine" value={options.modelVersion} options={Object.values(ModelVersion)} onChange={(val) => setOptions({ ...options, modelVersion: val as ModelVersion })} />
+                        </div>
+
+                        <div className="flex items-center justify-between p-3 bg-zinc-900/30 border border-zinc-800 rounded-md">
+                            <div className="flex items-center gap-2">
+                                <Monitor size={14} className="text-zinc-500" />
+                                <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-widest">Enable 4K Upscale</span>
+                            </div>
+                            <button 
+                                onClick={() => isStudio ? setOptions({...options, enable4K: !options.enable4K}) : setShowUpgradeModal(true)}
+                                className={`w-10 h-5 rounded-full relative transition-all duration-300 ${options.enable4K ? 'bg-white' : 'bg-zinc-800'}`}
+                            >
+                                <div className={`absolute top-1 w-3 h-3 rounded-full transition-all duration-300 ${options.enable4K ? 'right-1 bg-black' : 'left-1 bg-zinc-600'}`}></div>
+                                {!isStudio && <Lock size={8} className="absolute left-1.5 top-1.5 text-zinc-900 pointer-events-none" />}
+                            </button>
+                        </div>
                     </div>
                 </ConfigSection>
             </div>
@@ -479,21 +605,32 @@ const App: React.FC = () => {
             <button 
                 onClick={handleGenerate} 
                 disabled={!isFormValid || isLoading} 
-                className={`w-full py-4 rounded-md text-[11px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 transform active:scale-[0.98] shadow-lg
-                ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-600 border border-zinc-800' : 'bg-white text-black hover:bg-zinc-200'}`}
+                className={`w-full py-5 rounded-md text-[11px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 transform active:scale-[0.98] shadow-2xl mt-4
+                ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed' : 'bg-white text-black hover:bg-zinc-200'}`}
             >
-                {isLoading ? <Loader2 size={16} className="animate-spin" /> : <><Sparkles size={16} /> Generate Shoot</>}
+                {isLoading ? (
+                    <div className="flex items-center gap-3">
+                        <Loader2 size={16} className="animate-spin" />
+                        <span>Rendering Scene...</span>
+                    </div>
+                ) : (
+                    <><Sparkles size={16} /> Generate Shoot</>
+                )}
             </button>
-          </div>
+          </aside>
 
-          {/* TASK 2: ENHANCED SAVE BUTTON FEEDBACK UI */}
-          <div className="lg:col-span-8 h-[calc(100vh-8rem)] sticky top-20 bg-black border border-zinc-800 rounded-lg overflow-hidden shadow-2xl relative">
+          <section className="lg:col-span-8 h-[calc(100vh-8rem)] sticky top-20 bg-black border border-zinc-800 rounded-lg overflow-hidden shadow-2xl relative">
              <ResultDisplay 
                 isLoading={isLoading} 
                 image={generatedImage} 
                 onDownload={handleDownload} 
-                onRegenerate={() => handleGenerate()} 
-                isPremium={true} 
+                onRegenerate={(keepModel) => {
+                    const seed = keepModel ? options.seed : getRandomSeed();
+                    const newOps = { ...options, seed, isModelLocked: keepModel };
+                    setOptions(newOps);
+                    executeGeneration(newOps);
+                }} 
+                isPremium={isPremium} 
                 error={error} 
              />
              
@@ -503,7 +640,7 @@ const App: React.FC = () => {
                   disabled={isSaving || justSaved} 
                   className={`absolute top-6 right-6 px-6 py-3 rounded-md transition-all duration-300 flex items-center gap-3 text-[10px] font-black uppercase tracking-widest shadow-2xl backdrop-blur-md border
                     ${justSaved 
-                        ? 'bg-emerald-500 text-white border-emerald-400 scale-105' 
+                        ? 'bg-emerald-500 text-white border-emerald-400 scale-105 shadow-emerald-500/20' 
                         : isSaving 
                           ? 'bg-zinc-800 text-zinc-400 border-zinc-700 cursor-not-allowed'
                           : 'bg-black/90 text-white border-zinc-700 hover:border-white hover:bg-black'}`}
@@ -520,7 +657,7 @@ const App: React.FC = () => {
                   {isSaving ? "Saving Asset..." : justSaved ? "Saved!" : saveError ? "Retry Save" : "Archive Shoot"}
                 </button>
              )}
-          </div>
+          </section>
         </div>
       </main>
 
