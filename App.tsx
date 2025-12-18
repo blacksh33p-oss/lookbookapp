@@ -213,12 +213,22 @@ const App: React.FC = () => {
   };
 
   const handleAuth = async (email: string, password?: string, isSignUp?: boolean, username?: string) => {
-      if (!isConfigured) return;
+      if (!isConfigured) {
+          throw new Error("Database not configured. Authentication is currently disabled.");
+      }
+      
       if (isSignUp) {
-          const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: username } } });
+          const { error } = await supabase.auth.signUp({ 
+            email, 
+            password, 
+            options: { data: { full_name: username } } 
+          });
           if (error) throw error;
       } else {
-          const { error } = await supabase.auth.signInWithPassword({ email, password });
+          const { error } = await supabase.auth.signInWithPassword({ 
+            email, 
+            password 
+          });
           if (error) throw error;
       }
   };
