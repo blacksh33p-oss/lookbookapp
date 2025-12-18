@@ -42,8 +42,14 @@ const getModelName = (version: ModelVersion): string => {
 };
 
 export const generatePhotoshootImage = async (options: PhotoshootOptions): Promise<string> => {
-  const API_KEY = process.env.API_KEY;
-  if (!API_KEY) throw new Error("API Key is missing.");
+  // Always access API_KEY dynamically from process.env to support live updates from key dialogs
+  // We use the global process polyfilled by env-bridge
+  const API_KEY = (window as any).process?.env?.API_KEY || (import.meta as any).env?.VITE_API_KEY;
+  
+  if (!API_KEY) {
+    throw new Error("API Key is missing. If you are using Gemini 3 Pro, please ensure you have selected a paid project key via the selector.");
+  }
+  
   const ai = new GoogleGenAI({ apiKey: API_KEY });
 
   const heightStr = options.height ? `Model Height: ${options.height} ${options.measurementUnit}` : 'Height: Standard Model Height';
@@ -123,10 +129,20 @@ export const generatePhotoshootImage = async (options: PhotoshootOptions): Promi
         });
       });
 
+      const generationConfig: any = { 
+        imageConfig: config, 
+        seed: options.seed 
+      };
+
+      // Pro models support the googleSearch tool, which can improve grounding and generation quality
+      if (modelName === 'gemini-3-pro-image-preview') {
+        generationConfig.tools = [{ googleSearch: {} }];
+      }
+
       const response = await ai.models.generateContent({
         model: modelName,
         contents: { parts },
-        config: { imageConfig: config, seed: options.seed }
+        config: generationConfig
       });
 
       if (response.candidates && response.candidates[0].content && response.candidates[0].content.parts) {
@@ -134,12 +150,15 @@ export const generatePhotoshootImage = async (options: PhotoshootOptions): Promi
           if (part.inlineData && part.inlineData.data) return `data:image/png;base64,${part.inlineData.data}`;
         }
       }
-      throw new Error("No image generated.");
+      throw new Error("The model did not return an image. This could be due to safety filters or insufficient API key permissions for Gemini 3 Pro.");
   };
 
   const targetModel = getModelName(options.modelVersion);
   const imageConfig: any = { aspectRatio: options.aspectRatio };
-  if (options.modelVersion === ModelVersion.Pro) imageConfig.imageSize = options.enable4K ? '4K' : '2K';
+  
+  if (options.modelVersion === ModelVersion.Pro) {
+    imageConfig.imageSize = options.enable4K ? '4K' : '2K';
+  }
 
   return await executeGeneration(targetModel, imageConfig);
 };
