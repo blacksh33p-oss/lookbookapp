@@ -9,6 +9,17 @@ interface PoseControlProps {
   isPremium: boolean;
   hasSession: boolean;
   onUpgrade: () => void;
+  SpotlightGate: React.FC<{ 
+    children: React.ReactNode; 
+    isLocked: boolean; 
+    tier: 'CREATOR' | 'STUDIO'; 
+    className?: string;
+    containerClassName?: string;
+    onClick?: () => void;
+    interactive?: boolean;
+    tooltipMessage?: string;
+  }>;
+  onLockedClick?: () => void;
 }
 
 interface PosePreset {
@@ -63,17 +74,24 @@ export const PoseControl: React.FC<PoseControlProps> = ({
   onToggleAutoMode,
   isPremium,
   hasSession,
-  onUpgrade
+  onUpgrade,
+  SpotlightGate,
+  onLockedClick
 }) => {
   
   const handlePresetClick = (prompt: string) => {
-    if (!isPremium) { onUpgrade(); return; }
     onPoseChange(prompt);
+    if (!isPremium && onLockedClick) {
+      onLockedClick();
+    }
   };
 
   const handleModeToggle = (targetModeIsAuto: boolean) => {
       onToggleAutoMode(targetModeIsAuto);
       if (targetModeIsAuto) onPoseChange(undefined);
+      if (!targetModeIsAuto && !isPremium && onLockedClick) {
+        onLockedClick();
+      }
   };
 
   return (
@@ -82,61 +100,74 @@ export const PoseControl: React.FC<PoseControlProps> = ({
       <div className="grid grid-cols-2 gap-px bg-zinc-800 p-[1px] rounded-md overflow-hidden">
         <button
           onClick={() => handleModeToggle(true)}
-          className={`py-2 px-3 text-[10px] font-bold uppercase tracking-wide flex items-center justify-center gap-2 transition-all ${
+          className={`py-2 px-3 text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
             isAutoMode ? 'bg-zinc-100 text-black' : 'bg-black text-zinc-500 hover:text-zinc-300'
           }`}
         >
           <Shuffle size={12} /> Shuffle
         </button>
-        <button
+        <SpotlightGate 
+          isLocked={!isPremium} 
+          tier="CREATOR" 
+          containerClassName="flex-1" 
+          interactive={true} 
           onClick={() => handleModeToggle(false)}
-          className={`py-2 px-3 text-[10px] font-bold uppercase tracking-wide flex items-center justify-center gap-2 transition-all relative ${
-            !isAutoMode ? 'bg-zinc-100 text-black' : 'bg-black text-zinc-500 hover:text-zinc-300'
-          }`}
+          tooltipMessage="Upgrade to CREATOR to unlock Manual mode"
         >
-           {!isPremium && <Lock size={10} className="text-amber-500 mr-1" />} Manual
-        </button>
+          <button
+            className={`w-full py-2 px-3 text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all relative ${
+              !isAutoMode ? 'bg-zinc-100 text-black' : 'bg-black text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            Manual
+          </button>
+        </SpotlightGate>
       </div>
 
       {!isAutoMode ? (
         <div className="relative">
-          <div 
-            className={`space-y-4 transition-all ${!isPremium ? 'opacity-85 grayscale cursor-pointer' : ''}`}
-            onClick={() => !isPremium && onUpgrade()}
-          >
-              <div className="flex items-center justify-between px-1 mb-2">
-                 <span className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Premium Pose Library</span>
-                 {!isPremium && <span className="text-[8px] font-black uppercase text-amber-500 tracking-widest border border-amber-500/20 bg-amber-500/5 px-2 py-0.5 rounded shadow-[0_0_20px_rgba(245,158,11,0.1)]">Requires Creator Tier</span>}
+          <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3 px-1 mb-2 pr-3">
+                 <span className={`text-[10px] font-bold uppercase text-zinc-500 tracking-wider`}>Premium Pose Library</span>
               </div>
 
-              {POSE_CATEGORIES.map((category) => (
-                  <div key={category.id}>
-                      <h4 className="text-[9px] text-zinc-600 font-bold uppercase tracking-wider mb-2">{category.label}</h4>
-                      <div className="grid grid-cols-3 gap-2">
-                          {category.poses.map((pose) => {
-                              const isSelected = selectedPose === pose.prompt;
-                              return (
-                                  <button
-                                      key={pose.id}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handlePresetClick(pose.prompt);
-                                      }}
-                                      className={`relative p-2 rounded-md border text-center transition-all flex flex-col items-center justify-center gap-2 min-h-[4rem] group
-                                          ${isSelected 
-                                              ? 'bg-white border-white text-black' 
-                                              : 'bg-black border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-white'
-                                          }
-                                      `}
-                                  >
-                                      <pose.icon size={16} strokeWidth={1.5} />
-                                      <span className="text-[9px] font-medium leading-tight">{pose.label}</span>
-                                  </button>
-                              );
-                          })}
+              <SpotlightGate 
+                isLocked={!isPremium} 
+                tier="CREATOR" 
+                interactive={true}
+                tooltipMessage="Upgrade to CREATOR to use this pose"
+              >
+                <div className="space-y-4">
+                  {POSE_CATEGORIES.map((category) => (
+                      <div key={category.id}>
+                          <h4 className="text-[9px] text-zinc-600 font-bold uppercase tracking-wider mb-2">{category.label}</h4>
+                          <div className="grid grid-cols-3 gap-2">
+                              {category.poses.map((pose) => {
+                                  const isSelected = selectedPose === pose.prompt;
+                                  return (
+                                      <button
+                                          key={pose.id}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handlePresetClick(pose.prompt);
+                                          }}
+                                          className={`relative p-2 rounded-md border text-center transition-all flex flex-col items-center justify-center gap-2 min-h-[4rem] group
+                                              ${isSelected 
+                                                  ? 'bg-white border-white text-black' 
+                                                  : 'bg-black border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-white'
+                                              }
+                                          `}
+                                      >
+                                          <pose.icon size={16} strokeWidth={1.5} />
+                                          <span className="text-[9px] font-medium leading-tight">{pose.label}</span>
+                                      </button>
+                                  );
+                              })}
+                          </div>
                       </div>
-                  </div>
-              ))}
+                  ))}
+                </div>
+              </SpotlightGate>
           </div>
         </div>
       ) : (

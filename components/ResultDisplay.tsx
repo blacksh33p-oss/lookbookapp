@@ -8,6 +8,13 @@ interface ResultDisplayProps {
   onRegenerate: (keepModel: boolean) => void;
   isPremium: boolean;
   error: string | null;
+  SpotlightGate: React.FC<{ 
+    children: React.ReactNode; 
+    isLocked: boolean; 
+    tier: 'CREATOR' | 'STUDIO'; 
+    className?: string;
+    containerClassName?: string;
+  }>;
 }
 
 const LOADING_LOGS = [
@@ -25,7 +32,8 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
     onDownload, 
     onRegenerate, 
     isPremium,
-    error 
+    error,
+    SpotlightGate
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -161,22 +169,23 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
                 {/* Regenerate Menu - Floats Upwards */}
                 {showMenu && (
                     <div className="absolute bottom-full left-0 mb-4 w-56 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] z-50 overflow-hidden animate-slide-up">
-                        <button
-                            onClick={() => { 
-                                onRegenerate(true); 
-                                if (isPremium) setShowMenu(false); 
-                            }}
-                            className={`w-full text-left px-5 py-4 flex items-center gap-4 transition-colors border-b border-zinc-900 ${!isPremium ? 'opacity-50 grayscale' : 'hover:bg-zinc-900 text-zinc-300'}`}
-                        >
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isPremium ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-500'}`}>
-                                    <User size={14} />
-                                </div>
-                                <div className="flex-1">
-                                    <span className={`text-[10px] font-black uppercase tracking-wider block ${isPremium ? 'text-white' : 'text-zinc-500'}`}>Keep Identity</span>
-                                    <span className="text-[9px] text-zinc-600 font-medium">Locked current model</span>
-                                </div>
-                                {!isPremium && <Lock size={10} className="text-amber-500" />}
-                        </button>
+                        <SpotlightGate isLocked={!isPremium} tier="CREATOR">
+                          <button
+                              onClick={() => { 
+                                  onRegenerate(true); 
+                                  if (isPremium) setShowMenu(false); 
+                              }}
+                              className={`w-full text-left px-5 py-4 flex items-center gap-4 transition-colors border-b border-zinc-900 ${isPremium ? 'hover:bg-zinc-900 text-zinc-300' : ''}`}
+                          >
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isPremium ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-500'}`}>
+                                      <User size={14} />
+                                  </div>
+                                  <div className="flex-1">
+                                      <span className={`text-[10px] font-black uppercase tracking-wider block ${isPremium ? 'text-white' : 'text-zinc-500'}`}>Keep Identity</span>
+                                      <span className="text-[9px] text-zinc-600 font-medium">Locked current model</span>
+                                  </div>
+                          </button>
+                        </SpotlightGate>
                         <button
                             onClick={() => { onRegenerate(false); setShowMenu(false); }}
                             className="w-full text-left px-5 py-4 hover:bg-zinc-900 flex items-center gap-4 text-zinc-300 transition-colors"

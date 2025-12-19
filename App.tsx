@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, Hexagon, Sparkles, Move, LogOut, Star, CheckCircle, XCircle, Info, Lock, Crown, X, Loader2, Palette, Folder, Library, Plus, Save, Check, AlertCircle, Monitor, Settings, Eye, Layout, Columns } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, Hexagon, Sparkles, Move, LogOut, Star, CheckCircle, XCircle, Info, Lock, Crown, X, Loader2, Palette, Folder, Library, Plus, Save, Check, AlertCircle, Monitor, Settings, Eye, Layout, Columns, Square } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -44,6 +45,65 @@ const getGenerationCost = (options: PhotoshootOptions): number => {
     return cost;
 };
 
+/**
+ * SpotlightGate Component
+ * Wraps restricted features with desaturation/opacity rules.
+ * Shows portaled tooltip on hover to prevent truncation.
+ */
+export const SpotlightGate: React.FC<{ 
+  children: React.ReactNode; 
+  isLocked: boolean; 
+  tier: 'CREATOR' | 'STUDIO'; 
+  className?: string;
+  containerClassName?: string;
+  onClick?: () => void;
+  interactive?: boolean;
+  tooltipMessage?: string;
+}> = ({ children, isLocked, tier, className = "", containerClassName = "", onClick, interactive = false, tooltipMessage }) => {
+  const [tooltipPos, setTooltipPos] = useState<{ x: number, y: number } | null>(null);
+
+  const handleMouseEnter = (e: React.MouseEvent) => {
+    if (!isLocked) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    setTooltipPos({
+      x: rect.left + rect.width / 2,
+      y: rect.top - 8
+    });
+  };
+
+  const handleMouseLeave = () => setTooltipPos(null);
+
+  return (
+    <div 
+      className={`relative ${containerClassName} ${isLocked ? 'cursor-pointer' : ''}`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onClick={(e) => {
+        if (isLocked && onClick) {
+          onClick();
+        }
+      }}
+    >
+      <div className={`transition-all duration-300 h-full w-full ${isLocked ? 'grayscale opacity-40 hover:opacity-70' : ''} ${className} ${isLocked && !interactive ? 'pointer-events-none' : ''}`}>
+        {children}
+      </div>
+      
+      {isLocked && tooltipPos && createPortal(
+        <div 
+          className="fixed z-[9999] pointer-events-none animate-fade-in -translate-x-1/2 -translate-y-full"
+          style={{ left: tooltipPos.x, top: tooltipPos.y }}
+        >
+          <div className="bg-black/90 backdrop-blur-[12px] border-[0.5px] border-white/10 text-white text-[10px] font-bold px-3 py-1.5 rounded-md whitespace-nowrap uppercase tracking-wider shadow-2xl">
+            {tooltipMessage || `Unlock with ${tier} Tier`}
+          </div>
+          <div className="w-1.5 h-1.5 bg-black/90 border-r border-b border-white/10 rotate-45 mx-auto -mt-[4px]" />
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+};
+
 const Toast: React.FC<{ message: string; type: 'success' | 'error' | 'info'; onClose: () => void }> = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(onClose, 4000);
@@ -65,60 +125,25 @@ const Toast: React.FC<{ message: string; type: 'success' | 'error' | 'info'; onC
   );
 };
 
-interface FeatureLockWrapperProps {
-    isLocked: boolean;
-    requiredTier?: string;
-    hasSession: boolean;
-    children: React.ReactNode;
-    onClick: () => void;
-    overlayOnly?: boolean;
-}
-
-const FeatureLockWrapper: React.FC<FeatureLockWrapperProps> = ({ isLocked, requiredTier, hasSession, children, onClick, overlayOnly = false }) => {
-    if (!isLocked) return <>{children}</>;
-    
-    const message = requiredTier 
-        ? `Requires ${requiredTier} Tier` 
-        : "Premium Feature";
-
-    return (
-        <div className="relative group cursor-pointer" onClick={onClick}>
-            <div className={`transition-all group-hover:opacity-40 pointer-events-none filter ${overlayOnly ? '' : 'opacity-85 grayscale'}`}>
-                {children}
-            </div>
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/5 rounded-lg z-20">
-                <div className="bg-black/95 border border-zinc-800 px-3 py-2 rounded-lg flex flex-col items-center gap-1 shadow-2xl scale-95 group-hover:scale-100 transition-transform">
-                    <Lock size={12} className="text-amber-500" />
-                    <span className="text-[8px] font-black uppercase tracking-widest text-amber-500 whitespace-nowrap">{message}</span>
-                </div>
-            </div>
-        </div>
-    );
-};
-
 interface ConfigSectionProps {
   title: string;
   icon: React.ElementType;
   children: React.ReactNode;
   defaultOpen?: boolean;
-  isLocked?: boolean;
 }
 
-const ConfigSection: React.FC<ConfigSectionProps> = ({ title, icon: Icon, children, defaultOpen = false, isLocked = false }) => {
+const ConfigSection: React.FC<ConfigSectionProps> = ({ title, icon: Icon, children, defaultOpen = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
     <div className="border-b border-zinc-800 bg-black/50 last:border-b-0 flex-shrink-0">
       <button 
         onClick={() => setIsOpen(!isOpen)} 
-        className="w-full flex items-center justify-between p-4 text-left focus:outline-none group hover:bg-zinc-900/50 transition-colors"
+        className="w-full flex items-center justify-between py-2 px-4 text-left focus:outline-none group hover:bg-zinc-900/50 transition-colors"
       >
         <div className="flex items-center gap-3">
-          <div className="relative">
-            <Icon size={14} className={`text-zinc-500 group-hover:text-white transition-colors ${isOpen ? 'text-white' : ''}`} />
-          </div>
-          <span className="font-mono text-xs font-medium tracking-wide text-zinc-300 group-hover:text-white transition-colors flex items-center gap-2 uppercase">
+          <Icon size={14} className={`text-zinc-500 group-hover:text-white transition-colors ${isOpen ? 'text-white' : ''}`} />
+          <span className="font-mono text-xs font-medium tracking-wider text-zinc-300 group-hover:text-white transition-colors uppercase">
             {title}
-            {isLocked && <Lock size={10} className="text-amber-500 ml-1" />}
           </span>
         </div>
         <div className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
@@ -128,9 +153,7 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({ title, icon: Icon, childr
       {isOpen && (
         <div className="p-4 pt-0 animate-fade-in relative">
             <div className={`mt-2 space-y-5 relative`}>
-                <div className={`${isLocked ? 'grayscale-0 opacity-100' : ''}`}>
-                    {children}
-                </div>
+                {children}
             </div>
         </div>
       )}
@@ -141,13 +164,15 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({ title, icon: Icon, childr
 interface StyleButtonProps {
     label: string;
     isSelected: boolean;
-    isLocked?: boolean;
     onClick: () => void;
 }
-const StyleButton: React.FC<StyleButtonProps> = ({ label, isSelected, isLocked, onClick }) => (
-    <button onClick={onClick} className={`relative px-3 py-3 rounded-md border text-left transition-all group overflow-hidden min-h-[3rem] flex items-center justify-between ${isSelected ? 'bg-white border-white text-black shadow-lg shadow-white/5' : 'bg-black border-zinc-800 hover:border-zinc-600 text-zinc-400'} ${isLocked && !isSelected ? 'hover:bg-zinc-900/40' : ''}`}>
-        <span className={`text-[10px] font-bold uppercase tracking-wide z-10 relative ${isSelected ? 'text-black' : 'text-zinc-400 group-hover:text-zinc-200'}`}>{label}</span>
-        {isLocked && !isSelected && <Lock size={10} className="text-amber-500 transition-colors" />}
+const StyleButton: React.FC<StyleButtonProps> = ({ label, isSelected, onClick }) => (
+    <button 
+        onClick={onClick} 
+        className={`px-3 py-3 rounded-md border text-left transition-all group overflow-hidden min-h-[3rem] flex items-center justify-between 
+        ${isSelected ? 'bg-white border-white text-black shadow-lg shadow-white/5' : 'bg-black border-zinc-800 hover:border-zinc-600 text-zinc-400'}`}
+    >
+        <span className={`text-[10px] font-bold uppercase tracking-wider z-10 relative ${isSelected ? 'text-black' : 'text-zinc-400 group-hover:text-zinc-200'}`}>{label}</span>
     </button>
 );
 
@@ -156,6 +181,7 @@ const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor');
+  const [showSoftGate, setShowSoftGate] = useState(false);
   
   const [guestCredits, setGuestCredits] = useState<number>(() => {
     const saved = localStorage.getItem('fashion_guest_credits');
@@ -214,7 +240,23 @@ const App: React.FC = () => {
 
   const showToast = (message: string, type: 'success' | 'error' | 'info') => setToast({ message, type });
 
-  const isFormValid = Object.values(options.outfit).some((item: OutfitItem) => 
+  const handleSoftGateTrigger = () => {
+    if (!session) {
+      setShowSoftGate(true);
+      return true;
+    }
+    return false;
+  };
+
+  const isRestrictedActive = (
+    (options.layout === LayoutMode.Diptych && !isStudio) ||
+    (options.enable4K && !isStudio) ||
+    (PRO_STYLES.includes(options.style) && !hasProAccess) ||
+    (!autoPose && !isPremium) ||
+    (selectedModel === 'pro-3' && !hasProAccess)
+  );
+
+  const isFormValid = !isRestrictedActive && Object.values(options.outfit).some((item: OutfitItem) => 
     item.images.length > 0 || (item.description && item.description.trim().length > 0) || (item.garmentType && item.garmentType.trim().length > 0)
   );
 
@@ -577,7 +619,7 @@ const App: React.FC = () => {
           <div className="p-4 border-b border-zinc-800 bg-zinc-950/50 space-y-4 flex-shrink-0">
               <div className="space-y-1.5">
                   <div className="flex justify-between items-center pl-1">
-                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Generation Engine</label>
+                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Generation Engine</label>
                       <span className="text-[9px] font-mono text-zinc-600 uppercase">Latency Priority</span>
                   </div>
                   <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-1 flex gap-1 shadow-sm">
@@ -585,58 +627,73 @@ const App: React.FC = () => {
                           onClick={() => setSelectedModel('flash-2.5')}
                           className={`flex-1 py-2 px-2 rounded-md transition-all duration-200 flex flex-col items-center justify-center gap-0.5 ${selectedModel === 'flash-2.5' ? 'bg-zinc-100 text-black shadow-md' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'}`}
                       >
-                          <span className="text-[10px] font-black uppercase tracking-tight">Flash 2.5</span>
+                          <span className="text-[10px] font-black uppercase tracking-wider">Flash 2.5</span>
                           <span className={`text-[8px] font-bold uppercase ${selectedModel === 'flash-2.5' ? 'text-zinc-500' : 'text-zinc-700'}`}>Standard</span>
                       </button>
-                      <button
-                          onClick={() => handleProInterceptor() ? null : setSelectedModel('pro-3')}
-                          className={`flex-1 py-2 px-2 rounded-md transition-all duration-200 flex flex-col items-center justify-center gap-0.5 relative
-                            ${selectedModel === 'pro-3' ? 'bg-zinc-100 text-black shadow-md' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'}`}
+                      <SpotlightGate
+                          isLocked={!hasProAccess}
+                          tier="CREATOR"
+                          containerClassName="flex-1"
+                          className="h-full"
+                          interactive={true}
+                          onClick={() => {
+                            if (handleSoftGateTrigger()) return;
+                            setSelectedModel('pro-3');
+                          }}
                       >
-                          {!hasProAccess && <Lock size={10} className="absolute top-1 right-1 text-amber-500" />}
-                          <span className="text-[10px] font-black uppercase tracking-tight">Pro 3</span>
-                          <span className={`text-[8px] font-black uppercase tracking-widest ${selectedModel === 'pro-3' ? 'text-zinc-500' : 'text-amber-500'}`}>
-                             {!hasProAccess ? 'Requires Creator Tier' : 'High Detail'}
-                          </span>
-                      </button>
+                        <button
+                            className={`w-full h-full py-2 px-2 rounded-md transition-all duration-200 flex flex-col items-center justify-center gap-0.5
+                              ${selectedModel === 'pro-3' ? 'bg-zinc-100 text-black shadow-md' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'}`}
+                        >
+                            <span className={`text-[10px] font-black uppercase tracking-wider`}>Pro 3</span>
+                            <span className={`text-[8px] font-bold uppercase ${selectedModel === 'pro-3' ? 'text-zinc-500' : 'text-zinc-400'}`}>High Detail</span>
+                        </button>
+                      </SpotlightGate>
                   </div>
               </div>
 
-              <FeatureLockWrapper isLocked={!isStudio} requiredTier="Studio" hasSession={!!session} onClick={handleStudioInterceptor}>
-                  <div className={`flex items-center justify-between p-3 bg-zinc-900/30 border border-zinc-800 rounded-md transition-opacity ${!isStudio ? 'opacity-85 grayscale' : ''}`}>
-                      <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded bg-zinc-800/50 border border-zinc-700`}>
-                              <Monitor size={14} className="text-zinc-400" />
-                          </div>
-                          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                              <div className="flex items-center justify-between gap-2 w-full">
-                                <span className={`text-[10px] font-bold uppercase tracking-widest block text-zinc-300 truncate`}>4K Production Upscale</span>
-                                {!isStudio && <Lock size={10} className="text-amber-500 shrink-0" />}
-                              </div>
-                              <span className="text-[8px] text-amber-500 font-black uppercase tracking-widest">Requires Studio Tier</span>
-                          </div>
-                      </div>
-                      <button 
-                          onClick={() => isStudio ? setOptions({...options, enable4K: !options.enable4K}) : handleStudioInterceptor()}
-                          className={`w-10 h-5 rounded-full relative transition-all duration-300 shrink-0 ${options.enable4K && isStudio ? 'bg-white' : 'bg-zinc-800'}`}
-                      >
-                          <div className={`absolute top-1 w-3 h-3 rounded-full transition-all duration-300 ${options.enable4K && isStudio ? 'right-1 bg-black' : 'left-1 bg-zinc-600'}`}></div>
-                      </button>
-                  </div>
-              </FeatureLockWrapper>
+              <SpotlightGate 
+                isLocked={!isStudio} 
+                tier="STUDIO" 
+                interactive={true}
+                onClick={() => {
+                  if (handleSoftGateTrigger()) return;
+                  setOptions({...options, enable4K: !options.enable4K});
+                }}
+              >
+                <div className={`flex items-center justify-between p-3 bg-zinc-900/30 border border-zinc-800 rounded-md transition-opacity pr-4`}>
+                    <div className="flex items-center gap-3 overflow-hidden flex-1">
+                        <div className={`p-2 rounded bg-zinc-800/50 border border-zinc-700 shrink-0`}>
+                            <Monitor size={14} className="text-zinc-400" />
+                        </div>
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                            <span className={`text-[10px] font-bold uppercase tracking-wider text-zinc-300 truncate`}>4K Production Upscale</span>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => {
+                          if (handleSoftGateTrigger()) return;
+                          setOptions({...options, enable4K: !options.enable4K});
+                        }}
+                        className={`w-10 h-5 rounded-full relative transition-all duration-300 shrink-0 ${options.enable4K ? 'bg-white' : 'bg-zinc-800'}`}
+                    >
+                        <div className={`absolute top-1 w-3 h-3 rounded-full transition-all duration-300 ${options.enable4K ? 'right-1 bg-black' : 'left-1 bg-zinc-600'}`}></div>
+                    </button>
+                </div>
+              </SpotlightGate>
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 min-h-0 max-h-full">
               {session && (
                 <div className="space-y-1.5 flex-shrink-0" ref={projectMenuRef}>
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Archive Location</label>
+                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1">Archive Location</label>
                   <div className="relative bg-zinc-950 border rounded-lg p-1 flex items-center border-zinc-800 hover:border-zinc-600">
                       <button 
                           onClick={() => setShowProjectDropdown(!showProjectDropdown)}
                           className="flex-1 flex items-center gap-3 px-3 py-2 text-left hover:bg-zinc-900 rounded-md transition-all outline-none"
                       >
                           <Folder size={14} className="text-zinc-500" />
-                          <span className="text-[10px] font-bold text-white uppercase tracking-widest truncate">{activeProjectName}</span>
+                          <span className="text-[10px] font-bold text-white uppercase tracking-wider truncate">{activeProjectName}</span>
                           <ChevronDown size={14} className={`ml-auto text-zinc-600 transition-transform ${showProjectDropdown ? 'rotate-180 text-white' : ''}`} />
                       </button>
                       <div className="w-px h-6 bg-zinc-800 mx-1"></div>
@@ -644,11 +701,11 @@ const App: React.FC = () => {
 
                       {showProjectDropdown && (
                         <div className="absolute top-full left-0 right-0 mt-2 bg-black border border-zinc-800 rounded-lg shadow-2xl z-[100] overflow-hidden py-1">
-                            <button onClick={() => { setActiveProjectId(null); setShowProjectDropdown(false); }} className={`w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 transition-colors ${activeProjectId === null ? 'bg-zinc-900 text-white border-l-2 border-white' : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-white'}`}>
+                            <button onClick={() => { setActiveProjectId(null); setShowProjectDropdown(false); }} className={`w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider flex items-center gap-3 transition-colors ${activeProjectId === null ? 'bg-zinc-900 text-white border-l-2 border-white' : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-white'}`}>
                                 <Library size={12} /> Main Archive
                             </button>
                             {projects.map(p => (
-                                <button key={p.id} onClick={() => { setActiveProjectId(p.id); setShowProjectDropdown(false); }} className={`w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 transition-colors ${activeProjectId === p.id ? 'bg-zinc-900 text-white border-l-2 border-white' : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-white'}`}>
+                                <button key={p.id} onClick={() => { setActiveProjectId(p.id); setShowProjectDropdown(false); }} className={`w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider flex items-center gap-3 transition-colors ${activeProjectId === p.id ? 'bg-zinc-900 text-white border-l-2 border-white' : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-white'}`}>
                                     <Folder size={12} /> {p.name}
                                 </button>
                             ))}
@@ -663,18 +720,7 @@ const App: React.FC = () => {
                       <OutfitControl outfit={options.outfit} onChange={(newOutfit) => setOptions({ ...options, outfit: newOutfit })} />
                   </ConfigSection>
 
-                  <ConfigSection 
-                    title="Model Identity" 
-                    icon={UserCircle} 
-                  >
-                      {!hasProAccess && (
-                        <div className="flex items-center gap-2 px-1 mb-4 animate-fade-in">
-                           <div className="w-1 h-1 bg-amber-500 rounded-full animate-pulse"></div>
-                           <span className="text-[8px] font-black uppercase text-amber-500 tracking-widest">
-                               Some features require Creator Tier
-                           </span>
-                        </div>
-                      )}
+                  <ConfigSection title="Model Identity" icon={UserCircle}>
                       <div className="grid grid-cols-2 gap-4">
                           <Dropdown 
                             label="Sex" 
@@ -682,9 +728,11 @@ const App: React.FC = () => {
                             options={Object.values(ModelSex)} 
                             onChange={(val) => setOptions({ ...options, sex: val })} 
                             lockedOptions={!hasProAccess ? Object.values(ModelSex).filter(s => s !== ModelSex.Female) : []}
-                            onLockedClick={handleProInterceptor}
-                            requiredTier="Creator"
-                            hasSession={!!session}
+                            onLockedClick={() => {
+                              if (handleSoftGateTrigger()) return;
+                              handleProInterceptor();
+                            }}
+                            requiredTier="CREATOR"
                           />
                           <Dropdown 
                             label="Ethnicity" 
@@ -692,9 +740,11 @@ const App: React.FC = () => {
                             options={Object.values(ModelEthnicity)} 
                             onChange={(val) => setOptions({ ...options, ethnicity: val })} 
                             lockedOptions={!hasProAccess ? Object.values(ModelEthnicity).filter(e => e !== ModelEthnicity.Mixed) : []}
-                            onLockedClick={handleProInterceptor}
-                            requiredTier="Creator"
-                            hasSession={!!session}
+                            onLockedClick={() => {
+                              if (handleSoftGateTrigger()) return;
+                              handleProInterceptor();
+                            }}
+                            requiredTier="CREATOR"
                           />
                           <Dropdown 
                             label="Age Range" 
@@ -702,9 +752,11 @@ const App: React.FC = () => {
                             options={Object.values(ModelAge)} 
                             onChange={(val) => setOptions({ ...options, age: val })} 
                             lockedOptions={!hasProAccess ? Object.values(ModelAge).filter(a => a !== ModelAge.YoungAdult) : []}
-                            onLockedClick={handleProInterceptor}
-                            requiredTier="Creator"
-                            hasSession={!!session}
+                            onLockedClick={() => {
+                              if (handleSoftGateTrigger()) return;
+                              handleProInterceptor();
+                            }}
+                            requiredTier="CREATOR"
                           />
                           <Dropdown 
                             label="Expression" 
@@ -712,9 +764,11 @@ const App: React.FC = () => {
                             options={Object.values(FacialExpression)} 
                             onChange={(val) => setOptions({ ...options, facialExpression: val })} 
                             lockedOptions={!hasProAccess ? Object.values(FacialExpression).filter(f => f !== FacialExpression.Neutral) : []}
-                            onLockedClick={handleProInterceptor}
-                            requiredTier="Creator"
-                            hasSession={!!session}
+                            onLockedClick={() => {
+                              if (handleSoftGateTrigger()) return;
+                              handleProInterceptor();
+                            }}
+                            requiredTier="CREATOR"
                           />
                       </div>
                       <div className="space-y-3 pt-2">
@@ -725,9 +779,11 @@ const App: React.FC = () => {
                                 options={Object.values(HairColor)} 
                                 onChange={(val) => setOptions({ ...options, hairColor: val })} 
                                 lockedOptions={!hasProAccess ? Object.values(HairColor).filter(h => h !== HairColor.JetBlack) : []}
-                                onLockedClick={handleProInterceptor}
-                                requiredTier="Creator"
-                                hasSession={!!session}
+                                onLockedClick={() => {
+                                  if (handleSoftGateTrigger()) return;
+                                  handleProInterceptor();
+                                }}
+                                requiredTier="CREATOR"
                               />
                               <Dropdown 
                                 label="Hair Style" 
@@ -735,26 +791,23 @@ const App: React.FC = () => {
                                 options={Object.values(HairStyle)} 
                                 onChange={(val) => setOptions({ ...options, hairStyle: val })} 
                                 lockedOptions={!hasProAccess ? Object.values(HairStyle).filter(h => h !== HairStyle.StraightSleek) : []}
-                                onLockedClick={handleProInterceptor}
-                                requiredTier="Creator"
-                                hasSession={!!session}
+                                onLockedClick={() => {
+                                  if (handleSoftGateTrigger()) return;
+                                  handleProInterceptor();
+                                }}
+                                requiredTier="CREATOR"
                               />
                           </div>
                           <div className="space-y-1.5">
-                              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Custom Features</label>
-                              <div className="relative group">
-                                  <textarea 
-                                    placeholder="Freckles, sharp jawline, blue eyes..." 
-                                    value={options.modelFeatures} 
-                                    onChange={(e) => hasProAccess ? setOptions({...options, modelFeatures: e.target.value}) : handleProInterceptor()} 
-                                    className="w-full h-20 bg-black border border-zinc-800 rounded-md py-2 px-3 text-white resize-none focus:border-zinc-500 font-mono" 
-                                  />
-                                  {!hasProAccess && (
-                                    <div className="absolute top-2 right-2 text-amber-500/50 pointer-events-none group-hover:text-amber-500 transition-colors">
-                                        <Lock size={12} className="text-amber-500" />
-                                    </div>
-                                  )}
-                              </div>
+                              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1">Custom Features</label>
+                              <SpotlightGate isLocked={!hasProAccess} tier="CREATOR" interactive={true} onClick={handleSoftGateTrigger}>
+                                <textarea 
+                                  placeholder="" 
+                                  value={options.modelFeatures} 
+                                  onChange={(e) => setOptions({...options, modelFeatures: e.target.value})} 
+                                  className={`w-full h-20 bg-black border border-zinc-800 rounded-md py-2 px-3 text-white resize-none focus:border-zinc-500 font-mono text-xs transition-all`} 
+                                />
+                              </SpotlightGate>
                           </div>
                       </div>
                   </ConfigSection>
@@ -772,79 +825,77 @@ const App: React.FC = () => {
                         isPremium={isPremium} 
                         hasSession={!!session}
                         onUpgrade={handleProInterceptor} 
+                        SpotlightGate={SpotlightGate}
+                        onLockedClick={handleSoftGateTrigger}
                       />
                   </ConfigSection>
 
                   <ConfigSection title="Visual Style & Scene" icon={Palette}>
                       <div className="space-y-6">
-                          {/* Structural Layout Section */}
                           <div className="space-y-3">
                               <div className="flex flex-col gap-0.5 px-1">
-                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Lookbook Composition</label>
+                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Lookbook Composition</label>
                                 <span className="text-[8px] text-zinc-600 font-medium">Define structural rendering mode</span>
                               </div>
                               
                               <div className="grid grid-cols-2 gap-3">
                                   <button
                                       onClick={() => setOptions({ ...options, layout: LayoutMode.Single })}
-                                      className={`p-3 rounded-lg border transition-all flex flex-col gap-3 group ${options.layout === LayoutMode.Single ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-600'}`}
+                                      className={`px-4 py-3 rounded-lg border transition-all flex flex-col gap-3 group ${options.layout === LayoutMode.Single ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-600'}`}
                                   >
                                       <div className={`w-full aspect-[4/3] rounded border flex items-center justify-center ${options.layout === LayoutMode.Single ? 'bg-zinc-100 border-zinc-200' : 'bg-zinc-900/50 border-zinc-800'}`}>
-                                          <Layout size={24} className={options.layout === LayoutMode.Single ? 'text-black' : 'text-zinc-700'} />
+                                          <Square size={16} className={options.layout === LayoutMode.Single ? 'text-black' : 'text-zinc-400'} />
                                       </div>
                                       <div className="flex flex-col gap-0.5 text-left">
-                                          <span className={`text-[10px] font-black uppercase tracking-tight ${options.layout === LayoutMode.Single ? 'text-black' : 'text-white'}`}>Single View</span>
-                                          <span className={`text-[8px] font-medium uppercase ${options.layout === LayoutMode.Single ? 'text-zinc-500' : 'text-zinc-600'}`}>Standard Lens</span>
+                                          <span className={`text-[10px] font-black uppercase tracking-wider ${options.layout === LayoutMode.Single ? 'text-black' : 'text-white'}`}>Single View</span>
                                       </div>
                                   </button>
 
-                                  <button
-                                      onClick={() => isStudio ? setOptions({ ...options, layout: LayoutMode.Diptych }) : handleStudioInterceptor()}
-                                      className={`p-3 rounded-lg border transition-all flex flex-col gap-3 group relative ${options.layout === LayoutMode.Diptych ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-600'}`}
-                                  >
-                                      <div className={`w-full aspect-[4/3] rounded border flex items-center justify-center ${options.layout === LayoutMode.Diptych ? 'bg-zinc-100 border-zinc-200' : 'bg-zinc-900/50 border-zinc-800'}`}>
-                                          <Columns size={24} className={options.layout === LayoutMode.Diptych ? 'text-black' : 'text-zinc-700'} />
-                                      </div>
-                                      <div className="flex flex-col gap-0.5 text-left">
-                                          <span className={`text-[10px] font-black uppercase tracking-tight ${options.layout === LayoutMode.Diptych ? 'text-black' : 'text-white'}`}>Diptych Split</span>
-                                          <span className={`text-[8px] font-black uppercase tracking-widest ${options.layout === LayoutMode.Diptych ? 'text-zinc-400' : 'text-amber-500'}`}>Requires Studio Tier</span>
-                                      </div>
-                                      {!isStudio && options.layout !== LayoutMode.Diptych && <Lock size={10} className="absolute top-2 right-2 text-amber-500 group-hover:text-amber-500" />}
-                                  </button>
+                                  <SpotlightGate isLocked={!isStudio} tier="STUDIO" interactive={true} onClick={handleSoftGateTrigger}>
+                                    <button
+                                        onClick={() => setOptions({ ...options, layout: LayoutMode.Diptych })}
+                                        className={`w-full px-4 py-3 rounded-lg border transition-all flex flex-col gap-3 group relative overflow-hidden pr-4
+                                        ${options.layout === LayoutMode.Diptych ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-600'}`}
+                                    >
+                                        <div className={`w-full aspect-[4/3] rounded border flex items-center justify-center ${options.layout === LayoutMode.Diptych ? 'bg-zinc-100 border-zinc-200' : 'bg-zinc-900/50 border-zinc-800'}`}>
+                                            <Columns size={16} className={`${options.layout === LayoutMode.Diptych ? 'text-black' : 'text-zinc-400'}`} />
+                                        </div>
+                                        <div className="flex flex-col gap-0.5 text-left w-full">
+                                            <span className={`text-[10px] font-black uppercase tracking-wider ${options.layout === LayoutMode.Diptych ? 'text-black' : 'text-white'}`}>Diptych Split</span>
+                                        </div>
+                                    </button>
+                                  </SpotlightGate>
                               </div>
                           </div>
 
-                          {/* Style Grids */}
                           <div className="space-y-4 pt-4 border-t border-zinc-800/50">
                               <div className="space-y-3">
-                                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Standard Aesthetics</label>
+                                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1">Standard Aesthetics</label>
                                   <div className="grid grid-cols-2 gap-3">
                                       {STANDARD_STYLES.map(s => <StyleButton key={s} label={s} isSelected={options.style === s} onClick={() => setOptions({...options, style: s})} />)}
                                   </div>
                               </div>
 
                               <div className="space-y-3 pt-2">
-                                  <div className="flex items-center justify-between px-1">
-                                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Professional Styles</label>
-                                      {!hasProAccess && <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest border border-amber-500/30 px-2 py-0.5 rounded shadow-[0_0_15px_rgba(245,158,11,0.1)]">Requires Creator Tier</span>}
-                                  </div>
-                                  <div className={`grid grid-cols-2 gap-3 transition-all ${!hasProAccess ? 'opacity-85 grayscale' : ''}`}>
-                                      {PRO_STYLES.map(s => (
-                                          <StyleButton 
-                                            key={s} 
-                                            label={s} 
-                                            isSelected={options.style === s} 
-                                            isLocked={!hasProAccess} 
-                                            onClick={() => handleProInterceptor() ? null : setOptions({...options, style: s})} 
-                                          />
-                                      ))}
-                                  </div>
+                                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider px-1">Professional Styles</label>
+                                  <SpotlightGate isLocked={!hasProAccess} tier="CREATOR" interactive={true} onClick={handleSoftGateTrigger}>
+                                    <div className={`grid grid-cols-2 gap-3 transition-all`}>
+                                        {PRO_STYLES.map(s => (
+                                            <StyleButton 
+                                              key={s} 
+                                              label={s} 
+                                              isSelected={options.style === s} 
+                                              onClick={() => setOptions({...options, style: s})} 
+                                            />
+                                        ))}
+                                    </div>
+                                  </SpotlightGate>
                               </div>
                           </div>
 
                           <div className="space-y-3 pt-4 border-t border-zinc-800/50">
                               <div className="space-y-1.5">
-                                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Scenery Details</label>
+                                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1">Scenery Details</label>
                                   <textarea placeholder="e.g. Modern concrete loft, soft morning light, minimalist furniture..." value={options.sceneDetails} onChange={(e) => setOptions({...options, sceneDetails: e.target.value})} className="w-full h-24 bg-black border border-zinc-800 rounded-md py-2 px-3 text-xs text-white focus:border-zinc-500 font-mono resize-none" />
                               </div>
                               <div className="pt-2">
@@ -856,15 +907,38 @@ const App: React.FC = () => {
               </div>
           </div>
           
-          <div className="p-4 bg-zinc-950/80 backdrop-blur-md border-t border-zinc-800 flex-shrink-0">
+          <div className="p-4 bg-zinc-950/80 backdrop-blur-md border-t border-zinc-800 flex-shrink-0 relative">
+              {showSoftGate && (
+                <div className="absolute bottom-full left-0 right-0 p-4 bg-white/95 backdrop-blur-xl border-t border-zinc-200 z-[9999] animate-slide-up shadow-[0_-20px_50px_rgba(0,0,0,0.5)] flex flex-col gap-3 rounded-t-xl overflow-hidden">
+                   <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-2">
+                         <div className="w-6 h-6 rounded-full bg-black flex items-center justify-center">
+                            <Sparkles size={12} className="text-white" />
+                         </div>
+                         <p className="text-[11px] font-black uppercase text-black tracking-tight">Access Pro Features</p>
+                      </div>
+                      <button onClick={() => setShowSoftGate(false)} className="text-zinc-400 hover:text-black transition-colors"><X size={16}/></button>
+                   </div>
+                   <p className="text-[10px] font-medium text-zinc-600 leading-tight">Create a free account to save your work and upgrade to unlock premium features like Manual Poses and 4K output.</p>
+                   <div className="flex flex-col gap-2">
+                      <button onClick={() => { setLoginModalView('signup'); setShowLoginModal(true); setShowSoftGate(false); }} className="w-full bg-black text-white py-2.5 rounded-md text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all">Sign Up for Free</button>
+                      <button onClick={() => { setLoginModalView('login'); setShowLoginModal(true); setShowSoftGate(false); }} className="w-full text-zinc-500 py-1 text-[10px] font-bold uppercase tracking-wider hover:text-black transition-colors">Already have an account? Log In</button>
+                   </div>
+                </div>
+              )}
               <button 
                   onClick={handleGenerate} 
                   disabled={!isFormValid || isLoading} 
                   className={`w-full py-5 rounded-md text-[11px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 transform active:scale-[0.98] shadow-2xl
-                  ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed' : 'bg-white text-black hover:bg-zinc-200'}`}
+                  ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed opacity-50' : 'bg-white text-black hover:bg-zinc-200'}`}
               >
                   {isLoading ? <div className="flex items-center gap-3"><Loader2 size={16} className="animate-spin" /><span>Rendering...</span></div> : <><Sparkles size={16} /> Generate Shoot</>}
               </button>
+              {!isFormValid && !isLoading && isRestrictedActive && (
+                <div className="mt-2 text-center">
+                  <span className="text-[9px] font-black uppercase text-red-500 tracking-tighter">Selection includes locked features</span>
+                </div>
+              )}
           </div>
         </aside>
 
@@ -887,6 +961,7 @@ const App: React.FC = () => {
                     executeGeneration({ ...options, seed, isModelLocked: keepModel }); 
                 }} 
                 isPremium={isPremium} error={error} 
+                SpotlightGate={SpotlightGate}
              />
              {generatedImage && session && (
                 <button onClick={() => saveToLibrary(generatedImage)} disabled={isSaving || justSaved} className={`absolute top-6 right-6 px-4 py-2 sm:px-6 sm:py-3 rounded-md transition-all duration-300 flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-2xl backdrop-blur-md border z-20 ${justSaved ? 'bg-emerald-500 text-white border-emerald-400 scale-105' : isSaving ? 'bg-zinc-800 text-zinc-400 border-zinc-700 cursor-not-allowed' : 'bg-black/90 text-white border-zinc-700 hover:border-white hover:bg-black'}`}>
