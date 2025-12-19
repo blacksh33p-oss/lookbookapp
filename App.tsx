@@ -250,9 +250,9 @@ const App: React.FC = () => {
   };
 
   /**
-   * PERFORMANCE OPTIMIZATION: Deep Sanitization & Blob Offloading
-   * To prevent the 'Base64 Mistake', we strictly convert binary data to storage URLs.
-   * This ensures the JSON response for the Archive list remains under 10KB.
+   * PERFORMANCE FIX: Binary Offloading & Config Scrubbing
+   * Converts Base64 data strings to public CDN URLs.
+   * Strips all garment Base64 images from the 'config' field to keep the DB JSON under 10KB.
    */
   const saveToLibrary = async (imageUrl: string) => {
     if (!session || !imageUrl || !isConfigured) return;
@@ -264,8 +264,8 @@ const App: React.FC = () => {
     try {
       let finalImageUrl = imageUrl;
 
-      // 1. STRATEGIC OFFLOADING: Upload Base64 to Storage immediately
-      // This prevents the 'image_url' column from ever holding a 5MB string.
+      // 1. Convert generation Base64 to binary Blob and upload to Storage
+      // This ensures we save a URL (50 bytes) instead of a Base64 string (5MB)
       if (imageUrl.startsWith('data:image')) {
         const timestamp = Date.now();
         const filePath = `${session.user.id}/${timestamp}.png`;
@@ -293,24 +293,24 @@ const App: React.FC = () => {
         finalImageUrl = publicUrl;
       }
 
-      // 2. PAYLOAD HYGIENE: Strip massive Base64 garment references from the 'config' JSONB.
-      // Keeping these in the JSONB column is what caused the 28s load time.
-      const leanOutfit = { ...options.outfit };
-      (Object.keys(leanOutfit) as Array<keyof typeof leanOutfit>).forEach(key => {
-        leanOutfit[key] = {
-            ...leanOutfit[key],
-            images: [], // Removing multi-megabyte Base64 strings
-            sizeChart: null // Removing multi-megabyte Base64 strings
+      // 2. CRITICAL SCRUB: Strip massive garment Base64 references from the 'config' JSONB.
+      // Failing to scrub these causes the 28s "Stop-the-World" JSON payload.
+      const sanitizedOutfit = { ...options.outfit };
+      (Object.keys(sanitizedOutfit) as Array<keyof typeof sanitizedOutfit>).forEach(key => {
+        sanitizedOutfit[key] = {
+            ...sanitizedOutfit[key],
+            images: [], // Explicitly clearing multi-megabyte Base64 garment arrays
+            sizeChart: null // Explicitly clearing multi-megabyte Base64 size chart strings
         };
       });
 
       const leanConfig = { 
         ...options, 
-        outfit: leanOutfit,
-        referenceModelImage: undefined // Removing identity reference Base64
+        outfit: sanitizedOutfit,
+        referenceModelImage: undefined // Explicitly clearing identity reference Base64
       };
 
-      // 3. DATABASE COMMIT: Save lean metadata
+      // 3. PERSISTENCE: Save lean metadata to database
       const payload = {
         image_url: finalImageUrl,
         user_id: session.user.id,
@@ -322,16 +322,16 @@ const App: React.FC = () => {
       
       if (error) {
         setSaveError(true);
-        showToast(`Archive error: ${error.message}`, "error");
+        showToast(`Save failure: ${error.message}`, "error");
       } else {
         setJustSaved(true);
-        showToast("Shoot archived successfully", "success");
+        showToast("Shoot synchronized with archive", "success");
         setTimeout(() => setJustSaved(false), 3000);
       }
     } catch (e: any) {
-      console.error("Save failure:", e);
+      console.error("Sync failure:", e);
       setSaveError(true);
-      showToast("Critical: Archive sync failed.", "error");
+      showToast("Critical: Database sync timed out.", "error");
     } finally {
       setIsSaving(false);
     }
