@@ -595,7 +595,7 @@ const App: React.FC = () => {
                       >
                           {!hasProAccess && <Lock size={10} className="absolute top-1 right-1 text-amber-500" />}
                           <span className="text-[10px] font-black uppercase tracking-tight">Pro 3</span>
-                          <span className={`text-[8px] font-bold uppercase ${selectedModel === 'pro-3' ? 'text-zinc-500' : 'text-zinc-700'}`}>
+                          <span className={`text-[8px] font-bold uppercase ${selectedModel === 'pro-3' ? 'text-zinc-500' : 'text-amber-500/80'}`}>
                              {!hasProAccess ? 'Requires Creator Tier' : 'High Detail'}
                           </span>
                       </button>
@@ -898,4 +898,5 @@ const App: React.FC = () => {
   );
 };
 
+// Export the App component as the default export
 export default App;
