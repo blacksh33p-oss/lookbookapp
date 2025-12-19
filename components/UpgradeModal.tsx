@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, Check, Zap, Crown, Building2, User, ArrowRight, ExternalLink, Info, Lock, Sparkles, Monitor, Layout, ShieldCheck, Clock } from 'lucide-react';
+import { X, Check, Zap, Crown, Building2, User, ArrowRight, ExternalLink, Info, Lock, Sparkles, Monitor, Layout, ShieldCheck, Clock, Minus } from 'lucide-react';
 import { SubscriptionTier } from '../types';
 
 interface UpgradeModalProps {
@@ -52,12 +52,6 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
     return { text: isUpgrade ? "Upgrade Now" : "Get Started", disabled: false, className: baseStyle };
   };
 
-  const FeatureIcon = ({ included, highlight }: { included: boolean, highlight?: boolean }) => (
-    included ? 
-      <Check size={14} className={highlight ? "text-white" : "text-emerald-500"} strokeWidth={3} /> : 
-      <Lock size={10} className="text-zinc-700" />
-  );
-
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md overflow-y-auto">
       <div className="bg-black border border-zinc-800 rounded-2xl w-full max-w-6xl my-auto relative shadow-[0_0_100px_rgba(255,255,255,0.05)]">
@@ -100,9 +94,16 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                   <div className="space-y-3 mb-8 flex-1">
                     {features.map((f, i) => {
                       const isIncluded = plan.id === SubscriptionTier.Studio ? f.studio : plan.id === SubscriptionTier.Creator ? f.creator : plan.id === SubscriptionTier.Starter ? f.starter : false;
+                      
                       return (
-                        <div key={i} className={`flex items-center gap-3 text-[10px] ${!isIncluded ? 'opacity-30' : plan.premium ? 'text-black font-bold' : 'text-zinc-300'}`}>
-                          <FeatureIcon included={isIncluded} highlight={plan.premium && f.highlight} />
+                        <div key={i} className={`flex items-center gap-3 text-[10px] transition-colors ${!isIncluded ? 'text-zinc-500' : plan.premium ? 'text-black font-bold' : 'text-white'}`}>
+                          <div className="w-4 h-4 flex items-center justify-center shrink-0">
+                            {isIncluded ? (
+                                <Check size={14} className={plan.premium && f.highlight ? "text-black" : "text-emerald-500"} strokeWidth={4} />
+                            ) : (
+                                <div className="w-1.5 h-[1px] bg-zinc-700"></div>
+                            )}
+                          </div>
                           <span className="truncate">{f.text}</span>
                         </div>
                       );

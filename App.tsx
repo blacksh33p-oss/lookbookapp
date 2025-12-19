@@ -86,12 +86,11 @@ const FeatureLockWrapper: React.FC<FeatureLockWrapperProps> = ({ isLocked, child
     if (!isLocked) return <>{children}</>;
     return (
         <div className="relative group cursor-pointer" onClick={onClick}>
-            <div className="opacity-40 grayscale pointer-events-none">
+            <div className="opacity-40 grayscale pointer-events-none transition-all group-hover:opacity-30">
                 {children}
             </div>
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity bg-black/5 rounded-lg border border-transparent group-hover:border-amber-500/20 group-hover:bg-amber-500/5">
                 <Lock size={12} className="text-amber-500 shadow-lg" />
-                {label && <span className="text-[7px] font-black text-amber-500 uppercase tracking-tighter bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">{label}</span>}
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-black border border-zinc-800 rounded-lg text-[9px] font-bold text-center opacity-0 group-hover:opacity-100 pointer-events-none transition-all translate-y-2 group-hover:translate-y-0 shadow-2xl z-[100]">
                     Exclusive to Studio Tier <span className="text-amber-500">Upgrade →</span>
                 </div>
@@ -599,15 +598,18 @@ const App: React.FC = () => {
                   </div>
               </div>
 
-              <FeatureLockWrapper isLocked={!isStudio} onClick={handleStudioInterceptor} label="Studio Only">
-                  <div className="flex items-center justify-between p-3 bg-zinc-900/30 border border-zinc-800 rounded-md">
+              <FeatureLockWrapper isLocked={!isStudio} onClick={handleStudioInterceptor}>
+                  <div className={`flex items-center justify-between p-3 bg-zinc-900/30 border border-zinc-800 rounded-md transition-opacity ${!isStudio ? 'opacity-60' : ''}`}>
                       <div className="flex items-center gap-3">
                           <div className={`p-2 rounded bg-zinc-800/50 border border-zinc-700`}>
                               <Monitor size={14} className="text-zinc-400" />
                           </div>
                           <div>
-                              <span className={`text-[10px] font-bold uppercase tracking-widest block text-zinc-300`}>4K Production Upscale</span>
-                              <span className="text-[8px] text-zinc-500 font-medium">{isStudio ? 'High-Res Output' : 'Requires Studio Tier'}</span>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[10px] font-bold uppercase tracking-widest block text-zinc-300`}>4K Production Upscale</span>
+                                {!isStudio && <span className="text-[7px] font-black text-amber-500 uppercase bg-amber-500/10 px-1 py-0.5 rounded border border-amber-500/20 leading-none">Studio Only</span>}
+                              </div>
+                              <span className="text-[8px] text-zinc-500 font-medium">High-fidelity 4K raw rendering</span>
                           </div>
                       </div>
                       <button 
@@ -741,9 +743,12 @@ const App: React.FC = () => {
                   <ConfigSection title="Visual Style & Scene" icon={Palette}>
                       <div className="space-y-4">
                           <div className="space-y-1.5">
-                              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Lookbook Layout</label>
-                              <FeatureLockWrapper isLocked={!isStudio} onClick={handleStudioInterceptor} label="Studio Only">
-                                  <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-1 flex gap-1">
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Lookbook Layout</label>
+                                {!isStudio && <span className="text-[7px] font-black text-amber-500 uppercase bg-amber-500/10 px-1 py-0.5 rounded border border-amber-500/20 leading-none">Studio Only</span>}
+                              </div>
+                              <FeatureLockWrapper isLocked={!isStudio} onClick={handleStudioInterceptor}>
+                                  <div className={`bg-zinc-950 border border-zinc-800 rounded-lg p-1 flex gap-1 transition-opacity ${!isStudio ? 'opacity-60' : ''}`}>
                                       <button
                                           onClick={() => setOptions({ ...options, layout: LayoutMode.Single })}
                                           className={`flex-1 py-2 px-3 rounded-md text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 ${options.layout === LayoutMode.Single ? 'bg-zinc-100 text-black' : 'text-zinc-500 hover:text-white'}`}
