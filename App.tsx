@@ -48,7 +48,7 @@ const getGenerationCost = (options: PhotoshootOptions): number => {
 /**
  * SpotlightGate Component
  * Wraps restricted features with desaturation/opacity rules.
- * Shows portaled tooltip on hover to prevent truncation.
+ * Click triggers the global auth snackbar. Tooltips removed for cleanliness.
  */
 export const SpotlightGate: React.FC<{ 
   children: React.ReactNode; 
@@ -58,28 +58,14 @@ export const SpotlightGate: React.FC<{
   containerClassName?: string;
   onClick?: () => void;
   interactive?: boolean;
-  tooltipMessage?: string;
-}> = ({ children, isLocked, tier, className = "", containerClassName = "", onClick, interactive = false, tooltipMessage }) => {
-  const [tooltipPos, setTooltipPos] = useState<{ x: number, y: number } | null>(null);
-
-  const handleMouseEnter = (e: React.MouseEvent) => {
-    if (!isLocked) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    setTooltipPos({
-      x: rect.left + rect.width / 2,
-      y: rect.top - 8
-    });
-  };
-
-  const handleMouseLeave = () => setTooltipPos(null);
-
+}> = ({ children, isLocked, className = "", containerClassName = "", onClick, interactive = false }) => {
   return (
     <div 
       className={`relative ${containerClassName} ${isLocked ? 'cursor-pointer' : ''}`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
       onClick={(e) => {
-        if (isLocked && onClick) {
+        // Fix: Call onClick regardless of lock state if it exists,
+        // handlers in App will decide what to do (e.g. check for auth/tier)
+        if (onClick) {
           onClick();
         }
       }}
@@ -87,19 +73,6 @@ export const SpotlightGate: React.FC<{
       <div className={`transition-all duration-300 h-full w-full ${isLocked ? 'grayscale opacity-40 hover:opacity-70' : ''} ${className} ${isLocked && !interactive ? 'pointer-events-none' : ''}`}>
         {children}
       </div>
-      
-      {isLocked && tooltipPos && createPortal(
-        <div 
-          className="fixed z-[9999] pointer-events-none animate-fade-in -translate-x-1/2 -translate-y-full"
-          style={{ left: tooltipPos.x, top: tooltipPos.y }}
-        >
-          <div className="bg-black/90 backdrop-blur-[12px] border-[0.5px] border-white/10 text-white text-[10px] font-bold px-3 py-1.5 rounded-md whitespace-nowrap uppercase tracking-wider shadow-2xl">
-            {tooltipMessage || `Unlock with ${tier} Tier`}
-          </div>
-          <div className="w-1.5 h-1.5 bg-black/90 border-r border-b border-white/10 rotate-45 mx-auto -mt-[4px]" />
-        </div>,
-        document.body
-      )}
     </div>
   );
 };
@@ -138,7 +111,7 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({ title, icon: Icon, childr
     <div className="border-b border-zinc-800 bg-black/50 last:border-b-0 flex-shrink-0">
       <button 
         onClick={() => setIsOpen(!isOpen)} 
-        className="w-full flex items-center justify-between py-2 px-4 text-left focus:outline-none group hover:bg-zinc-900/50 transition-colors"
+        className="w-full flex items-center justify-between py-3 px-4 text-left focus:outline-none group hover:bg-zinc-900/50 transition-colors"
       >
         <div className="flex items-center gap-3">
           <Icon size={14} className={`text-zinc-500 group-hover:text-white transition-colors ${isOpen ? 'text-white' : ''}`} />
@@ -368,6 +341,7 @@ const App: React.FC = () => {
         publicCdnUrl = publicUrl;
       }
 
+      // Fix: renamed 'sanitized outfit' to 'sanitizedOutfit' to fix syntax error
       const sanitizedOutfit = JSON.parse(JSON.stringify(options.outfit));
       (Object.keys(sanitizedOutfit) as Array<keyof typeof sanitizedOutfit>).forEach(key => {
         sanitizedOutfit[key].images = []; 
@@ -908,24 +882,6 @@ const App: React.FC = () => {
           </div>
           
           <div className="p-4 bg-zinc-950/80 backdrop-blur-md border-t border-zinc-800 flex-shrink-0 relative">
-              {showSoftGate && (
-                <div className="absolute bottom-full left-0 right-0 p-4 bg-white/95 backdrop-blur-xl border-t border-zinc-200 z-[9999] animate-slide-up shadow-[0_-20px_50px_rgba(0,0,0,0.5)] flex flex-col gap-3 rounded-t-xl overflow-hidden">
-                   <div className="flex justify-between items-start">
-                      <div className="flex items-center gap-2">
-                         <div className="w-6 h-6 rounded-full bg-black flex items-center justify-center">
-                            <Sparkles size={12} className="text-white" />
-                         </div>
-                         <p className="text-[11px] font-black uppercase text-black tracking-tight">Access Pro Features</p>
-                      </div>
-                      <button onClick={() => setShowSoftGate(false)} className="text-zinc-400 hover:text-black transition-colors"><X size={16}/></button>
-                   </div>
-                   <p className="text-[10px] font-medium text-zinc-600 leading-tight">Create a free account to save your work and upgrade to unlock premium features like Manual Poses and 4K output.</p>
-                   <div className="flex flex-col gap-2">
-                      <button onClick={() => { setLoginModalView('signup'); setShowLoginModal(true); setShowSoftGate(false); }} className="w-full bg-black text-white py-2.5 rounded-md text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all">Sign Up for Free</button>
-                      <button onClick={() => { setLoginModalView('login'); setShowLoginModal(true); setShowSoftGate(false); }} className="w-full text-zinc-500 py-1 text-[10px] font-bold uppercase tracking-wider hover:text-black transition-colors">Already have an account? Log In</button>
-                   </div>
-                </div>
-              )}
               <button 
                   onClick={handleGenerate} 
                   disabled={!isFormValid || isLoading} 
@@ -972,6 +928,39 @@ const App: React.FC = () => {
            </div>
         </section>
       </div>
+
+      {showSoftGate && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[99999] w-full max-w-md px-4 animate-slide-up">
+          <div className="bg-black/85 backdrop-blur-2xl border border-zinc-800 p-6 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] relative overflow-hidden group">
+             <button onClick={() => setShowSoftGate(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors z-10 p-1">
+                <X size={18}/>
+             </button>
+             <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
+                   <Sparkles size={16} className="text-black" />
+                </div>
+                <p className="text-xs font-black uppercase text-white tracking-[0.1em]">Access Pro Features</p>
+             </div>
+             <p className="text-[11px] font-medium text-zinc-400 leading-relaxed mb-6">
+                Create a free account to save your work and upgrade to unlock premium features like Manual Poses and 4K output.
+             </p>
+             <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => { setLoginModalView('signup'); setShowLoginModal(true); setShowSoftGate(false); }} 
+                  className="w-full bg-white text-black py-3.5 rounded-md text-[10px] font-black uppercase tracking-[0.2em] hover:bg-zinc-200 transition-all shadow-xl active:scale-[0.98]"
+                >
+                  Sign Up for Free
+                </button>
+                <button 
+                  onClick={() => { setLoginModalView('login'); setShowLoginModal(true); setShowSoftGate(false); }} 
+                  className="text-zinc-500 py-1 text-[9px] font-bold uppercase tracking-widest hover:text-white transition-colors"
+                >
+                  Already have an account? Log In
+                </button>
+             </div>
+          </div>
+        </div>
+      )}
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onAuth={handleAuth} initialView={loginModalView} />

@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { ChevronDown, Check } from 'lucide-react';
 
 interface DropdownProps<T> {
@@ -13,27 +12,6 @@ interface DropdownProps<T> {
   requiredTier?: 'CREATOR' | 'STUDIO';
 }
 
-/**
- * DropdownTooltip Component
- * Internal component to handle portaled tooltips for restricted dropdown options.
- */
-const DropdownTooltip: React.FC<{ tier: string; anchorRect: DOMRect | null }> = ({ tier, anchorRect }) => {
-  if (!anchorRect) return null;
-
-  return createPortal(
-    <div 
-      className="fixed z-[9999] pointer-events-none animate-fade-in -translate-x-full -translate-y-1/2"
-      style={{ left: anchorRect.left - 12, top: anchorRect.top + anchorRect.height / 2 }}
-    >
-      <div className="bg-black/90 backdrop-blur-[12px] border-[0.5px] border-white/10 text-white text-[10px] font-bold px-3 py-1.5 rounded-md whitespace-nowrap uppercase tracking-wider shadow-2xl">
-        Unlock with {tier} Tier
-      </div>
-      <div className="w-1.5 h-1.5 bg-black/90 border-r border-t border-white/10 rotate-45 absolute top-1/2 right-[-4px] -translate-y-1/2" />
-    </div>,
-    document.body
-  );
-};
-
 export const Dropdown = <T extends string>({
   label,
   value,
@@ -42,10 +20,8 @@ export const Dropdown = <T extends string>({
   disabled,
   lockedOptions = [],
   onLockedClick,
-  requiredTier = 'CREATOR'
 }: DropdownProps<T>) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [hoveredOptionRect, setHoveredOptionRect] = useState<DOMRect | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -89,8 +65,6 @@ export const Dropdown = <T extends string>({
                 <button
                   key={opt}
                   type="button"
-                  onMouseEnter={(e) => isLocked && setHoveredOptionRect(e.currentTarget.getBoundingClientRect())}
-                  onMouseLeave={() => setHoveredOptionRect(null)}
                   onClick={() => handleOptionClick(opt)}
                   className={`w-full relative flex items-center justify-between px-4 py-3 text-xs text-left transition-all group 
                     ${opt === value ? 'bg-zinc-900 text-white font-bold' : 'text-zinc-400 hover:bg-zinc-900/80 hover:text-zinc-200'}
@@ -106,9 +80,6 @@ export const Dropdown = <T extends string>({
                 </button>
               );
             })}
-            {hoveredOptionRect && (
-              <DropdownTooltip tier={requiredTier} anchorRect={hoveredOptionRect} />
-            )}
           </div>
         )}
       </div>
