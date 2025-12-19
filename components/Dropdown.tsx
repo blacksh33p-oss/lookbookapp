@@ -46,8 +46,6 @@ export const Dropdown = <T extends string>({
     setIsOpen(false);
   };
 
-  const lockMessage = requiredTier ? `Requires ${requiredTier} Tier` : "Premium Option";
-
   return (
     <div className="flex flex-col gap-1.5" ref={dropdownRef}>
       <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">{label}</label>
@@ -74,15 +72,12 @@ export const Dropdown = <T extends string>({
                   className={`w-full relative flex items-center justify-between px-4 py-3 text-xs text-left transition-all group ${opt === value ? 'bg-zinc-900 text-white font-bold' : 'text-zinc-400 hover:bg-zinc-900/80 hover:text-zinc-200'}`}
                 >
                   <div className="flex-1 min-w-0 mr-2">
-                    <span className={`block truncate ${isLocked ? 'opacity-60' : ''}`}>{opt}</span>
+                    <span className={`block truncate ${isLocked ? 'opacity-50' : ''}`}>{opt}</span>
                   </div>
                   
                   {isLocked && (
-                    <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[7px] font-black uppercase text-amber-500 tracking-widest opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                            {lockMessage}
-                        </span>
-                        <Lock size={10} className="text-amber-500 shrink-0" />
+                    <div className="flex items-center shrink-0">
+                        <Lock size={11} className="text-amber-500" />
                     </div>
                   )}
 

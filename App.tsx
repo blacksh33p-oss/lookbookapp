@@ -89,7 +89,7 @@ const FeatureLockWrapper: React.FC<FeatureLockWrapperProps> = ({ isLocked, requi
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/5 rounded-lg z-20">
                 <div className="bg-black/95 border border-zinc-800 px-3 py-2 rounded-lg flex flex-col items-center gap-1 shadow-2xl scale-95 group-hover:scale-100 transition-transform">
                     <Lock size={12} className="text-amber-500" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-white whitespace-nowrap">{message}</span>
+                    <span className="text-[8px] font-black uppercase tracking-widest text-amber-500 whitespace-nowrap">{message}</span>
                 </div>
             </div>
         </div>
@@ -147,7 +147,7 @@ interface StyleButtonProps {
 const StyleButton: React.FC<StyleButtonProps> = ({ label, isSelected, isLocked, onClick }) => (
     <button onClick={onClick} className={`relative px-3 py-3 rounded-md border text-left transition-all group overflow-hidden min-h-[3rem] flex items-center justify-between ${isSelected ? 'bg-white border-white text-black shadow-lg shadow-white/5' : 'bg-black border-zinc-800 hover:border-zinc-600 text-zinc-400'} ${isLocked && !isSelected ? 'hover:bg-zinc-900/40' : ''}`}>
         <span className={`text-[10px] font-bold uppercase tracking-wide z-10 relative ${isSelected ? 'text-black' : 'text-zinc-400 group-hover:text-zinc-200'}`}>{label}</span>
-        {isLocked && !isSelected && <Lock size={10} className="text-zinc-600 group-hover:text-amber-500 transition-colors" />}
+        {isLocked && !isSelected && <Lock size={10} className="text-amber-500 transition-colors" />}
     </button>
 );
 
@@ -595,7 +595,7 @@ const App: React.FC = () => {
                       >
                           {!hasProAccess && <Lock size={10} className="absolute top-1 right-1 text-amber-500" />}
                           <span className="text-[10px] font-black uppercase tracking-tight">Pro 3</span>
-                          <span className={`text-[8px] font-bold uppercase ${selectedModel === 'pro-3' ? 'text-zinc-500' : 'text-amber-500/80'}`}>
+                          <span className={`text-[8px] font-black uppercase tracking-widest ${selectedModel === 'pro-3' ? 'text-zinc-500' : 'text-amber-500'}`}>
                              {!hasProAccess ? 'Requires Creator Tier' : 'High Detail'}
                           </span>
                       </button>
@@ -613,7 +613,7 @@ const App: React.FC = () => {
                                 <span className={`text-[10px] font-bold uppercase tracking-widest block text-zinc-300 truncate`}>4K Production Upscale</span>
                                 {!isStudio && <Lock size={10} className="text-amber-500 shrink-0" />}
                               </div>
-                              <span className="text-[8px] text-zinc-500 font-medium">Requires Studio Tier</span>
+                              <span className="text-[8px] text-amber-500 font-black uppercase tracking-widest">Requires Studio Tier</span>
                           </div>
                       </div>
                       <button 
@@ -667,6 +667,14 @@ const App: React.FC = () => {
                     title="Model Identity" 
                     icon={UserCircle} 
                   >
+                      {!hasProAccess && (
+                        <div className="flex items-center gap-2 px-1 mb-4 animate-fade-in">
+                           <div className="w-1 h-1 bg-amber-500 rounded-full animate-pulse"></div>
+                           <span className="text-[8px] font-black uppercase text-amber-500 tracking-widest">
+                               Some features require Creator Tier
+                           </span>
+                        </div>
+                      )}
                       <div className="grid grid-cols-2 gap-4">
                           <Dropdown 
                             label="Sex" 
@@ -743,7 +751,7 @@ const App: React.FC = () => {
                                   />
                                   {!hasProAccess && (
                                     <div className="absolute top-2 right-2 text-amber-500/50 pointer-events-none group-hover:text-amber-500 transition-colors">
-                                        <Lock size={12} />
+                                        <Lock size={12} className="text-amber-500" />
                                     </div>
                                   )}
                               </div>
@@ -799,9 +807,9 @@ const App: React.FC = () => {
                                       </div>
                                       <div className="flex flex-col gap-0.5 text-left">
                                           <span className={`text-[10px] font-black uppercase tracking-tight ${options.layout === LayoutMode.Diptych ? 'text-black' : 'text-white'}`}>Diptych Split</span>
-                                          <span className={`text-[8px] font-black uppercase ${options.layout === LayoutMode.Diptych ? 'text-zinc-400' : 'text-amber-500'}`}>Requires Studio Tier</span>
+                                          <span className={`text-[8px] font-black uppercase tracking-widest ${options.layout === LayoutMode.Diptych ? 'text-zinc-400' : 'text-amber-500'}`}>Requires Studio Tier</span>
                                       </div>
-                                      {!isStudio && options.layout !== LayoutMode.Diptych && <Lock size={10} className="absolute top-2 right-2 text-zinc-600 group-hover:text-amber-500" />}
+                                      {!isStudio && options.layout !== LayoutMode.Diptych && <Lock size={10} className="absolute top-2 right-2 text-amber-500 group-hover:text-amber-500" />}
                                   </button>
                               </div>
                           </div>
@@ -818,7 +826,7 @@ const App: React.FC = () => {
                               <div className="space-y-3 pt-2">
                                   <div className="flex items-center justify-between px-1">
                                       <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Professional Styles</label>
-                                      {!hasProAccess && <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest border border-amber-500/30 px-2 py-0.5 rounded">Requires Creator Tier</span>}
+                                      {!hasProAccess && <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest border border-amber-500/30 px-2 py-0.5 rounded shadow-[0_0_15px_rgba(245,158,11,0.1)]">Requires Creator Tier</span>}
                                   </div>
                                   <div className={`grid grid-cols-2 gap-3 transition-all ${!hasProAccess ? 'opacity-85 grayscale' : ''}`}>
                                       {PRO_STYLES.map(s => (
@@ -898,5 +906,4 @@ const App: React.FC = () => {
   );
 };
 
-// Export the App component as the default export
 export default App;
