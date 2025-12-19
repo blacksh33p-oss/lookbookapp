@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, Hexagon, Sparkles, Move, LogOut, Star, CheckCircle, XCircle, Info, Lock, Crown, X, Loader2, Palette, Folder, Library, Plus, Save, Check, AlertCircle, Monitor, Settings, Eye, Layout } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, Hexagon, Sparkles, Move, LogOut, Star, CheckCircle, XCircle, Info, Lock, Crown, X, Loader2, Palette, Folder, Library, Plus, Save, Check, AlertCircle, Monitor, Settings, Eye } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -79,19 +79,18 @@ interface FeatureLockWrapperProps {
     isLocked: boolean;
     children: React.ReactNode;
     onClick: () => void;
-    label?: string;
 }
 
-const FeatureLockWrapper: React.FC<FeatureLockWrapperProps> = ({ isLocked, children, onClick, label }) => {
+const FeatureLockWrapper: React.FC<FeatureLockWrapperProps> = ({ isLocked, children, onClick }) => {
     if (!isLocked) return <>{children}</>;
     return (
         <div className="relative group cursor-pointer" onClick={onClick}>
-            <div className="opacity-40 grayscale pointer-events-none transition-all group-hover:opacity-30">
+            <div className="opacity-60 transition-all group-hover:opacity-40 pointer-events-none">
                 {children}
             </div>
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity bg-black/5 rounded-lg border border-transparent group-hover:border-amber-500/20 group-hover:bg-amber-500/5">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/5 rounded-lg">
                 <Lock size={12} className="text-amber-500 shadow-lg" />
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-black border border-zinc-800 rounded-lg text-[9px] font-bold text-center opacity-0 group-hover:opacity-100 pointer-events-none transition-all translate-y-2 group-hover:translate-y-0 shadow-2xl z-[100]">
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-black border border-zinc-800 rounded-lg text-[9px] font-bold text-center shadow-2xl z-[100]">
                     Exclusive to Studio Tier <span className="text-amber-500">Upgrade →</span>
                 </div>
             </div>
@@ -296,7 +295,6 @@ const App: React.FC = () => {
     try {
       let publicCdnUrl = imageUrl;
 
-      // 1. Convert Base64 result to binary Blob and offload to Storage
       if (imageUrl.startsWith('data:image')) {
         const timestamp = Date.now();
         const filePath = `${session.user.id}/${timestamp}.png`;
