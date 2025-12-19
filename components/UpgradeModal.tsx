@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Check } from 'lucide-react';
+import { X, Check, Zap, Crown, Shield, Rocket } from 'lucide-react';
 import { SubscriptionTier } from '../types';
 
 interface UpgradeModalProps {
@@ -39,38 +39,39 @@ const TIER_FEATURES: Record<SubscriptionTier, string[]> = {
 };
 
 const PLAN_DETAILS = [
-  { id: SubscriptionTier.Free, name: "The Guest", price: "0", subtext: "Daily limit" },
-  { id: SubscriptionTier.Starter, name: "The Starter", price: "9", subtext: "Per month" },
-  { id: SubscriptionTier.Creator, name: "The Creator", price: "29", subtext: "Per month", featured: true },
-  { id: SubscriptionTier.Studio, name: "The Studio", price: "99", subtext: "Per month" }
+  { id: SubscriptionTier.Free, name: "Guest", price: "0", subtext: "Free trial access" },
+  { id: SubscriptionTier.Starter, name: "Starter", price: "9", subtext: "For hobbyists" },
+  { id: SubscriptionTier.Creator, name: "Creator", price: "29", subtext: "Professional use", featured: true },
+  { id: SubscriptionTier.Studio, name: "Studio", price: "99", subtext: "Agency power" }
 ];
 
 export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onUpgrade, currentTier }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-heritage-navy/95 backdrop-blur-md overflow-y-auto">
-      <div className="w-full max-w-7xl my-auto relative animate-fade-in">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6 bg-black/95 backdrop-blur-xl overflow-y-auto">
+      <div className="w-full max-w-6xl my-auto relative animate-fade-in flex flex-col">
         
-        {/* Close Button */}
-        <button 
-          onClick={onClose} 
-          className="absolute -top-16 right-0 text-heritage-gold/60 hover:text-heritage-gold transition-colors flex items-center gap-3 group"
-        >
-          <span className="text-[10px] uppercase tracking-[0.4em] font-medium opacity-0 group-hover:opacity-100 transition-all duration-500">Close Gallery</span>
-          <X size={24} strokeWidth={1} />
-        </button>
-        
-        <div className="text-center mb-20 space-y-6">
-          <h2 className="font-serif text-5xl md:text-6xl italic text-heritage-ivory tracking-tight">The Membership Collection</h2>
-          <div className="flex items-center justify-center gap-6">
-            <div className="h-[0.5px] w-12 bg-heritage-gold/40"></div>
-            <p className="text-heritage-gold/60 text-[11px] uppercase tracking-[0.6em] font-medium">Bespoke Access for Professionals</p>
-            <div className="h-[0.5px] w-12 bg-heritage-gold/40"></div>
+        {/* Header Navigation */}
+        <div className="flex items-center justify-between mb-12 sm:mb-16">
+          <div className="flex items-center gap-3">
+             <div className="w-8 h-8 bg-white text-black rounded-md flex items-center justify-center shadow-lg shadow-white/10">
+                <Crown size={16} fill="currentColor" />
+             </div>
+             <h2 className="text-xl font-black text-white uppercase tracking-tighter font-mono">Subscription <span className="text-zinc-500">Tiers</span></h2>
           </div>
+          
+          <button 
+            onClick={onClose} 
+            className="p-3 bg-zinc-900 border border-zinc-800 rounded-full text-zinc-400 hover:text-white hover:border-zinc-600 transition-all flex items-center justify-center group"
+            aria-label="Close"
+          >
+            <X size={20} className="group-hover:rotate-90 transition-transform duration-300" />
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-heritage-gold/10 p-[0.5px]">
+        {/* Pricing Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {PLAN_DETAILS.map((plan) => {
             const features = TIER_FEATURES[plan.id];
             const isCurrent = plan.id === currentTier;
@@ -78,75 +79,82 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
             return (
               <div 
                 key={plan.id} 
-                className={`flex flex-col h-full transition-all duration-1000 relative
-                  ${plan.featured ? 'bg-heritage-ebony z-10' : 'bg-heritage-navy'}
-                  p-12 group`}
+                className={`flex flex-col h-full transition-all duration-300 relative border rounded-xl overflow-hidden
+                  ${plan.featured 
+                    ? 'bg-zinc-900/40 border-zinc-500 shadow-[0_0_40px_rgba(255,255,255,0.03)] scale-[1.02] z-10' 
+                    : 'bg-zinc-950/20 border-zinc-800 hover:border-zinc-700'
+                  }
+                  p-8 sm:p-10 group`}
               >
-                {/* Plan Identity */}
-                <div className="mb-12 text-center">
-                  <span className="font-serif italic text-heritage-gold/80 text-xl block mb-8">{plan.name}</span>
-                  <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-heritage-gold/40 text-lg font-light">$</span>
-                    <span className="text-6xl font-light text-heritage-ivory tracking-tighter">{plan.price}</span>
+                {/* Visual Accent */}
+                {plan.featured && (
+                   <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-zinc-500 via-white to-zinc-500"></div>
+                )}
+                
+                <div className="mb-10 text-center sm:text-left">
+                  <div className="flex items-center justify-center sm:justify-between mb-2">
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">{plan.name}</span>
+                    {isCurrent && (
+                      <span className="text-[8px] bg-white/10 text-white px-2 py-0.5 rounded border border-white/20 font-black uppercase">Current</span>
+                    )}
                   </div>
-                  <span className="text-[10px] text-heritage-gold/30 uppercase tracking-[0.3em] mt-4 block font-medium">{plan.subtext}</span>
+                  
+                  <div className="flex items-baseline justify-center sm:justify-start gap-1">
+                    <span className="text-zinc-600 text-xl font-mono">$</span>
+                    <span className="text-5xl font-black text-white tracking-tighter font-mono">{plan.price}</span>
+                    <span className="text-zinc-600 text-[10px] font-bold uppercase tracking-widest ml-1">/mo</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-600 uppercase tracking-widest mt-4 font-bold">{plan.subtext}</p>
                 </div>
 
-                {/* Horizontal Divider */}
-                <div className="h-[0.5px] w-full bg-heritage-gold/10 mb-12"></div>
+                <div className="h-px w-full bg-zinc-800 mb-10"></div>
 
-                {/* Features List */}
-                <div className="space-y-6 flex-1 mb-16">
+                <div className="space-y-5 flex-1 mb-12">
                   {features.map((f, i) => (
-                    <div key={i} className="flex items-start gap-4 group/item">
-                      <Check size={12} className="text-heritage-gold/30 shrink-0 mt-0.5 transition-colors group-hover/item:text-heritage-gold" strokeWidth={3} />
-                      <span className="text-[11px] leading-relaxed text-heritage-ivory/60 font-light tracking-wide group-hover/item:text-heritage-ivory transition-colors">
+                    <div key={i} className="flex items-start gap-3 group/item">
+                      <div className="mt-1 w-1.5 h-1.5 rounded-full bg-zinc-700 group-hover/item:bg-white transition-colors"></div>
+                      <span className="text-[11px] leading-relaxed text-zinc-400 font-bold uppercase tracking-tight group-hover/item:text-white transition-colors">
                         {f}
                       </span>
                     </div>
                   ))}
                 </div>
 
-                {/* Action Button */}
                 <button 
                   onClick={() => onUpgrade(plan.id)}
                   disabled={isCurrent}
-                  className={`w-full py-5 text-[10px] heritage-button border transition-all duration-700
-                    ${isCurrent ? 'border-heritage-gold/10 text-heritage-gold/20 cursor-default' : 
-                      plan.featured ? 'bg-heritage-gold text-heritage-ebony border-heritage-gold hover:bg-heritage-ivory hover:border-heritage-ivory' : 
-                      'border-heritage-gold/20 text-heritage-gold/60 hover:border-heritage-gold hover:text-heritage-gold'}`}
+                  className={`w-full py-4 text-[10px] font-black uppercase tracking-[0.2em] rounded-lg transition-all duration-300
+                    ${isCurrent ? 'bg-zinc-900 text-zinc-700 border border-zinc-800 cursor-not-allowed' : 
+                      plan.featured ? 'bg-white text-black hover:bg-zinc-200' : 
+                      'bg-zinc-900/50 border border-zinc-800 text-white hover:bg-white hover:text-black'}`}
                 >
-                  {isCurrent ? "Active Account" : "Select Membership"}
+                  {isCurrent ? "Active" : "Select Tier"}
                 </button>
-
-                {/* Subtle Recommended Tag */}
-                {plan.featured && !isCurrent && (
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 px-6 py-1.5 bg-heritage-gold text-heritage-ebony text-[8px] font-black uppercase tracking-[0.3em]">
-                    Signature Tier
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
 
-        {/* Footer Details */}
-        <div className="mt-20 border-t border-heritage-gold/10 pt-10 flex flex-col md:flex-row justify-between items-center gap-8 opacity-40 hover:opacity-100 transition-all duration-1000">
-            <div className="flex items-center gap-10">
-              <div className="flex flex-col gap-1">
-                <span className="text-[9px] text-heritage-gold uppercase tracking-[0.4em] font-black">Private Studio</span>
-                <span className="text-[8px] text-heritage-ivory/40 uppercase tracking-widest">End-to-end Encryption</span>
-              </div>
-              <div className="w-px h-6 bg-heritage-gold/10"></div>
-              <div className="flex flex-col gap-1">
-                <span className="text-[9px] text-heritage-gold uppercase tracking-[0.4em] font-black">Immediate Access</span>
-                <span className="text-[8px] text-heritage-ivory/40 uppercase tracking-widest">Instant Provisioning</span>
-              </div>
+        {/* System Footer Info */}
+        <div className="mt-16 flex flex-col sm:flex-row items-center justify-between gap-8 border-t border-zinc-900 pt-8 opacity-40 hover:opacity-100 transition-all duration-700">
+            <div className="flex items-center gap-8">
+                <div className="flex items-center gap-3">
+                  <Shield size={16} className="text-zinc-600" />
+                  <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Encrypted Checkout</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Zap size={16} className="text-zinc-600" />
+                  <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Instant Activation</span>
+                </div>
             </div>
             
-            <p className="text-[8px] text-heritage-ivory/30 uppercase tracking-[0.5em] max-w-sm text-center md:text-right leading-loose">
-              Membership confers access to the FashionStudio private engine. Standard terms of use and creative ownership apply.
-            </p>
+            <div className="flex items-center gap-4 text-[9px] font-black text-zinc-700 uppercase tracking-tighter">
+              <span>Privacy Policy</span>
+              <span className="w-1 h-1 bg-zinc-800 rounded-full"></span>
+              <span>Terms of Service</span>
+              <span className="w-1 h-1 bg-zinc-800 rounded-full"></span>
+              <span>System Status: Optimal</span>
+            </div>
         </div>
       </div>
     </div>
