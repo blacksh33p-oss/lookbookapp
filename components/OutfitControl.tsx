@@ -83,7 +83,9 @@ export const OutfitControl: React.FC<OutfitControlProps> = ({ outfit, onChange }
                             <div className="p-8 space-y-8 bg-transparent animate-fade-in">
                                     <div className="grid grid-cols-2 gap-8">
                                         <div className="space-y-4">
-                                            <label className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em]">Reference</label>
+                                            <div className="flex items-center h-4">
+                                                <label className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em]">Reference</label>
+                                            </div>
                                             <ImageUploader 
                                                 images={item.images || []}
                                                 onImagesChange={(imgs) => updateItem(key, 'images', imgs)}
@@ -101,7 +103,7 @@ export const OutfitControl: React.FC<OutfitControlProps> = ({ outfit, onChange }
                                                 </div>
                                             </div>
                                             
-                                            <div className="min-h-[6rem]"> 
+                                            <div className="h-24"> 
                                                 {sizeChartMode[key] === 'image' ? (
                                                     <ImageUploader 
                                                         images={item.sizeChart ? [item.sizeChart] : []}
@@ -113,7 +115,7 @@ export const OutfitControl: React.FC<OutfitControlProps> = ({ outfit, onChange }
                                                         value={item.sizeChartDetails}
                                                         onChange={(e) => updateItem(key, 'sizeChartDetails', e.target.value)}
                                                         placeholder="Paste technical measurements..."
-                                                        className="w-full h-24 bg-black border border-white/10 rounded-sm py-4 px-5 text-[10px] text-white focus:border-white resize-none font-mono"
+                                                        className="w-full h-full bg-black border border-white/10 rounded-sm py-4 px-5 text-[10px] text-white focus:border-white resize-none font-mono"
                                                     />
                                                 )}
                                             </div>
