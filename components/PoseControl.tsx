@@ -106,7 +106,7 @@ export const PoseControl: React.FC<PoseControlProps> = ({
           >
               <div className="flex items-center justify-between px-1 mb-2">
                  <span className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Premium Pose Library</span>
-                 {!isPremium && <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest border border-amber-500/30 px-2 py-0.5 rounded shadow-[0_0_10px_rgba(245,158,11,0.1)]">Requires Creator Tier</span>}
+                 {!isPremium && <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest border border-amber-500/30 px-2 py-0.5 rounded">Requires Creator Tier</span>}
               </div>
 
               {POSE_CATEGORIES.map((category) => (

@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { PhotoshootOptions, ModelVersion, OutfitItem, PhotoStyle, FacialExpression, LayoutMode } from "../types";
 
@@ -41,9 +42,14 @@ const getModelName = (version: ModelVersion): string => {
 };
 
 export const generatePhotoshootImage = async (options: PhotoshootOptions): Promise<string> => {
-  // Always initialize GoogleGenAI with process.env.API_KEY directly as per guidelines.
-  // The client is created here right before the API call to ensure it uses the latest key from the dialog if applicable.
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Always access API_KEY dynamically from process.env to support live updates from key dialogs
+  const API_KEY = (window as any).process?.env?.API_KEY || (import.meta as any).env?.VITE_API_KEY;
+  
+  if (!API_KEY) {
+    throw new Error("API Key is missing. If you are using Gemini 3 Pro, please ensure you have selected a paid project key via the selector.");
+  }
+  
+  const ai = new GoogleGenAI({ apiKey: API_KEY });
 
   const heightStr = options.height ? `Model Height: ${options.height} ${options.measurementUnit}` : 'Height: Standard Model Height';
   const bodyTypeStr = `Body Type: ${options.bodyType}`;
@@ -114,7 +120,7 @@ export const generatePhotoshootImage = async (options: PhotoshootOptions): Promi
     4. **Output**: Return only the image part.
   `;
 
-  const executeGeneration = async (modelName: string, imageConfig: any) => {
+  const executeGeneration = async (modelName: string, config: any) => {
       const parts: any[] = [{ text: prompt }];
       imageInputs.forEach(img => {
         parts.push({
@@ -122,30 +128,28 @@ export const generatePhotoshootImage = async (options: PhotoshootOptions): Promi
         });
       });
 
-      // Use a generic config name to avoid 'generationConfig' keyword as requested.
-      const modelConfig: any = { 
-        imageConfig: imageConfig, 
+      const generationConfig: any = { 
+        imageConfig: config, 
         seed: options.seed 
       };
 
-      // Pro models support the google_search tool for enhanced generation quality.
+      // Pro models support the google_search tool, which can improve grounding and generation quality
       if (modelName === 'gemini-3-pro-image-preview') {
-        modelConfig.tools = [{ google_search: {} }];
+        generationConfig.tools = [{ google_search: {} }];
       }
 
       const response = await ai.models.generateContent({
         model: modelName,
         contents: { parts },
-        config: modelConfig
+        config: generationConfig
       });
 
       if (response.candidates && response.candidates[0].content && response.candidates[0].content.parts) {
         for (const part of response.candidates[0].content.parts) {
-          // Find the image part in the response as it may not be the first part.
           if (part.inlineData && part.inlineData.data) return `data:image/png;base64,${part.inlineData.data}`;
         }
       }
-      throw new Error("The model did not return an image content part. Please check your parameters and try again.");
+      throw new Error("The model did not return an image. This could be due to safety filters or insufficient API key permissions for Gemini 3 Pro.");
   };
 
   const targetModel = getModelName(options.modelVersion);
