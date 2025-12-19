@@ -145,6 +145,7 @@ const App: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [showLibrary, setShowLibrary] = useState(false);
+  const [prefetchLibrary, setPrefetchLibrary] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [saveError, setSaveError] = useState(false);
@@ -460,7 +461,11 @@ const App: React.FC = () => {
 
                  <div className="flex items-center gap-3 sm:gap-4">
                     {session && (
-                        <button onClick={() => setShowLibrary(true)} className="flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-white transition-colors">
+                        <button 
+                            onClick={() => setShowLibrary(true)} 
+                            onMouseEnter={() => setPrefetchLibrary(true)}
+                            className="flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-white transition-colors"
+                        >
                             <Library size={16} /> <span className="hidden sm:inline">Archive</span>
                         </button>
                     )}
@@ -759,7 +764,7 @@ const App: React.FC = () => {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onAuth={handleAuth} initialView={loginModalView} />
       <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} onUpgrade={handleUpgrade} currentTier={userProfile?.tier || SubscriptionTier.Free} />
-      <LibraryDrawer isOpen={showLibrary} onClose={() => setShowLibrary(false)} activeProjectId={activeProjectId} />
+      <LibraryDrawer isOpen={showLibrary} onClose={() => setShowLibrary(false)} prefetch={prefetchLibrary} activeProjectId={activeProjectId} />
     </div>
   );
 };

@@ -8,11 +8,24 @@ interface LibraryDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   activeProjectId: string | null;
+  prefetch?: boolean;
 }
 
 const PAGE_SIZE = 12;
 
-export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, activeProjectId }) => {
+// Utility to optimize image URLs for thumbnails
+// Reduces payload size by requesting scaled-down versions from Supabase Storage
+const getThumbnailUrl = (url: string) => {
+    if (!url) return '';
+    // If it's a Supabase storage URL, we can append transformation parameters
+    if (url.includes('supabase.co/storage/v1/object/public')) {
+        return `${url}?width=400&quality=75&resize=contain`;
+    }
+    // Fallback to original for non-Supabase or data URLs
+    return url;
+};
+
+export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, activeProjectId, prefetch }) => {
   const [generations, setGenerations] = useState<Generation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -64,7 +77,17 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
     }
   }, [activeProjectId, isLoading, hasMore]);
 
-  // Reset state when project changes or drawer opens for the first time
+  // Handle Prefetching and Initial Load
+  useEffect(() => {
+    if ((isOpen || prefetch) && generations.length === 0 && isInitialLoad) {
+      setGenerations([]);
+      setPage(0);
+      setHasMore(true);
+      fetchPage(0, true);
+    }
+  }, [activeProjectId, isOpen, prefetch, generations.length, isInitialLoad, fetchPage]);
+
+  // Reset state when project changes
   useEffect(() => {
     if (isOpen) {
       setGenerations([]);
@@ -73,7 +96,7 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
       setIsInitialLoad(true);
       fetchPage(0, true);
     }
-  }, [activeProjectId, isOpen]);
+  }, [activeProjectId]);
 
   // Infinite Scroll Observer logic
   useEffect(() => {
@@ -85,7 +108,7 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
           fetchPage(page);
         }
       },
-      { threshold: 0.1, rootMargin: '100px' }
+      { threshold: 0.1, rootMargin: '150px' }
     );
 
     if (observerTarget.current) {
@@ -154,12 +177,15 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
           ) : (
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                {generations.map((gen) => (
+                {generations.map((gen, index) => (
                   <div key={gen.id} className="group relative aspect-[3/4] bg-zinc-950 rounded-lg overflow-hidden border border-zinc-800 hover:border-zinc-500 transition-all shadow-lg">
                     <img 
-                      src={gen.image_url} 
+                      src={getThumbnailUrl(gen.image_url)} 
                       alt="Shoot" 
-                      loading="lazy"
+                      // Performance Optimization: 
+                      // Eager load first 6 items (viewport) with high priority
+                      // Lazy load the rest to save bandwidth
+                      loading={index < 6 ? 'eager' : 'lazy'}
                       decoding="async"
                       className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" 
                     />
