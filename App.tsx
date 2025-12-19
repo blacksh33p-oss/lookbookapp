@@ -45,11 +45,6 @@ const getGenerationCost = (options: PhotoshootOptions): number => {
     return cost;
 };
 
-/**
- * SpotlightGate Component
- * Wraps restricted features with desaturation/opacity rules.
- * Click triggers the relevant modal (Login or Upgrade) immediately.
- */
 export const SpotlightGate: React.FC<{ 
   children: React.ReactNode; 
   isLocked: boolean; 
@@ -68,7 +63,7 @@ export const SpotlightGate: React.FC<{
         }
       }}
     >
-      <div className={`transition-all duration-300 h-full w-full ${isLocked ? 'grayscale opacity-40 hover:opacity-70' : ''} ${className} ${isLocked && !interactive ? 'pointer-events-none' : ''}`}>
+      <div className={`transition-all duration-300 h-full w-full ${isLocked ? 'grayscale opacity-30 hover:opacity-50' : ''} ${className} ${isLocked && !interactive ? 'pointer-events-none' : ''}`}>
         {children}
       </div>
     </div>
@@ -81,16 +76,16 @@ const Toast: React.FC<{ message: string; type: 'success' | 'error' | 'info'; onC
     return () => clearTimeout(timer);
   }, [onClose]);
 
-  const bgColor = type === 'success' ? 'bg-zinc-900 border-emerald-500/50' : type === 'error' ? 'bg-zinc-900 border-red-500/50' : 'bg-zinc-900 border-zinc-700';
-  const textColor = type === 'success' ? 'text-emerald-400' : type === 'error' ? 'text-red-400' : 'text-zinc-300';
+  const bgColor = 'bg-black border-zinc-800';
+  const textColor = type === 'success' ? 'text-white' : type === 'error' ? 'text-red-400' : 'text-zinc-400';
   const Icon = type === 'success' ? CheckCircle : type === 'error' ? XCircle : Info;
 
   return (
-    <div className="fixed bottom-24 lg:bottom-10 left-0 w-full flex justify-center z-[150] pointer-events-none px-4">
-      <div className={`pointer-events-auto px-5 py-3.5 rounded-xl border shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center gap-3 animate-slide-up ${bgColor} backdrop-blur-xl`}>
-        <Icon size={18} className={textColor} />
-        <span className="text-[11px] font-black uppercase tracking-widest text-white whitespace-nowrap">{message}</span>
-        <button onClick={onClose} className="ml-2 text-zinc-500 hover:text-white transition-colors">
+    <div className="fixed bottom-10 left-0 w-full flex justify-center z-[150] pointer-events-none px-4">
+      <div className={`pointer-events-auto px-6 py-3 rounded-md border shadow-2xl flex items-center gap-4 animate-slide-up ${bgColor} backdrop-blur-xl`}>
+        <Icon size={14} className={textColor} />
+        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white whitespace-nowrap">{message}</span>
+        <button onClick={onClose} className="ml-4 text-zinc-600 hover:text-white transition-colors">
           <X size={14} />
         </button>
       </div>
@@ -108,24 +103,23 @@ interface ConfigSectionProps {
 const ConfigSection: React.FC<ConfigSectionProps> = ({ title, icon: Icon, children, defaultOpen = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
-    <div className="border-b border-zinc-800 bg-black/50 last:border-b-0 flex-shrink-0">
+    <div className="border-b border-white/5 bg-transparent last:border-b-0 flex-shrink-0">
       <button 
         onClick={() => setIsOpen(!isOpen)} 
-        className="w-full flex items-center justify-between py-3 px-4 text-left focus:outline-none group hover:bg-zinc-900/50 transition-colors"
+        className="w-full flex items-center justify-between py-5 px-6 text-left focus:outline-none group hover:bg-white/[0.02] transition-colors"
       >
-        <div className="flex items-center gap-3">
-          <Icon size={14} className={`text-zinc-500 group-hover:text-white transition-colors ${isOpen ? 'text-white' : ''}`} />
-          <span className="font-mono text-xs font-medium tracking-wider text-zinc-300 group-hover:text-white transition-colors uppercase">
+        <div className="flex items-center gap-4">
+          <span className={`text-[10px] font-bold tracking-[0.3em] text-zinc-500 group-hover:text-white transition-colors uppercase`}>
             {title}
           </span>
         </div>
-        <div className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
-           <ChevronDown size={14} className="text-zinc-600 group-hover:text-white" />
+        <div className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
+           <ChevronDown size={14} className="text-zinc-700 group-hover:text-white" />
         </div>
       </button>
       {isOpen && (
-        <div className="p-4 pt-0 animate-fade-in relative">
-            <div className={`mt-2 space-y-5 relative`}>
+        <div className="p-6 pt-0 animate-fade-in relative">
+            <div className={`mt-2 space-y-6 relative`}>
                 {children}
             </div>
         </div>
@@ -142,10 +136,10 @@ interface StyleButtonProps {
 const StyleButton: React.FC<StyleButtonProps> = ({ label, isSelected, onClick }) => (
     <button 
         onClick={onClick} 
-        className={`px-3 py-3 rounded-md border text-left transition-all group overflow-hidden min-h-[3rem] flex items-center justify-between 
-        ${isSelected ? 'bg-white border-white text-black shadow-lg shadow-white/5' : 'bg-black border-zinc-800 hover:border-zinc-600 text-zinc-400'}`}
+        className={`px-4 py-4 rounded-md border text-left transition-all flex items-center justify-center 
+        ${isSelected ? 'bg-white border-white text-black' : 'bg-black border-white/5 hover:border-zinc-700 text-zinc-500'}`}
     >
-        <span className={`text-[10px] font-bold uppercase tracking-wider z-10 relative ${isSelected ? 'text-black' : 'text-zinc-400 group-hover:text-zinc-200'}`}>{label}</span>
+        <span className={`text-[10px] font-bold uppercase tracking-[0.2em] ${isSelected ? 'text-black' : 'text-zinc-500 group-hover:text-zinc-300'}`}>{label}</span>
     </button>
 );
 
@@ -282,7 +276,7 @@ const App: React.FC = () => {
     try {
       const { data, error } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
       if (error) {
-          if (error.code === '42P01') console.warn("Table 'projects' not found. Run SQL script.");
+          if (error.code === '42P01') console.warn("Table 'projects' not found.");
           return;
       }
       if (data) {
@@ -485,7 +479,7 @@ const App: React.FC = () => {
               }
           }
       } catch (err: any) { 
-          const errorMessage = err.message || 'The studio is currently offline. Please check your credentials.';
+          const errorMessage = err.message || 'Engine offline. Try again.';
           setError(errorMessage); 
       } finally { 
           setIsLoading(false); 
@@ -515,70 +509,71 @@ const App: React.FC = () => {
     }
   };
 
-  const activeProjectName = activeProjectId === null ? "Main Archive" : projects.find(p => p.id === activeProjectId)?.name || "Main Archive";
+  const activeProjectName = activeProjectId === null ? "MASTER ARCHIVE" : projects.find(p => p.id === activeProjectId)?.name.toUpperCase() || "PROJECT";
 
   return (
     <div className="h-screen w-full flex flex-col text-zinc-300 font-sans bg-black overflow-hidden relative">
-      <header className="flex-shrink-0 z-[60] bg-black/80 backdrop-blur-xl border-b border-zinc-800/50 h-14">
-          <div className="max-w-[1920px] mx-auto h-full flex justify-between items-center px-4 sm:px-6">
-              <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 bg-white text-black rounded-sm flex items-center justify-center shadow-lg shadow-white/10 shrink-0">
+      <header className="flex-shrink-0 z-[60] bg-black border-b border-white/5 h-16">
+          <div className="max-w-[1920px] mx-auto h-full flex justify-between items-center px-8">
+              <div className="flex items-center gap-6">
+                  <div className="w-6 h-6 bg-white text-black rounded-sm flex items-center justify-center">
                      <Hexagon size={14} fill="currentColor" />
                   </div>
-                  <h1 className="text-sm font-bold tracking-tight text-white font-mono uppercase">FashionStudio<span className="text-zinc-500">.ai</span></h1>
+                  <h1 className="text-[10px] font-bold tracking-[0.5em] text-white uppercase font-mono">FashionStudio<span className="text-zinc-600">.AI</span></h1>
               </div>
 
-              <div className="flex items-center gap-4 sm:gap-6">
+              <div className="flex items-center gap-8">
                  {session && userProfile && (
-                    <div className="hidden sm:flex items-center gap-3 px-3 py-1 bg-zinc-900/50 border border-zinc-800 rounded-full group cursor-pointer hover:border-zinc-700 transition-colors" onClick={() => setShowUpgradeModal(true)}>
-                        <div className="flex items-center gap-1.5 px-2 border-r border-zinc-800">
-                           <Zap size={10} className="text-amber-400 fill-amber-400" />
-                           <span className="text-[10px] font-black text-white">{userProfile.credits}</span>
+                    <div className="hidden md:flex items-center gap-6" onClick={() => setShowUpgradeModal(true)}>
+                        <div className="flex flex-col items-end">
+                           <span className="text-[8px] font-black text-zinc-600 tracking-widest uppercase mb-1">Credits Available</span>
+                           <span className="text-[10px] font-bold text-white tracking-widest">{userProfile.credits}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 px-1">
-                           <Crown size={10} className={`${userProfile.tier !== SubscriptionTier.Free ? 'text-amber-400' : 'text-zinc-600'}`} />
-                           <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{userProfile.tier}</span>
+                        <div className="w-px h-6 bg-white/10" />
+                        <div className="flex flex-col items-end">
+                           <span className="text-[8px] font-black text-zinc-600 tracking-widest uppercase mb-1">Membership</span>
+                           <span className="text-[10px] font-bold text-white tracking-widest uppercase">{userProfile.tier}</span>
                         </div>
                     </div>
                  )}
 
-                 <div className="flex items-center gap-3 sm:gap-4">
+                 <div className="flex items-center gap-6">
                     {session && (
                         <button 
                             onClick={() => setShowLibrary(true)} 
                             onMouseEnter={() => setPrefetchLibrary(true)}
-                            className="flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-white transition-colors"
+                            className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 hover:text-white transition-all uppercase tracking-widest"
                         >
-                            <Library size={16} /> <span className="hidden sm:inline">Archive</span>
+                           Archive
                         </button>
                     )}
                     {session ? (
                         <div className="relative" ref={accountMenuRef}>
                             <button 
                               onClick={() => setShowAccountMenu(!showAccountMenu)}
-                              className="w-8 h-8 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700 text-xs font-bold text-white uppercase hover:border-white transition-all cursor-pointer"
+                              className="w-10 h-10 border border-white/10 rounded-full flex items-center justify-center text-[10px] font-bold text-white uppercase hover:border-white transition-all"
                             >
                                 {session.user.email?.[0]}
                             </button>
                             {showAccountMenu && (
-                              <div className="absolute top-full right-0 mt-2 w-48 bg-black border border-zinc-800 rounded-lg shadow-2xl py-1 transition-all z-[100] animate-fade-in">
-                                  <div className="px-4 py-3 border-b border-zinc-900">
-                                      <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Signed in as</p>
-                                      <p className="text-xs text-white truncate font-medium">{session.user.email}</p>
+                              <div className="absolute top-full right-0 mt-4 w-56 bg-black border border-white/10 shadow-2xl py-2 z-[100] animate-fade-in">
+                                  <div className="px-5 py-4 border-b border-white/5">
+                                      <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mb-2">Account</p>
+                                      <p className="text-[10px] text-white truncate font-medium">{session.user.email}</p>
                                   </div>
-                                  <button onClick={() => { setShowUpgradeModal(true); setShowAccountMenu(false); }} className="w-full text-left px-4 py-2.5 text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white flex items-center gap-2">
-                                      <Star size={14} className="text-amber-400" /> Subscription
+                                  <button onClick={() => { setShowUpgradeModal(true); setShowAccountMenu(false); }} className="w-full text-left px-5 py-3.5 text-[10px] uppercase tracking-widest text-zinc-400 hover:text-white flex items-center gap-3">
+                                      Plan Details
                                   </button>
-                                  <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-xs text-red-400 hover:bg-zinc-900 flex items-center gap-2">
-                                      <LogOut size={14} /> Sign Out
+                                  <button onClick={handleLogout} className="w-full text-left px-5 py-3.5 text-[10px] uppercase tracking-widest text-red-500 hover:bg-red-500/5 flex items-center gap-3">
+                                      Sign Out
                                   </button>
                               </div>
                             )}
                         </div>
                     ) : (
-                        <div className="flex items-center gap-3 sm:gap-6">
-                            <button onClick={() => { setLoginModalView('login'); setShowLoginModal(true); }} className="text-xs font-bold text-zinc-400 hover:text-white transition-colors">Log in</button>
-                            <button onClick={() => { setLoginModalView('signup'); setShowLoginModal(true); }} className="bg-white text-black px-4 py-1.5 rounded-md text-xs font-bold hover:bg-zinc-200 transition-colors">Sign up</button>
+                        <div className="flex items-center gap-8">
+                            <button onClick={() => { setLoginModalView('login'); setShowLoginModal(true); }} className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-white transition-colors">Log in</button>
+                            <button onClick={() => { setLoginModalView('signup'); setShowLoginModal(true); }} className="bg-white text-black px-6 py-2.5 rounded-sm text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-colors">Sign up</button>
                         </div>
                     )}
                  </div>
@@ -586,27 +581,22 @@ const App: React.FC = () => {
           </div>
       </header>
 
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden max-w-[1920px] mx-auto w-full px-4 lg:px-6 py-4 lg:py-6 gap-6 min-h-0 relative">
-        <aside className={`w-full lg:w-[400px] flex-shrink-0 flex flex-col h-full bg-black border border-zinc-800 rounded-lg overflow-hidden shadow-xl min-h-0 ${activeTab === 'editor' ? 'flex' : 'hidden lg:flex'}`}>
-          <div className="p-4 border-b border-zinc-800 bg-zinc-950/50 space-y-4 flex-shrink-0">
-              <div className="space-y-1.5">
-                  <div className="flex justify-between items-center pl-1">
-                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Generation Engine</label>
-                      <span className="text-[9px] font-mono text-zinc-600 uppercase">Latency Priority</span>
-                  </div>
-                  <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-1 flex gap-1 shadow-sm">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden w-full relative">
+        <aside className={`w-full lg:w-[450px] flex-shrink-0 flex flex-col h-full bg-black border-r border-white/5 overflow-hidden min-h-0 ${activeTab === 'editor' ? 'flex' : 'hidden lg:flex'}`}>
+          <div className="p-8 border-b border-white/5 space-y-8 flex-shrink-0">
+              <div className="space-y-4">
+                  <label className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.4em]">Processing Engine</label>
+                  <div className="grid grid-cols-2 gap-px bg-white/5 p-[1px] rounded-sm">
                       <button
                           onClick={() => setSelectedModel('flash-2.5')}
-                          className={`flex-1 py-2 px-2 rounded-md transition-all duration-200 flex flex-col items-center justify-center gap-0.5 ${selectedModel === 'flash-2.5' ? 'bg-zinc-100 text-black shadow-md' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'}`}
+                          className={`py-3 px-4 transition-all duration-300 ${selectedModel === 'flash-2.5' ? 'bg-white text-black' : 'text-zinc-500 hover:text-zinc-300'}`}
                       >
-                          <span className="text-[10px] font-black uppercase tracking-wider">Flash 2.5</span>
-                          <span className={`text-[8px] font-bold uppercase ${selectedModel === 'flash-2.5' ? 'text-zinc-500' : 'text-zinc-700'}`}>Standard</span>
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em]">Flash 2.5</span>
                       </button>
                       <SpotlightGate
                           isLocked={!hasProAccess}
                           tier="CREATOR"
                           containerClassName="flex-1"
-                          className="h-full"
                           interactive={true}
                           onClick={() => {
                             if (!session) { setLoginModalView('signup'); setShowLoginModal(true); return; }
@@ -615,11 +605,9 @@ const App: React.FC = () => {
                           }}
                       >
                         <button
-                            className={`w-full h-full py-2 px-2 rounded-md transition-all duration-200 flex flex-col items-center justify-center gap-0.5
-                              ${selectedModel === 'pro-3' ? 'bg-zinc-100 text-black shadow-md' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'}`}
+                            className={`w-full h-full py-3 px-4 transition-all duration-300 ${selectedModel === 'pro-3' ? 'bg-white text-black' : 'text-zinc-500 hover:text-zinc-300'}`}
                         >
-                            <span className={`text-[10px] font-black uppercase tracking-wider`}>Pro 3</span>
-                            <span className={`text-[8px] font-bold uppercase ${selectedModel === 'pro-3' ? 'text-zinc-500' : 'text-zinc-400'}`}>High Detail</span>
+                            <span className={`text-[10px] font-black uppercase tracking-[0.2em]`}>Pro 3</span>
                         </button>
                       </SpotlightGate>
                   </div>
@@ -635,63 +623,57 @@ const App: React.FC = () => {
                   setOptions({...options, enable4K: !options.enable4K});
                 }}
               >
-                <div className={`flex items-center justify-between p-3 bg-zinc-900/30 border border-zinc-800 rounded-md transition-opacity pr-4`}>
-                    <div className="flex items-center gap-3 overflow-hidden flex-1">
-                        <div className={`p-2 rounded bg-zinc-800/50 border border-zinc-700 shrink-0`}>
-                            <Monitor size={14} className="text-zinc-400" />
-                        </div>
-                        <div className="flex flex-col gap-0.5 min-w-0">
-                            <span className={`text-[10px] font-bold uppercase tracking-wider text-zinc-300 truncate`}>4K Production Upscale</span>
-                        </div>
-                    </div>
+                <div className={`flex items-center justify-between py-4 px-1 border-b border-white/5 transition-opacity`}>
+                    <span className={`text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400`}>4K Production Upscale</span>
                     <button 
-                        className={`w-10 h-5 rounded-full relative transition-all duration-300 shrink-0 ${options.enable4K ? 'bg-white' : 'bg-zinc-800'}`}
+                        className={`w-10 h-5 rounded-full relative transition-all duration-500 ${options.enable4K ? 'bg-white' : 'bg-zinc-900 border border-white/10'}`}
                     >
-                        <div className={`absolute top-1 w-3 h-3 rounded-full transition-all duration-300 ${options.enable4K ? 'right-1 bg-black' : 'left-1 bg-zinc-600'}`}></div>
+                        <div className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full transition-all duration-500 ${options.enable4K ? 'right-1 bg-black' : 'left-1 bg-zinc-600'}`}></div>
                     </button>
                 </div>
               </SpotlightGate>
           </div>
 
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 min-h-0 max-h-full">
+          <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
               {session && (
-                <div className="space-y-1.5 flex-shrink-0" ref={projectMenuRef}>
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1">Archive Location</label>
-                  <div className="relative bg-zinc-950 border rounded-lg p-1 flex items-center border-zinc-800 hover:border-zinc-600">
+                <div className="p-8 border-b border-white/5" ref={projectMenuRef}>
+                  <label className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.4em] mb-4 block">Archive Specification</label>
+                  <div className="relative group">
                       <button 
                           onClick={() => setShowProjectDropdown(!showProjectDropdown)}
-                          className="flex-1 flex items-center gap-3 px-3 py-2 text-left hover:bg-zinc-900 rounded-md transition-all outline-none"
+                          className="w-full flex items-center justify-between py-4 px-5 border border-white/10 hover:border-white transition-all text-left"
                       >
-                          <Folder size={14} className="text-zinc-500" />
-                          <span className="text-[10px] font-bold text-white uppercase tracking-wider truncate">{activeProjectName}</span>
-                          <ChevronDown size={14} className={`ml-auto text-zinc-600 transition-transform ${showProjectDropdown ? 'rotate-180 text-white' : ''}`} />
+                          <span className="text-[10px] font-black text-white uppercase tracking-[0.2em] truncate">{activeProjectName}</span>
+                          <ChevronDown size={14} className={`text-zinc-600 transition-transform ${showProjectDropdown ? 'rotate-180 text-white' : ''}`} />
                       </button>
-                      <div className="w-px h-6 bg-zinc-800 mx-1"></div>
-                      <button onClick={createProject} className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-900 rounded-md transition-colors"><Plus size={16}/></button>
 
                       {showProjectDropdown && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-black border border-zinc-800 rounded-lg shadow-2xl z-[100] overflow-hidden py-1">
-                            <button onClick={() => { setActiveProjectId(null); setShowProjectDropdown(false); }} className={`w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider flex items-center gap-3 transition-colors ${activeProjectId === null ? 'bg-zinc-900 text-white border-l-2 border-white' : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-white'}`}>
-                                <Library size={12} /> Main Archive
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-black border border-white/10 shadow-2xl z-[100] py-2">
+                            <button onClick={() => { setActiveProjectId(null); setShowProjectDropdown(false); }} className={`w-full text-left px-5 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] transition-colors ${activeProjectId === null ? 'text-white bg-white/5' : 'text-zinc-500 hover:text-white'}`}>
+                                Master Archive
                             </button>
                             {projects.map(p => (
-                                <button key={p.id} onClick={() => { setActiveProjectId(p.id); setShowProjectDropdown(false); }} className={`w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider flex items-center gap-3 transition-colors ${activeProjectId === p.id ? 'bg-zinc-900 text-white border-l-2 border-white' : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-white'}`}>
-                                    <Folder size={12} /> {p.name}
+                                <button key={p.id} onClick={() => { setActiveProjectId(p.id); setShowProjectDropdown(false); }} className={`w-full text-left px-5 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] transition-colors ${activeProjectId === p.id ? 'text-white bg-white/5' : 'text-zinc-500 hover:text-white'}`}>
+                                    {p.name}
                                 </button>
                             ))}
+                            <div className="h-px bg-white/5 my-2" />
+                            <button onClick={createProject} className="w-full text-left px-5 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-white/5 flex items-center gap-3">
+                                <Plus size={14} /> New Project
+                            </button>
                         </div>
                       )}
                   </div>
                 </div>
               )}
 
-              <div className="bg-black border border-zinc-800 rounded-lg overflow-hidden shadow-sm flex flex-col">
-                  <ConfigSection title="Wardrobe & Garments" icon={Shirt} defaultOpen={true}>
+              <div className="flex flex-col">
+                  <ConfigSection title="Garment Library" icon={Shirt} defaultOpen={true}>
                       <OutfitControl outfit={options.outfit} onChange={(newOutfit) => setOptions({ ...options, outfit: newOutfit })} />
                   </ConfigSection>
 
-                  <ConfigSection title="Model Identity" icon={UserCircle}>
-                      <div className="grid grid-cols-2 gap-4">
+                  <ConfigSection title="Model Profile" icon={UserCircle}>
+                      <div className="grid grid-cols-2 gap-6">
                           <Dropdown 
                             label="Sex" 
                             value={options.sex} 
@@ -709,7 +691,7 @@ const App: React.FC = () => {
                             onLockedClick={handleLockedClick}
                           />
                           <Dropdown 
-                            label="Age Range" 
+                            label="Age" 
                             value={options.age} 
                             options={Object.values(ModelAge)} 
                             onChange={(val) => setOptions({ ...options, age: val })} 
@@ -725,8 +707,8 @@ const App: React.FC = () => {
                             onLockedClick={handleLockedClick}
                           />
                       </div>
-                      <div className="space-y-3 pt-2">
-                          <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-6 pt-4 border-t border-white/5">
+                          <div className="grid grid-cols-2 gap-6">
                               <Dropdown 
                                 label="Hair Color" 
                                 value={options.hairColor as HairColor} 
@@ -744,25 +726,25 @@ const App: React.FC = () => {
                                 onLockedClick={handleLockedClick}
                               />
                           </div>
-                          <div className="space-y-1.5">
-                              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1">Custom Features</label>
+                          <div className="space-y-3">
+                              <label className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em] pl-1">Identification Features</label>
                               <SpotlightGate isLocked={!hasProAccess} tier="CREATOR" interactive={true} onClick={handleLockedClick}>
                                 <textarea 
-                                  placeholder="" 
+                                  placeholder="Specify moles, freckles, or distinct features..." 
                                   value={options.modelFeatures} 
                                   onChange={(e) => setOptions({...options, modelFeatures: e.target.value})} 
-                                  className={`w-full h-20 bg-black border border-zinc-800 rounded-md py-2 px-3 text-white resize-none focus:border-zinc-500 font-mono text-xs transition-all`} 
+                                  className={`w-full h-24 bg-black border border-white/10 rounded-sm py-4 px-5 text-white resize-none focus:border-white font-mono text-xs transition-all`} 
                                 />
                               </SpotlightGate>
                           </div>
                       </div>
                   </ConfigSection>
 
-                  <ConfigSection title="Physicality & Size" icon={Ruler}>
+                  <ConfigSection title="Physicality" icon={Ruler}>
                       <SizeControl options={options} onChange={(newOps) => setOptions(newOps)} isPremium={isPremium} onUpgradeRequest={() => setShowUpgradeModal(true)} />
                   </ConfigSection>
 
-                  <ConfigSection title="Pose & Staging" icon={Move}>
+                  <ConfigSection title="Staging" icon={Move}>
                       <PoseControl 
                         selectedPose={options.pose} 
                         onPoseChange={(p) => setOptions({...options, pose: p})} 
@@ -776,55 +758,43 @@ const App: React.FC = () => {
                       />
                   </ConfigSection>
 
-                  <ConfigSection title="Visual Style & Scene" icon={Palette}>
-                      <div className="space-y-6">
-                          <div className="space-y-3">
-                              <div className="flex flex-col gap-0.5 px-1">
-                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Lookbook Composition</label>
-                                <span className="text-[8px] text-zinc-600 font-medium">Define structural rendering mode</span>
-                              </div>
-                              
-                              <div className="grid grid-cols-2 gap-3">
+                  <ConfigSection title="Aesthetic Style" icon={Palette}>
+                      <div className="space-y-10">
+                          <div className="space-y-4">
+                              <label className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em]">Composition Mode</label>
+                              <div className="grid grid-cols-2 gap-6">
                                   <button
                                       onClick={() => setOptions({ ...options, layout: LayoutMode.Single })}
-                                      className={`px-4 py-3 rounded-lg border transition-all flex flex-col gap-3 group ${options.layout === LayoutMode.Single ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-600'}`}
+                                      className={`py-5 px-6 border transition-all flex flex-col items-center gap-4 ${options.layout === LayoutMode.Single ? 'bg-white border-white text-black' : 'bg-black border-white/5 hover:border-zinc-700 text-zinc-500'}`}
                                   >
-                                      <div className={`w-full aspect-[4/3] rounded border flex items-center justify-center ${options.layout === LayoutMode.Single ? 'bg-zinc-100 border-zinc-200' : 'bg-zinc-900/50 border-zinc-800'}`}>
-                                          <Square size={16} className={options.layout === LayoutMode.Single ? 'text-black' : 'text-zinc-400'} />
-                                      </div>
-                                      <div className="flex flex-col gap-0.5 text-left">
-                                          <span className={`text-[10px] font-black uppercase tracking-wider ${options.layout === LayoutMode.Single ? 'text-black' : 'text-white'}`}>Single View</span>
-                                      </div>
+                                      <Square size={20} className={options.layout === LayoutMode.Single ? 'text-black' : 'text-zinc-700'} />
+                                      <span className="text-[10px] font-black uppercase tracking-[0.2em]">Single</span>
                                   </button>
 
                                   <SpotlightGate isLocked={!isStudio} tier="STUDIO" interactive={true} onClick={handleStudioInterceptor}>
                                     <button
-                                        className={`w-full px-4 py-3 rounded-lg border transition-all flex flex-col gap-3 group relative overflow-hidden pr-4
-                                        ${options.layout === LayoutMode.Diptych ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-600'}`}
+                                        className={`w-full py-5 px-6 border transition-all flex flex-col items-center gap-4
+                                        ${options.layout === LayoutMode.Diptych ? 'bg-white border-white text-black' : 'bg-black border-white/5 hover:border-zinc-700 text-zinc-500'}`}
                                     >
-                                        <div className={`w-full aspect-[4/3] rounded border flex items-center justify-center ${options.layout === LayoutMode.Diptych ? 'bg-zinc-100 border-zinc-200' : 'bg-zinc-900/50 border-zinc-800'}`}>
-                                            <Columns size={16} className={`${options.layout === LayoutMode.Diptych ? 'text-black' : 'text-zinc-400'}`} />
-                                        </div>
-                                        <div className="flex flex-col gap-0.5 text-left w-full">
-                                            <span className={`text-[10px] font-black uppercase tracking-wider ${options.layout === LayoutMode.Diptych ? 'text-black' : 'text-white'}`}>Diptych Split</span>
-                                        </div>
+                                        <Columns size={20} className={`${options.layout === LayoutMode.Diptych ? 'text-black' : 'text-zinc-700'}`} />
+                                        <span className="text-[10px] font-black uppercase tracking-[0.2em]">Diptych</span>
                                     </button>
                                   </SpotlightGate>
                               </div>
                           </div>
 
-                          <div className="space-y-4 pt-4 border-t border-zinc-800/50">
-                              <div className="space-y-3">
-                                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1">Standard Aesthetics</label>
-                                  <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-10">
+                              <div className="space-y-4">
+                                  <label className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em]">Standard Library</label>
+                                  <div className="grid grid-cols-2 gap-4">
                                       {STANDARD_STYLES.map(s => <StyleButton key={s} label={s} isSelected={options.style === s} onClick={() => setOptions({...options, style: s})} />)}
                                   </div>
                               </div>
 
-                              <div className="space-y-3 pt-2">
-                                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider px-1">Professional Styles</label>
+                              <div className="space-y-4">
+                                  <label className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em]">Professional Selection</label>
                                   <SpotlightGate isLocked={!hasProAccess} tier="CREATOR" interactive={true} onClick={handleProInterceptor}>
-                                    <div className={`grid grid-cols-2 gap-3 transition-all`}>
+                                    <div className={`grid grid-cols-2 gap-4 transition-all`}>
                                         {PRO_STYLES.map(s => (
                                             <StyleButton 
                                               key={s} 
@@ -838,13 +808,13 @@ const App: React.FC = () => {
                               </div>
                           </div>
 
-                          <div className="space-y-3 pt-4 border-t border-zinc-800/50">
-                              <div className="space-y-1.5">
-                                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1">Scenery Details</label>
-                                  <textarea placeholder="e.g. Modern concrete loft, soft morning light, minimalist furniture..." value={options.sceneDetails} onChange={(e) => setOptions({...options, sceneDetails: e.target.value})} className="w-full h-24 bg-black border border-zinc-800 rounded-md py-2 px-3 text-xs text-white focus:border-zinc-500 font-mono resize-none" />
+                          <div className="space-y-8 pt-8 border-t border-white/5">
+                              <div className="space-y-4">
+                                  <label className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em]">Environmental Context</label>
+                                  <textarea placeholder="Specify lighting, surfaces, background geometry..." value={options.sceneDetails} onChange={(e) => setOptions({...options, sceneDetails: e.target.value})} className="w-full h-32 bg-black border border-white/10 rounded-sm py-5 px-6 text-xs text-white focus:border-white font-mono resize-none transition-all" />
                               </div>
                               <div className="pt-2">
-                                  <Dropdown label="Format / Aspect Ratio" value={options.aspectRatio} options={Object.values(AspectRatio)} onChange={(val) => setOptions({ ...options, aspectRatio: val as AspectRatio })} />
+                                  <Dropdown label="Frame Format" value={options.aspectRatio} options={Object.values(AspectRatio)} onChange={(val) => setOptions({ ...options, aspectRatio: val as AspectRatio })} />
                               </div>
                           </div>
                       </div>
@@ -852,25 +822,20 @@ const App: React.FC = () => {
               </div>
           </div>
           
-          <div className="p-4 bg-zinc-950/80 backdrop-blur-md border-t border-zinc-800 flex-shrink-0 relative">
+          <div className="p-8 bg-black border-t border-white/10 flex-shrink-0">
               <button 
                   onClick={handleGenerate} 
                   disabled={!isFormValid || isLoading} 
-                  className={`w-full py-5 rounded-md text-[11px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 transform active:scale-[0.98] shadow-2xl
-                  ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed opacity-50' : 'bg-white text-black hover:bg-zinc-200'}`}
+                  className={`w-full py-6 rounded-sm text-[11px] font-black uppercase tracking-[0.4em] transition-all flex items-center justify-center gap-4 transform active:scale-[0.99]
+                  ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed opacity-50' : 'bg-white text-black hover:bg-zinc-200 shadow-[0_0_30px_rgba(255,255,255,0.1)]'}`}
               >
-                  {isLoading ? <div className="flex items-center gap-3"><Loader2 size={16} className="animate-spin" /><span>Rendering...</span></div> : <><Sparkles size={16} /> Generate Shoot</>}
+                  {isLoading ? <Loader2 size={16} className="animate-spin" /> : <><Sparkles size={16} /> Render Output</>}
               </button>
-              {!isFormValid && !isLoading && isRestrictedActive && (
-                <div className="mt-2 text-center">
-                  <span className="text-[9px] font-black uppercase text-red-500 tracking-tighter">Selection includes locked features</span>
-                </div>
-              )}
           </div>
         </aside>
 
-        <section className={`flex-1 h-full bg-black border border-zinc-800 rounded-lg overflow-y-auto custom-scrollbar shadow-2xl relative min-h-0 ${activeTab === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
-           <div className="min-h-full max-h-full flex flex-col relative overflow-hidden flex-1">
+        <section className={`flex-1 h-full bg-black relative min-h-0 ${activeTab === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
+           <div className="h-full w-full flex flex-col relative overflow-hidden flex-1">
              <ResultDisplay 
                 isLoading={isLoading} image={generatedImage} onDownload={handleDownload} 
                 onRegenerate={(keepModel) => { 
@@ -884,9 +849,9 @@ const App: React.FC = () => {
                 SpotlightGate={SpotlightGate}
              />
              {generatedImage && session && (
-                <button onClick={() => saveToLibrary(generatedImage)} disabled={isSaving || justSaved} className={`absolute top-6 right-6 px-4 py-2 sm:px-6 sm:py-3 rounded-md transition-all duration-300 flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-2xl backdrop-blur-md border z-20 ${justSaved ? 'bg-emerald-500 text-white border-emerald-400 scale-105' : isSaving ? 'bg-zinc-800 text-zinc-400 border-zinc-700 cursor-not-allowed' : 'bg-black/90 text-white border-zinc-700 hover:border-white hover:bg-black'}`}>
-                  {isSaving ? <Loader2 size={14} className="animate-spin" /> : justSaved ? <Check size={14} strokeWidth={3} /> : saveError ? <AlertCircle size={14} className="text-red-400" /> : <Save size={14} />}
-                  <span className="hidden xs:inline">{isSaving ? "Saving..." : justSaved ? "Saved!" : saveError ? "Retry" : "Archive"}</span>
+                <button onClick={() => saveToLibrary(generatedImage)} disabled={isSaving || justSaved} className={`absolute top-10 right-10 px-8 py-4 bg-black/80 backdrop-blur-xl border border-white/10 transition-all duration-500 flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.3em] z-20 hover:border-white shadow-2xl ${justSaved ? 'border-emerald-500 text-emerald-500' : ''}`}>
+                  {isSaving ? <Loader2 size={14} className="animate-spin" /> : justSaved ? <Check size={14} /> : <Save size={14} />}
+                  <span>{isSaving ? "Syncing..." : justSaved ? "Archived" : "Archive"}</span>
                 </button>
              )}
            </div>
