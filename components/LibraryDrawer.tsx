@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Loader2, Download, Trash2, RotateCw, Inbox, AlertTriangle } from 'lucide-react';
+import { X, Loader2, Download, Trash2, RotateCw, Inbox, AlertTriangle, RefreshCcw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Generation } from '../types';
 
@@ -15,16 +15,12 @@ const PAGE_SIZE = 30;
 
 /**
  * ARCHITECTURAL FIX: Cloud-First Image Transformation
- * This helper ensures we only ever request optimized, resized thumbnails from the CDN.
- * It strictly filters out any Base64 data strings to prevent browser hangs.
+ * Filters out Base64 data strings. Only cloud URLs are passed to the Render engine.
  */
 const getThumbnailUrl = (url: string | undefined): string => {
   if (!url || url.startsWith('data:')) return '';
   
-  // Verify it's a Supabase storage URL to apply transformation
   if (url.includes('supabase.co/storage/v1/object/public')) {
-    // Switch from standard object endpoint to the dedicated Render engine
-    // This transforms a 5MB original into a ~15KB WebP thumbnail
     const renderUrl = url.replace('/storage/v1/object/public', '/storage/v1/render/image/public');
     return `${renderUrl}?width=300&height=400&quality=60&resize=contain`;
   }
@@ -50,17 +46,86 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
   const [isLoading, setIsLoading] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [migratingIds, setMigratingIds] = useState<Set<string>>(new Set());
   
   const fetchedIds = useRef<Set<string>>(new Set());
   const lastProjectId = useRef<string | null>(undefined as any);
   const observerTarget = useRef<HTMLDivElement>(null);
 
   /**
-   * HARD PERFORMANCE FIX: SELECTIVE PROJECTION
-   * We have removed 'config' and all JSONB sub-selections.
-   * By fetching only these 4 flat columns, we reduce the JSON payload from 25MB to <10KB.
-   * This bypasses the old "dirty" Base64 data stored in the config column.
+   * LAZY MIGRATION LOGIC
+   * Background task to move binary data from DB to Storage permanently.
    */
+  const migrateItem = async (gen: Generation) => {
+    if (migratingIds.has(gen.id)) return;
+    
+    setMigratingIds(prev => new Set(prev).add(gen.id));
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const timestamp = Date.now();
+      const filePath = `${session.user.id}/migrated_${gen.id}_${timestamp}.png`;
+      
+      // 1. Convert Base64 string to Binary
+      const base64Data = gen.image_url.split(',')[1];
+      const binaryStr = atob(base64Data);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+      const blob = new Blob([bytes], { type: 'image/png' });
+
+      // 2. Upload to Storage
+      const { error: uploadError } = await supabase.storage
+        .from('generations')
+        .upload(filePath, blob, { contentType: 'image/png' });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('generations')
+        .getPublicUrl(filePath);
+
+      // 3. Update Database permanently
+      const { error: updateError } = await supabase
+        .from('generations')
+        .update({ image_url: publicUrl })
+        .eq('id', gen.id);
+
+      if (updateError) throw updateError;
+
+      // 4. Update Local State to show the image
+      setGenerations(prev => prev.map(item => 
+        item.id === gen.id ? { ...item, image_url: publicUrl } : item
+      ));
+
+    } catch (err) {
+      console.error(`Migration failed for ${gen.id}:`, err);
+    } finally {
+      setMigratingIds(prev => {
+        const next = new Set(prev);
+        next.delete(gen.id);
+        return next;
+      });
+    }
+  };
+
+  /**
+   * EFFECT: Background Migration Queue
+   * Automatically picks the first unmigrated legacy item and processes it.
+   */
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const nextLegacyItem = generations.find(g => 
+      g.image_url.startsWith('data:') && !migratingIds.has(g.id)
+    );
+
+    if (nextLegacyItem) {
+      migrateItem(nextLegacyItem);
+    }
+  }, [generations, migratingIds, isOpen]);
+
   const fetchPage = useCallback(async (pageNum: number, isReset = false) => {
     if (isLoading || (!hasMore && !isReset)) return;
 
@@ -72,7 +137,8 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
       const from = pageNum * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
-      // NUCLEAR OPTION: No config access. No JSONB plucking. Just raw metadata.
+      // HARD FIX: SELECTIVE PROJECTION
+      // We explicitly exclude 'config' which contains 15MB of text residue.
       let query = supabase
         .from('generations')
         .select('id, image_url, created_at, project_id', { count: 'exact' })
@@ -94,7 +160,7 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
         if (isReset) {
           fetchedIds.current = new Set(typedData.map(g => g.id));
           setGenerations(typedData);
-          setPage(page + 1);
+          setPage(1);
         } else {
           const newItems = typedData.filter(g => !fetchedIds.current.has(g.id));
           newItems.forEach(g => fetchedIds.current.add(g.id));
@@ -110,7 +176,7 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
     } finally {
       setIsLoading(false);
     }
-  }, [activeProjectId, isLoading, hasMore, page]);
+  }, [activeProjectId, isLoading, hasMore]);
 
   useEffect(() => {
     if (!isOpen && !prefetch) return;
@@ -160,10 +226,17 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
         
         <div className="p-4 sm:p-6 flex items-center justify-between border-b border-zinc-800 bg-black/80 backdrop-blur-md sticky top-0 z-10">
           <div className="overflow-hidden">
-            <h2 className="text-base sm:text-lg font-bold text-white tracking-tight truncate">Shoot Archive</h2>
-            <p className="text-[9px] sm:text-[10px] text-zinc-500 uppercase tracking-widest font-bold truncate">
-              URL-First Performance Active
-            </p>
+            <h2 className="text-base sm:text-lg font-bold text-white tracking-tight truncate">Cloud Library</h2>
+            <div className="flex items-center gap-2">
+                <p className="text-[9px] sm:text-[10px] text-zinc-500 uppercase tracking-widest font-bold truncate">
+                {activeProjectId ? 'Active Project' : 'Global Archives'}
+                </p>
+                {migratingIds.size > 0 && (
+                    <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[8px] font-black text-amber-500 uppercase">
+                        <RefreshCcw size={8} className="animate-spin" /> Migrating {migratingIds.size}
+                    </span>
+                )}
+            </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             <button 
@@ -187,7 +260,7 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
                <div className="w-16 h-16 bg-zinc-900 rounded-2xl flex items-center justify-center mb-6 border border-zinc-800">
                   <Inbox size={24} className="text-zinc-500" />
                </div>
-               <p className="text-sm text-white font-bold">Archive Empty</p>
+               <p className="text-sm text-white font-bold">No items found</p>
             </div>
           ) : (
             <div className="space-y-6">
@@ -195,33 +268,42 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
                 {generations.map((gen, index) => {
                   const thumbUrl = getThumbnailUrl(gen.image_url);
                   const isBase64 = gen.image_url?.startsWith('data:');
+                  const isMigrating = migratingIds.has(gen.id);
 
                   return (
-                    <div key={gen.id} className="group relative aspect-[3/4] bg-zinc-950 rounded-lg overflow-hidden border border-zinc-800 hover:border-zinc-500 transition-all">
-                      {isBase64 ? (
-                        <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900 p-4 text-center">
-                            <AlertTriangle size={20} className="text-amber-500 mb-2" />
-                            <span className="text-[8px] uppercase text-zinc-500 font-bold leading-tight">Legacy Item<br/>Requires URL Migration</span>
+                    <div key={gen.id} className="group relative aspect-[3/4] bg-zinc-950 rounded-lg overflow-hidden border border-zinc-800 hover:border-zinc-500 transition-all shadow-xl">
+                      {isMigrating ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900/50 p-4 text-center">
+                            <Loader2 size={24} className="text-amber-500 animate-spin mb-3" />
+                            <span className="text-[9px] uppercase text-amber-500 font-black tracking-tighter">Syncing Cloud Storage</span>
+                            <span className="text-[7px] uppercase text-zinc-600 font-bold mt-1">Binary Offload Active</span>
+                        </div>
+                      ) : isBase64 ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900/30 p-4 text-center">
+                            <AlertTriangle size={20} className="text-zinc-600 mb-2" />
+                            <span className="text-[8px] uppercase text-zinc-500 font-bold leading-tight">Legacy Data Detected<br/>Queueing for Migration</span>
                         </div>
                       ) : (
                         <img 
                           src={thumbUrl} 
-                          alt="Fashion" 
+                          alt="Archive" 
                           loading={index < 4 ? 'eager' : 'lazy'}
                           decoding="async"
-                          className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" 
+                          className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" 
                         />
                       )}
                       
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-[1px]">
-                         <a 
-                            href={gen.image_url} 
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-2.5 bg-white text-black rounded-full hover:scale-110 active:scale-95 transition-all shadow-xl"
-                         >
-                            <Download size={16} />
-                         </a>
+                         {!isBase64 && !isMigrating && (
+                            <a 
+                                href={gen.image_url} 
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2.5 bg-white text-black rounded-full hover:scale-110 active:scale-95 transition-all shadow-xl"
+                            >
+                                <Download size={16} />
+                            </a>
+                         )}
                          <button 
                             onClick={(e) => deleteGeneration(gen.id, e)} 
                             className="p-2.5 bg-red-600 text-white rounded-full hover:scale-110 active:scale-95 transition-all shadow-xl"
@@ -243,7 +325,7 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
               <div ref={observerTarget} className="h-10 flex items-center justify-center">
                 {isLoading && generations.length > 0 && <Loader2 className="animate-spin text-zinc-700" size={20} />}
                 {!hasMore && generations.length > 0 && (
-                  <span className="text-[9px] font-bold text-zinc-800 uppercase tracking-widest opacity-40 text-center block w-full">Fast Sync Complete</span>
+                  <span className="text-[9px] font-bold text-zinc-800 uppercase tracking-widest opacity-40 text-center block w-full">Synchronization Complete</span>
                 )}
               </div>
             </div>
