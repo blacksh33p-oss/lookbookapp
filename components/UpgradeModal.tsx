@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { X, Check, Crown, Clock, ShieldCheck, ExternalLink } from 'lucide-react';
 import { SubscriptionTier } from '../types';
@@ -10,51 +9,37 @@ interface UpgradeModalProps {
   currentTier: SubscriptionTier;
 }
 
-interface PlanFeature {
-  text: string;
-  guest: boolean;
-  starter: boolean;
-  creator: boolean;
-  studio: boolean;
-}
+const ACCOUNT_PORTAL_URL = (import.meta as any).env?.VITE_ACCOUNT_PORTAL_URL || 'https://fashionstudio.onfastspring.com/account';
+
+const TIER_FEATURES: Record<SubscriptionTier, string[]> = {
+  [SubscriptionTier.Free]: [
+    "5 Daily Drafts",
+    "Gemini 2.5 Flash Access"
+  ],
+  [SubscriptionTier.Starter]: [
+    "100 Monthly Credits",
+    "Gemini 2.5 Flash Access"
+  ],
+  [SubscriptionTier.Creator]: [
+    "500 Monthly Credits",
+    "Gemini 2.5 Flash Access",
+    "Gemini 3 Pro Access",
+    "2K High Detail Rendering",
+    "Premium Style Collection"
+  ],
+  [SubscriptionTier.Studio]: [
+    "2000 Monthly Credits",
+    "Gemini 2.5 Flash Access",
+    "Gemini 3 Pro Access",
+    "2K High Detail Rendering",
+    "4K Production Upscaling",
+    "Diptych Editorial Layouts",
+    "Premium Style Collection"
+  ]
+};
 
 export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onUpgrade, currentTier }) => {
   if (!isOpen) return null;
-
-  const features: PlanFeature[] = [
-    { text: "Gemini 2.5 Flash Access", guest: true, starter: true, creator: true, studio: true },
-    { text: "5 Daily Drafts", guest: true, starter: false, creator: false, studio: false },
-    { text: "100 Monthly Credits", guest: false, starter: true, creator: false, studio: false },
-    { text: "500 Monthly Credits", guest: false, starter: false, creator: true, studio: false },
-    { text: "2000 Monthly Credits", guest: false, starter: false, creator: false, studio: true },
-    { text: "Gemini 3 Pro Access", guest: false, starter: false, creator: true, studio: true },
-    { text: "2K High Detail Rendering", guest: false, starter: false, creator: true, studio: true },
-    { text: "4K Production Upscaling", guest: false, starter: false, creator: false, studio: true },
-    { text: "Diptych Editorial Layouts", guest: false, starter: false, creator: false, studio: true },
-    { text: "Premium Style Collection", guest: false, starter: false, creator: true, studio: true },
-    { text: "Priority Rendering Queue", guest: false, starter: false, creator: false, studio: true },
-    { text: "Commercial Usage Rights", guest: false, starter: true, creator: true, studio: true },
-  ];
-
-  const isPaidUser = currentTier !== SubscriptionTier.Free;
-
-  const getButtonProps = (tier: SubscriptionTier) => {
-    if (tier === currentTier) {
-      return { text: "Current Plan", disabled: true, className: "bg-zinc-800 text-zinc-500 border-zinc-700 cursor-default" };
-    }
-    const tierOrder = { [SubscriptionTier.Free]: 0, [SubscriptionTier.Starter]: 1, [SubscriptionTier.Creator]: 2, [SubscriptionTier.Studio]: 3 };
-    const isUpgrade = tierOrder[tier] > tierOrder[currentTier];
-    
-    if (isPaidUser && !isUpgrade) {
-      return { text: "Manage in Portal", disabled: false, className: "bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white" };
-    }
-
-    const baseStyle = tier === SubscriptionTier.Creator || tier === SubscriptionTier.Studio 
-      ? "bg-white text-black hover:bg-zinc-200 shadow-lg shadow-white/5" 
-      : "bg-zinc-900 text-white hover:bg-zinc-800 border-zinc-800";
-      
-    return { text: isUpgrade ? "Upgrade Now" : "Get Started", disabled: false, className: baseStyle };
-  };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md overflow-y-auto">
@@ -64,29 +49,17 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
         </button>
         
         <div className="p-6 md:p-12">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl font-black text-white mb-3 tracking-tighter uppercase font-mono">Select Studio Tier</h2>
-            <p className="text-zinc-500 text-sm max-w-lg mx-auto">Elevate your fashion production with the most advanced AI models and high-resolution output.</p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
             {[
               { id: SubscriptionTier.Free, name: "Guest", price: "Free", credits: "5/day", desc: "For experiments" },
               { id: SubscriptionTier.Starter, name: "Starter", price: "$9", credits: "100", desc: "For hobbyists" },
               { id: SubscriptionTier.Creator, name: "Creator", price: "$29", credits: "500", desc: "The pro standard", popular: true },
               { id: SubscriptionTier.Studio, name: "Studio", price: "$99", credits: "2000", desc: "Agency scale", premium: true }
             ].map((plan) => {
-              const btn = getButtonProps(plan.id);
-              const tierFeatures = features.filter(f => {
-                if (plan.id === SubscriptionTier.Free) return f.guest;
-                if (plan.id === SubscriptionTier.Starter) return f.starter;
-                if (plan.id === SubscriptionTier.Creator) return f.creator;
-                if (plan.id === SubscriptionTier.Studio) return f.studio;
-                return false;
-              });
+              const tierFeatures = TIER_FEATURES[plan.id];
 
               return (
-                <div key={plan.id} className={`flex flex-col p-6 rounded-xl border transition-all duration-300 ${plan.popular ? 'bg-zinc-900/50 border-zinc-500 scale-105 z-10 shadow-2xl shadow-zinc-500/10' : plan.premium ? 'bg-white border-transparent' : 'bg-black border-zinc-800 hover:border-zinc-700'}`}>
+                <div key={plan.id} className={`flex flex-col p-6 rounded-xl border transition-all duration-300 h-full ${plan.popular ? 'bg-zinc-900/50 border-zinc-500 scale-105 z-10 shadow-2xl shadow-zinc-500/10' : plan.premium ? 'bg-white border-transparent' : 'bg-black border-zinc-800 hover:border-zinc-700'}`}>
                   <div className="mb-6">
                     <div className="flex justify-between items-start mb-1">
                       <span className={`text-[10px] font-black uppercase tracking-widest ${plan.premium ? 'text-zinc-500' : 'text-zinc-400'}`}>{plan.name}</span>
@@ -97,59 +70,61 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                       <span className={`text-3xl font-black ${plan.premium ? 'text-black' : 'text-white'}`}>{plan.price}</span>
                       <span className={`text-xs font-medium ${plan.premium ? 'text-zinc-500' : 'text-zinc-500'}`}>{plan.id !== SubscriptionTier.Free && "/mo"}</span>
                     </div>
-                    <p className={`text-[11px] font-bold mt-1 ${plan.premium ? 'text-black/60' : 'text-zinc-400'}`}>{plan.credits} Credits Included</p>
+                    <p className={`text-[11px] font-bold mt-1 ${plan.premium ? 'text-black/60' : 'text-zinc-400'}`}>{plan.credits} Credits</p>
                   </div>
 
                   <div className={`h-px w-full mb-6 ${plan.premium ? 'bg-zinc-200' : 'bg-zinc-800'}`}></div>
 
-                  <div className="space-y-4 mb-8 flex-1 min-h-[340px]">
+                  <div className="space-y-4 flex-1 min-h-[340px]">
                     {tierFeatures.map((f, i) => (
                       <div key={i} className={`flex items-center gap-3 text-[10px] ${plan.premium ? 'text-black font-bold' : 'text-white'}`}>
                         <div className="w-4 h-4 flex items-center justify-center shrink-0">
                           <Check size={14} className={plan.premium ? "text-black" : "text-emerald-500"} strokeWidth={4} />
                         </div>
-                        <span className="leading-tight">{f.text}</span>
+                        <span className="leading-tight">{f}</span>
                       </div>
                     ))}
                   </div>
-
-                  <button 
-                    onClick={() => btn.disabled ? null : onUpgrade(plan.id)}
-                    className={`w-full py-3 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${btn.className}`}
-                  >
-                    {btn.text}
-                  </button>
                 </div>
               );
             })}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-8 border-t border-zinc-900">
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-full bg-zinc-900 flex items-center justify-center shrink-0 border border-zinc-800">
-                <Clock size={16} className="text-zinc-400" />
+          <div className="flex flex-col items-center gap-10">
+            <button 
+              onClick={() => window.open(ACCOUNT_PORTAL_URL, '_blank')}
+              className="px-12 py-4 bg-white text-black rounded-md text-xs font-black uppercase tracking-[0.2em] shadow-2xl hover:bg-zinc-200 transition-all flex items-center gap-3 active:scale-[0.98]"
+            >
+               Manage Subscription <ExternalLink size={14} />
+            </button>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-8 border-t border-zinc-900 w-full">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-zinc-900 flex items-center justify-center shrink-0 border border-zinc-800">
+                  <Clock size={16} className="text-zinc-400" />
+                </div>
+                <div>
+                  <h4 className="text-[11px] font-bold text-white uppercase mb-1">Priority Support</h4>
+                  <p className="text-[10px] text-zinc-500 leading-relaxed">Studio tier users receive dedicated support and early access to experimental features.</p>
+                </div>
               </div>
-              <div>
-                <h4 className="text-[11px] font-bold text-white uppercase mb-1">Priority Support</h4>
-                <p className="text-[10px] text-zinc-500 leading-relaxed">Studio tier users receive dedicated support and early access to experimental features.</p>
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-zinc-900 flex items-center justify-center shrink-0 border border-zinc-800">
+                  <ShieldCheck size={16} className="text-zinc-400" />
+                </div>
+                <div>
+                  <h4 className="text-[11px] font-bold text-white uppercase mb-1">Enterprise Privacy</h4>
+                  <p className="text-[10px] text-zinc-500 leading-relaxed">Your data and generated assets are never used to train our base models on paid tiers.</p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-full bg-zinc-900 flex items-center justify-center shrink-0 border border-zinc-800">
-                <ShieldCheck size={16} className="text-zinc-400" />
-              </div>
-              <div>
-                <h4 className="text-[11px] font-bold text-white uppercase mb-1">Enterprise Privacy</h4>
-                <p className="text-[10px] text-zinc-500 leading-relaxed">Your data and generated assets are never used to train our base models on paid tiers.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-full bg-zinc-900 flex items-center justify-center shrink-0 border border-zinc-800">
-                <ExternalLink size={16} className="text-zinc-400" />
-              </div>
-              <div>
-                <h4 className="text-[11px] font-bold text-white uppercase mb-1">Flexible Usage</h4>
-                <p className="text-[10px] text-zinc-500 leading-relaxed">Switch plans anytime. Unused credits rollover for as long as your subscription is active.</p>
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-zinc-900 flex items-center justify-center shrink-0 border border-zinc-800">
+                  <ExternalLink size={16} className="text-zinc-400" />
+                </div>
+                <div>
+                  <h4 className="text-[11px] font-bold text-white uppercase mb-1">Flexible Usage</h4>
+                  <p className="text-[10px] text-zinc-500 leading-relaxed">Switch plans anytime. Unused credits rollover for as long as your subscription is active.</p>
+                </div>
               </div>
             </div>
           </div>
