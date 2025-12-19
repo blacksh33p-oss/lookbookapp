@@ -249,11 +249,6 @@ const App: React.FC = () => {
     }
   };
 
-  /**
-   * PERFORMANCE FIX: Upload to Storage
-   * We intercept the save call to prevent Base64 strings from entering the DB.
-   * This reduces DB read latency from 30s to <200ms for list views.
-   */
   const saveToLibrary = async (imageUrl: string) => {
     if (!session || !imageUrl || !isConfigured) return;
     
@@ -262,42 +257,8 @@ const App: React.FC = () => {
     setSaveError(false);
 
     try {
-      let finalImageUrl = imageUrl;
-
-      // 1. Detect if image is Base64 (Heavy)
-      if (imageUrl.startsWith('data:image')) {
-        const timestamp = Date.now();
-        const filePath = `${session.user.id}/${timestamp}.png`;
-        
-        // 2. Convert Base64 to Lightweight Blob
-        const base64Data = imageUrl.split(',')[1];
-        const binaryStr = atob(base64Data);
-        const len = binaryStr.length;
-        const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) bytes[i] = binaryStr.charCodeAt(i);
-        const blob = new Blob([bytes], { type: 'image/png' });
-
-        // 3. Upload to Supabase Storage CDN
-        const { error: uploadError } = await supabase.storage
-          .from('generations')
-          .upload(filePath, blob, { 
-            contentType: 'image/png', 
-            upsert: false 
-          });
-
-        if (uploadError) throw uploadError;
-
-        // 4. Get the Public CDN URL
-        const { data: { publicUrl } } = supabase.storage
-          .from('generations')
-          .getPublicUrl(filePath);
-          
-        finalImageUrl = publicUrl;
-      }
-
-      // 5. Save ONLY the URL to the DB
       const payload = {
-        image_url: finalImageUrl,
+        image_url: imageUrl,
         user_id: session.user.id,
         project_id: activeProjectId || null,
         config: { ...options, referenceModelImage: undefined }
@@ -314,7 +275,6 @@ const App: React.FC = () => {
         setTimeout(() => setJustSaved(false), 3000);
       }
     } catch (e: any) {
-      console.error("Save failed:", e);
       setSaveError(true);
       showToast("Error saving to archive", "error");
     } finally {
@@ -430,7 +390,7 @@ const App: React.FC = () => {
               setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
               if (isConfigured) {
                 await supabase.from('profiles').update({ credits: newBalance }).eq('id', session.user.id);
-                // We do NOT save automatically here for user flexibility, they save manually
+                if (userProfile.tier !== SubscriptionTier.Free) saveToLibrary(result);
               }
           }
       } catch (err: any) { 
