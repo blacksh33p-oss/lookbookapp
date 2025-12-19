@@ -76,13 +76,13 @@ const Toast: React.FC<{ message: string; type: 'success' | 'error' | 'info'; onC
     return () => clearTimeout(timer);
   }, [onClose]);
 
-  const bgColor = 'bg-black border-zinc-800';
+  const bgColor = 'bg-[#0a0a0a] border-white/10';
   const textColor = type === 'success' ? 'text-white' : type === 'error' ? 'text-red-400' : 'text-zinc-400';
   const Icon = type === 'success' ? CheckCircle : type === 'error' ? XCircle : Info;
 
   return (
     <div className="fixed bottom-10 left-0 w-full flex justify-center z-[150] pointer-events-none px-4">
-      <div className={`pointer-events-auto px-6 py-3 rounded-md border shadow-2xl flex items-center gap-4 animate-slide-up ${bgColor} backdrop-blur-xl`}>
+      <div className={`pointer-events-auto px-6 py-3 rounded-md border shadow-2xl flex items-center gap-4 animate-slide-up ${bgColor} backdrop-blur-xl shadow-[0_0_0_1px_rgba(255,255,255,0.01)]`}>
         <Icon size={14} className={textColor} />
         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white whitespace-nowrap">{message}</span>
         <button onClick={onClose} className="ml-4 text-zinc-600 hover:text-white transition-colors">
@@ -106,15 +106,15 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({ title, icon: Icon, childr
     <div className="border-b border-white/5 bg-transparent last:border-b-0 flex-shrink-0">
       <button 
         onClick={() => setIsOpen(!isOpen)} 
-        className="w-full flex items-center justify-between py-5 px-6 text-left focus:outline-none group hover:bg-white/[0.02] transition-colors"
+        className="w-full flex items-center justify-between py-5 px-6 text-left focus:outline-none group hover:bg-white/[0.01] transition-colors"
       >
         <div className="flex items-center gap-4">
-          <span className={`text-[10px] font-bold tracking-[0.3em] text-zinc-500 group-hover:text-white transition-colors uppercase`}>
+          <span className={`text-[9px] font-bold tracking-[0.3em] text-zinc-600 group-hover:text-white transition-colors uppercase`}>
             {title}
           </span>
         </div>
         <div className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
-           <ChevronDown size={14} className="text-zinc-700 group-hover:text-white" />
+           <ChevronDown size={12} className="text-zinc-800 group-hover:text-white" />
         </div>
       </button>
       {isOpen && (
@@ -136,10 +136,10 @@ interface StyleButtonProps {
 const StyleButton: React.FC<StyleButtonProps> = ({ label, isSelected, onClick }) => (
     <button 
         onClick={onClick} 
-        className={`px-4 py-4 rounded-md border text-left transition-all flex items-center justify-center 
-        ${isSelected ? 'bg-white border-white text-black' : 'bg-black border-white/5 hover:border-zinc-700 text-zinc-500'}`}
+        className={`px-4 py-4 rounded-sm border text-left transition-all flex items-center justify-center group
+        ${isSelected ? 'bg-white border-white text-black shadow-lg shadow-white/5' : 'bg-transparent border-white/5 hover:border-white/20 text-zinc-600'}`}
     >
-        <span className={`text-[10px] font-bold uppercase tracking-[0.2em] ${isSelected ? 'text-black' : 'text-zinc-500 group-hover:text-zinc-300'}`}>{label}</span>
+        <span className={`text-[9px] font-bold uppercase tracking-[0.2em] transition-colors ${isSelected ? 'text-black' : 'text-zinc-600 group-hover:text-zinc-300'}`}>{label}</span>
     </button>
 );
 
@@ -512,12 +512,12 @@ const App: React.FC = () => {
   const activeProjectName = activeProjectId === null ? "MASTER ARCHIVE" : projects.find(p => p.id === activeProjectId)?.name.toUpperCase() || "PROJECT";
 
   return (
-    <div className="h-screen w-full flex flex-col text-zinc-300 font-sans bg-black overflow-hidden relative">
-      <header className="flex-shrink-0 z-[60] bg-black border-b border-white/5 h-16">
+    <div className="h-screen w-full flex flex-col text-zinc-300 font-sans bg-[#050505] overflow-hidden relative">
+      <header className="flex-shrink-0 z-[60] bg-[#050505]/80 backdrop-blur-md border-b border-white/5 h-16">
           <div className="max-w-[1920px] mx-auto h-full flex justify-between items-center px-8">
               <div className="flex items-center gap-6">
-                  <div className="w-6 h-6 bg-white text-black rounded-sm flex items-center justify-center">
-                     <Hexagon size={14} fill="currentColor" />
+                  <div className="w-5 h-5 bg-white text-black rounded-sm flex items-center justify-center">
+                     <Hexagon size={12} fill="currentColor" />
                   </div>
                   <h1 className="text-[10px] font-bold tracking-[0.5em] text-white uppercase font-mono">FashionStudio<span className="text-zinc-600">.AI</span></h1>
               </div>
@@ -526,12 +526,12 @@ const App: React.FC = () => {
                  {session && userProfile && (
                     <div className="hidden md:flex items-center gap-6" onClick={() => setShowUpgradeModal(true)}>
                         <div className="flex flex-col items-end">
-                           <span className="text-[8px] font-black text-zinc-600 tracking-widest uppercase mb-1">Credits Available</span>
+                           <span className="text-[7px] font-black text-zinc-700 tracking-[0.4em] uppercase mb-1">CREDITS_BAL</span>
                            <span className="text-[10px] font-bold text-white tracking-widest">{userProfile.credits}</span>
                         </div>
-                        <div className="w-px h-6 bg-white/10" />
+                        <div className="w-px h-6 bg-white/5" />
                         <div className="flex flex-col items-end">
-                           <span className="text-[8px] font-black text-zinc-600 tracking-widest uppercase mb-1">Membership</span>
+                           <span className="text-[7px] font-black text-zinc-700 tracking-[0.4em] uppercase mb-1">MEMBER_TIER</span>
                            <span className="text-[10px] font-bold text-white tracking-widest uppercase">{userProfile.tier}</span>
                         </div>
                     </div>
@@ -542,7 +542,7 @@ const App: React.FC = () => {
                         <button 
                             onClick={() => setShowLibrary(true)} 
                             onMouseEnter={() => setPrefetchLibrary(true)}
-                            className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 hover:text-white transition-all uppercase tracking-widest"
+                            className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 hover:text-white transition-all uppercase tracking-[0.2em]"
                         >
                            Archive
                         </button>
@@ -551,17 +551,17 @@ const App: React.FC = () => {
                         <div className="relative" ref={accountMenuRef}>
                             <button 
                               onClick={() => setShowAccountMenu(!showAccountMenu)}
-                              className="w-10 h-10 border border-white/10 rounded-full flex items-center justify-center text-[10px] font-bold text-white uppercase hover:border-white transition-all"
+                              className="w-9 h-9 border border-white/10 rounded-full flex items-center justify-center text-[10px] font-bold text-white uppercase hover:border-white transition-all"
                             >
                                 {session.user.email?.[0]}
                             </button>
                             {showAccountMenu && (
-                              <div className="absolute top-full right-0 mt-4 w-56 bg-black border border-white/10 shadow-2xl py-2 z-[100] animate-fade-in">
+                              <div className="absolute top-full right-0 mt-4 w-56 bg-black border border-white/10 shadow-2xl py-2 z-[100] animate-fade-in shadow-[0_0_0_1px_rgba(255,255,255,0.01)]">
                                   <div className="px-5 py-4 border-b border-white/5">
-                                      <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mb-2">Account</p>
+                                      <p className="text-[8px] font-black text-zinc-700 uppercase tracking-widest mb-2">Account</p>
                                       <p className="text-[10px] text-white truncate font-medium">{session.user.email}</p>
                                   </div>
-                                  <button onClick={() => { setShowUpgradeModal(true); setShowAccountMenu(false); }} className="w-full text-left px-5 py-3.5 text-[10px] uppercase tracking-widest text-zinc-400 hover:text-white flex items-center gap-3">
+                                  <button onClick={() => { setShowUpgradeModal(true); setShowAccountMenu(false); }} className="w-full text-left px-5 py-3.5 text-[10px] uppercase tracking-widest text-zinc-500 hover:text-white flex items-center gap-3">
                                       Plan Details
                                   </button>
                                   <button onClick={handleLogout} className="w-full text-left px-5 py-3.5 text-[10px] uppercase tracking-widest text-red-500 hover:bg-red-500/5 flex items-center gap-3">
@@ -572,8 +572,8 @@ const App: React.FC = () => {
                         </div>
                     ) : (
                         <div className="flex items-center gap-8">
-                            <button onClick={() => { setLoginModalView('login'); setShowLoginModal(true); }} className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-white transition-colors">Log in</button>
-                            <button onClick={() => { setLoginModalView('signup'); setShowLoginModal(true); }} className="bg-white text-black px-6 py-2.5 rounded-sm text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-colors">Sign up</button>
+                            <button onClick={() => { setLoginModalView('login'); setShowLoginModal(true); }} className="text-[10px] font-bold uppercase tracking-widest text-zinc-600 hover:text-white transition-colors">Log in</button>
+                            <button onClick={() => { setLoginModalView('signup'); setShowLoginModal(true); }} className="bg-white text-black px-6 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-colors">Sign up</button>
                         </div>
                     )}
                  </div>
@@ -582,16 +582,16 @@ const App: React.FC = () => {
       </header>
 
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden w-full relative">
-        <aside className={`w-full lg:w-[450px] flex-shrink-0 flex flex-col h-full bg-black border-r border-white/5 overflow-hidden min-h-0 ${activeTab === 'editor' ? 'flex' : 'hidden lg:flex'}`}>
+        <aside className={`w-full lg:w-[450px] flex-shrink-0 flex flex-col h-full bg-white/[0.02] backdrop-blur-xl border-r border-white/5 shadow-[0_0_0_1px_rgba(255,255,255,0.01)] overflow-hidden min-h-0 ${activeTab === 'editor' ? 'flex' : 'hidden lg:flex'}`}>
           <div className="p-8 border-b border-white/5 space-y-8 flex-shrink-0">
               <div className="space-y-4">
-                  <label className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.4em]">Processing Engine</label>
+                  <label className="text-[8px] font-black text-zinc-700 uppercase tracking-[0.4em]">PROCESS_ENGINE</label>
                   <div className="grid grid-cols-2 gap-px bg-white/5 p-[1px] rounded-sm">
                       <button
                           onClick={() => setSelectedModel('flash-2.5')}
-                          className={`py-3 px-4 transition-all duration-300 ${selectedModel === 'flash-2.5' ? 'bg-white text-black' : 'text-zinc-500 hover:text-zinc-300'}`}
+                          className={`py-3 px-4 transition-all duration-300 ${selectedModel === 'flash-2.5' ? 'bg-white text-black shadow-lg shadow-white/5' : 'text-zinc-600 hover:text-zinc-400'}`}
                       >
-                          <span className="text-[10px] font-black uppercase tracking-[0.2em]">Flash 2.5</span>
+                          <span className="text-[9px] font-black uppercase tracking-[0.2em]">Flash 2.5</span>
                       </button>
                       <SpotlightGate
                           isLocked={!hasProAccess}
@@ -605,9 +605,9 @@ const App: React.FC = () => {
                           }}
                       >
                         <button
-                            className={`w-full h-full py-3 px-4 transition-all duration-300 ${selectedModel === 'pro-3' ? 'bg-white text-black' : 'text-zinc-500 hover:text-zinc-300'}`}
+                            className={`w-full h-full py-3 px-4 transition-all duration-300 ${selectedModel === 'pro-3' ? 'bg-white text-black shadow-lg shadow-white/5' : 'text-zinc-600 hover:text-zinc-400'}`}
                         >
-                            <span className={`text-[10px] font-black uppercase tracking-[0.2em]`}>Pro 3</span>
+                            <span className={`text-[9px] font-black uppercase tracking-[0.2em]`}>Pro 3</span>
                         </button>
                       </SpotlightGate>
                   </div>
@@ -624,11 +624,11 @@ const App: React.FC = () => {
                 }}
               >
                 <div className={`flex items-center justify-between py-4 px-1 border-b border-white/5 transition-opacity`}>
-                    <span className={`text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400`}>4K Production Upscale</span>
+                    <span className={`text-[9px] font-bold uppercase tracking-[0.3em] text-zinc-600`}>4K Production Output</span>
                     <button 
-                        className={`w-10 h-5 rounded-full relative transition-all duration-500 ${options.enable4K ? 'bg-white' : 'bg-zinc-900 border border-white/10'}`}
+                        className={`w-9 h-4 rounded-full relative transition-all duration-500 ${options.enable4K ? 'bg-white shadow-[0_0_10px_rgba(255,255,255,0.3)]' : 'bg-black border border-white/10'}`}
                     >
-                        <div className={`absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full transition-all duration-500 ${options.enable4K ? 'right-1 bg-black' : 'left-1 bg-zinc-600'}`}></div>
+                        <div className={`absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full transition-all duration-500 ${options.enable4K ? 'right-0.5 bg-black' : 'left-0.5 bg-zinc-800'}`}></div>
                     </button>
                 </div>
               </SpotlightGate>
@@ -637,29 +637,29 @@ const App: React.FC = () => {
           <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
               {session && (
                 <div className="p-8 border-b border-white/5" ref={projectMenuRef}>
-                  <label className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.4em] mb-4 block">Archive Specification</label>
+                  <label className="text-[8px] font-black text-zinc-700 uppercase tracking-[0.4em] mb-4 block">ACTIVE_ARCHIVE</label>
                   <div className="relative group">
                       <button 
                           onClick={() => setShowProjectDropdown(!showProjectDropdown)}
-                          className="w-full flex items-center justify-between py-4 px-5 border border-white/10 hover:border-white transition-all text-left"
+                          className="w-full flex items-center justify-between py-4 px-5 border border-white/10 hover:border-white transition-all text-left bg-white/[0.01]"
                       >
                           <span className="text-[10px] font-black text-white uppercase tracking-[0.2em] truncate">{activeProjectName}</span>
-                          <ChevronDown size={14} className={`text-zinc-600 transition-transform ${showProjectDropdown ? 'rotate-180 text-white' : ''}`} />
+                          <ChevronDown size={12} className={`text-zinc-700 transition-transform ${showProjectDropdown ? 'rotate-180 text-white' : ''}`} />
                       </button>
 
                       {showProjectDropdown && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-black border border-white/10 shadow-2xl z-[100] py-2">
-                            <button onClick={() => { setActiveProjectId(null); setShowProjectDropdown(false); }} className={`w-full text-left px-5 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] transition-colors ${activeProjectId === null ? 'text-white bg-white/5' : 'text-zinc-500 hover:text-white'}`}>
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-black border border-white/10 shadow-2xl z-[100] py-2 shadow-[0_0_0_1px_rgba(255,255,255,0.01)] animate-fade-in">
+                            <button onClick={() => { setActiveProjectId(null); setShowProjectDropdown(false); }} className={`w-full text-left px-5 py-3.5 text-[9px] font-black uppercase tracking-[0.2em] transition-colors ${activeProjectId === null ? 'text-white bg-white/5' : 'text-zinc-600 hover:text-white'}`}>
                                 Master Archive
                             </button>
                             {projects.map(p => (
-                                <button key={p.id} onClick={() => { setActiveProjectId(p.id); setShowProjectDropdown(false); }} className={`w-full text-left px-5 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] transition-colors ${activeProjectId === p.id ? 'text-white bg-white/5' : 'text-zinc-500 hover:text-white'}`}>
+                                <button key={p.id} onClick={() => { setActiveProjectId(p.id); setShowProjectDropdown(false); }} className={`w-full text-left px-5 py-3.5 text-[9px] font-black uppercase tracking-[0.2em] transition-colors ${activeProjectId === p.id ? 'text-white bg-white/5' : 'text-zinc-600 hover:text-white'}`}>
                                     {p.name}
                                 </button>
                             ))}
                             <div className="h-px bg-white/5 my-2" />
-                            <button onClick={createProject} className="w-full text-left px-5 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-white/5 flex items-center gap-3">
-                                <Plus size={14} /> New Project
+                            <button onClick={createProject} className="w-full text-left px-5 py-3.5 text-[9px] font-black uppercase tracking-[0.2em] text-white hover:bg-white/5 flex items-center gap-3">
+                                <Plus size={12} /> NEW_PROJ
                             </button>
                         </div>
                       )}
@@ -727,13 +727,13 @@ const App: React.FC = () => {
                               />
                           </div>
                           <div className="space-y-3">
-                              <label className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em] pl-1">Identification Features</label>
+                              <label className="text-[8px] font-black text-zinc-700 uppercase tracking-[0.4em] pl-1">SPEC_FEATURES</label>
                               <SpotlightGate isLocked={!hasProAccess} tier="CREATOR" interactive={true} onClick={handleLockedClick}>
                                 <textarea 
-                                  placeholder="Specify moles, freckles, or distinct features..." 
+                                  placeholder="Specify moles, freckles, or distinct model features..." 
                                   value={options.modelFeatures} 
                                   onChange={(e) => setOptions({...options, modelFeatures: e.target.value})} 
-                                  className={`w-full h-24 bg-black border border-white/10 rounded-sm py-4 px-5 text-white resize-none focus:border-white font-mono text-xs transition-all`} 
+                                  className={`w-full h-24 bg-transparent border border-white/5 rounded-sm py-4 px-5 text-white resize-none focus:border-white/20 font-mono text-[10px] transition-all placeholder:text-zinc-800`} 
                                 />
                               </SpotlightGate>
                           </div>
@@ -761,23 +761,23 @@ const App: React.FC = () => {
                   <ConfigSection title="Aesthetic Style" icon={Palette}>
                       <div className="space-y-10">
                           <div className="space-y-4">
-                              <label className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em]">Composition Mode</label>
+                              <label className="text-[8px] font-black text-zinc-700 uppercase tracking-[0.4em]">COMP_MODE</label>
                               <div className="grid grid-cols-2 gap-6">
                                   <button
                                       onClick={() => setOptions({ ...options, layout: LayoutMode.Single })}
-                                      className={`py-5 px-6 border transition-all flex flex-col items-center gap-4 ${options.layout === LayoutMode.Single ? 'bg-white border-white text-black' : 'bg-black border-white/5 hover:border-zinc-700 text-zinc-500'}`}
+                                      className={`py-5 px-6 border transition-all flex flex-col items-center gap-4 ${options.layout === LayoutMode.Single ? 'bg-white border-white text-black shadow-lg shadow-white/5' : 'bg-transparent border-white/5 hover:border-white/20 text-zinc-600'}`}
                                   >
-                                      <Square size={20} className={options.layout === LayoutMode.Single ? 'text-black' : 'text-zinc-700'} />
-                                      <span className="text-[10px] font-black uppercase tracking-[0.2em]">Single</span>
+                                      <Square size={18} className={options.layout === LayoutMode.Single ? 'text-black' : 'text-zinc-800'} />
+                                      <span className="text-[9px] font-black uppercase tracking-[0.2em]">Single</span>
                                   </button>
 
                                   <SpotlightGate isLocked={!isStudio} tier="STUDIO" interactive={true} onClick={handleStudioInterceptor}>
                                     <button
                                         className={`w-full py-5 px-6 border transition-all flex flex-col items-center gap-4
-                                        ${options.layout === LayoutMode.Diptych ? 'bg-white border-white text-black' : 'bg-black border-white/5 hover:border-zinc-700 text-zinc-500'}`}
+                                        ${options.layout === LayoutMode.Diptych ? 'bg-white border-white text-black shadow-lg shadow-white/5' : 'bg-transparent border-white/5 hover:border-white/20 text-zinc-600'}`}
                                     >
-                                        <Columns size={20} className={`${options.layout === LayoutMode.Diptych ? 'text-black' : 'text-zinc-700'}`} />
-                                        <span className="text-[10px] font-black uppercase tracking-[0.2em]">Diptych</span>
+                                        <Columns size={18} className={`${options.layout === LayoutMode.Diptych ? 'text-black' : 'text-zinc-800'}`} />
+                                        <span className="text-[9px] font-black uppercase tracking-[0.2em]">Diptych</span>
                                     </button>
                                   </SpotlightGate>
                               </div>
@@ -785,14 +785,14 @@ const App: React.FC = () => {
 
                           <div className="space-y-10">
                               <div className="space-y-4">
-                                  <label className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em]">Standard Library</label>
+                                  <label className="text-[8px] font-black text-zinc-700 uppercase tracking-[0.4em]">STYLE_LIB</label>
                                   <div className="grid grid-cols-2 gap-4">
                                       {STANDARD_STYLES.map(s => <StyleButton key={s} label={s} isSelected={options.style === s} onClick={() => setOptions({...options, style: s})} />)}
                                   </div>
                               </div>
 
                               <div className="space-y-4">
-                                  <label className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em]">Professional Selection</label>
+                                  <label className="text-[8px] font-black text-zinc-700 uppercase tracking-[0.4em]">PRO_SERIES</label>
                                   <SpotlightGate isLocked={!hasProAccess} tier="CREATOR" interactive={true} onClick={handleProInterceptor}>
                                     <div className={`grid grid-cols-2 gap-4 transition-all`}>
                                         {PRO_STYLES.map(s => (
@@ -810,11 +810,11 @@ const App: React.FC = () => {
 
                           <div className="space-y-8 pt-8 border-t border-white/5">
                               <div className="space-y-4">
-                                  <label className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em]">Environmental Context</label>
-                                  <textarea placeholder="Specify lighting, surfaces, background geometry..." value={options.sceneDetails} onChange={(e) => setOptions({...options, sceneDetails: e.target.value})} className="w-full h-32 bg-black border border-white/10 rounded-sm py-5 px-6 text-xs text-white focus:border-white font-mono resize-none transition-all" />
+                                  <label className="text-[8px] font-black text-zinc-700 uppercase tracking-[0.4em]">SCENE_CONTEXT</label>
+                                  <textarea placeholder="Lighting, surfaces, background geometry..." value={options.sceneDetails} onChange={(e) => setOptions({...options, sceneDetails: e.target.value})} className="w-full h-32 bg-transparent border border-white/5 rounded-sm py-5 px-6 text-[10px] text-white focus:border-white/20 font-mono resize-none transition-all placeholder:text-zinc-800" />
                               </div>
                               <div className="pt-2">
-                                  <Dropdown label="Frame Format" value={options.aspectRatio} options={Object.values(AspectRatio)} onChange={(val) => setOptions({ ...options, aspectRatio: val as AspectRatio })} />
+                                  <Dropdown label="FRAME_RATIO" value={options.aspectRatio} options={Object.values(AspectRatio)} onChange={(val) => setOptions({ ...options, aspectRatio: val as AspectRatio })} />
                               </div>
                           </div>
                       </div>
@@ -822,20 +822,20 @@ const App: React.FC = () => {
               </div>
           </div>
           
-          <div className="p-8 bg-black border-t border-white/10 flex-shrink-0">
+          <div className="p-8 bg-[#050505]/60 backdrop-blur-md border-t border-white/5 flex-shrink-0">
               <button 
                   onClick={handleGenerate} 
                   disabled={!isFormValid || isLoading} 
-                  className={`w-full py-6 rounded-sm text-[11px] font-black uppercase tracking-[0.4em] transition-all flex items-center justify-center gap-4 transform active:scale-[0.99]
-                  ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed opacity-50' : 'bg-white text-black hover:bg-zinc-200 shadow-[0_0_30px_rgba(255,255,255,0.1)]'}`}
+                  className={`w-full py-6 rounded-sm text-[10px] font-black uppercase tracking-[0.5em] transition-all flex items-center justify-center gap-4 transform active:scale-[0.99]
+                  ${!isFormValid || isLoading ? 'bg-white/5 text-zinc-700 cursor-not-allowed' : 'bg-white text-black hover:bg-zinc-200 shadow-xl shadow-white/5'}`}
               >
-                  {isLoading ? <Loader2 size={16} className="animate-spin" /> : <><Sparkles size={16} /> Render Output</>}
+                  {isLoading ? <Loader2 size={16} className="animate-spin" /> : <><Sparkles size={16} /> RENDER_OUTPUT</>}
               </button>
           </div>
         </aside>
 
-        <section className={`flex-1 h-full bg-black relative min-h-0 ${activeTab === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
-           <div className="h-full w-full flex flex-col relative overflow-hidden flex-1">
+        <section className={`flex-1 h-full bg-[#050505] relative min-h-0 ${activeTab === 'preview' ? 'flex' : 'hidden lg:flex'} flex flex-col`}>
+           <div className="flex-1 flex flex-col relative overflow-hidden bg-[#080808] inset-panel m-6 rounded-lg double-border">
              <ResultDisplay 
                 isLoading={isLoading} image={generatedImage} onDownload={handleDownload} 
                 onRegenerate={(keepModel) => { 
@@ -849,9 +849,9 @@ const App: React.FC = () => {
                 SpotlightGate={SpotlightGate}
              />
              {generatedImage && session && (
-                <button onClick={() => saveToLibrary(generatedImage)} disabled={isSaving || justSaved} className={`absolute top-10 right-10 px-8 py-4 bg-black/80 backdrop-blur-xl border border-white/10 transition-all duration-500 flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.3em] z-20 hover:border-white shadow-2xl ${justSaved ? 'border-emerald-500 text-emerald-500' : ''}`}>
+                <button onClick={() => saveToLibrary(generatedImage)} disabled={isSaving || justSaved} className={`absolute top-10 right-10 px-8 py-4 bg-[#0a0a0a]/90 backdrop-blur-xl border border-white/5 transition-all duration-500 flex items-center gap-4 text-[9px] font-black uppercase tracking-[0.4em] z-20 hover:border-white/20 shadow-2xl shadow-black/80 ${justSaved ? 'border-emerald-500/30 text-emerald-500' : ''}`}>
                   {isSaving ? <Loader2 size={14} className="animate-spin" /> : justSaved ? <Check size={14} /> : <Save size={14} />}
-                  <span>{isSaving ? "Syncing..." : justSaved ? "Archived" : "Archive"}</span>
+                  <span>{isSaving ? "SYNC_CLOUD" : justSaved ? "SYNCED" : "ARCHIVE"}</span>
                 </button>
              )}
            </div>
