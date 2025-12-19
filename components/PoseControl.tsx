@@ -90,7 +90,7 @@ export const PoseControl: React.FC<PoseControlProps> = ({
         </button>
         <button
           onClick={() => handleModeToggle(false)}
-          className={`py-2 px-3 text-[10px] font-bold uppercase tracking-wide flex items-center justify-center gap-2 transition-all ${
+          className={`py-2 px-3 text-[10px] font-bold uppercase tracking-wide flex items-center justify-center gap-2 transition-all relative ${
             !isAutoMode ? 'bg-zinc-100 text-black' : 'bg-black text-zinc-500 hover:text-zinc-300'
           }`}
         >
@@ -106,19 +106,29 @@ export const PoseControl: React.FC<PoseControlProps> = ({
                     <div className="grid grid-cols-3 gap-2">
                         {category.poses.map((pose) => {
                             const isSelected = selectedPose === pose.prompt;
+                            const isLocked = !isPremium;
                             return (
                                 <button
                                     key={pose.id}
                                     onClick={() => handlePresetClick(pose.prompt)}
-                                    className={`p-2 rounded-md border text-center transition-all flex flex-col items-center justify-center gap-2 min-h-[4rem]
+                                    className={`relative p-2 rounded-md border text-center transition-all flex flex-col items-center justify-center gap-2 min-h-[4rem] group
                                         ${isSelected 
                                             ? 'bg-white border-white text-black' 
                                             : 'bg-black border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-white'
                                         }
                                     `}
                                 >
-                                    <pose.icon size={16} strokeWidth={1.5} />
-                                    <span className="text-[9px] font-medium leading-tight">{pose.label}</span>
+                                    <div className={`${isLocked ? 'opacity-30' : ''} flex flex-col items-center gap-2`}>
+                                        <pose.icon size={16} strokeWidth={1.5} />
+                                        <span className="text-[9px] font-medium leading-tight">{pose.label}</span>
+                                    </div>
+                                    
+                                    {isLocked && (
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+                                            <Lock size={12} className="text-amber-500" />
+                                            <span className="text-[7px] font-black uppercase text-amber-500 tracking-tighter opacity-0 group-hover:opacity-100 transition-opacity">Unlock</span>
+                                        </div>
+                                    )}
                                 </button>
                             );
                         })}

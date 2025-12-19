@@ -10,6 +10,7 @@ interface DropdownProps<T> {
   disabled?: boolean;
   lockedOptions?: T[];
   onLockedClick?: () => void;
+  lockReason?: string;
 }
 
 export const Dropdown = <T extends string>({
@@ -19,7 +20,8 @@ export const Dropdown = <T extends string>({
   onChange,
   disabled,
   lockedOptions = [],
-  onLockedClick
+  onLockedClick,
+  lockReason = "Upgrade to unlock"
 }: DropdownProps<T>) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -66,14 +68,22 @@ export const Dropdown = <T extends string>({
                   key={opt}
                   type="button"
                   onClick={() => handleOptionClick(opt)}
-                  className={`w-full flex items-center justify-between px-4 py-2.5 text-xs text-left transition-colors group ${opt === value ? 'bg-zinc-900 text-white font-bold' : 'text-zinc-400 hover:bg-zinc-900/80 hover:text-zinc-200'}`}
+                  className={`w-full relative flex items-center justify-between px-4 py-3 text-xs text-left transition-all group ${opt === value ? 'bg-zinc-900 text-white font-bold' : 'text-zinc-400 hover:bg-zinc-900/80 hover:text-zinc-200'}`}
                 >
-                  <span className="truncate">{opt}</span>
-                  {opt === value ? (
+                  <span className={`truncate ${isLocked ? 'opacity-30' : ''}`}>{opt}</span>
+                  
+                  {isLocked && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="flex flex-col items-center gap-0.5">
+                            <Lock size={10} className="text-amber-500" />
+                            <span className="text-[7px] font-black uppercase text-amber-500 tracking-tighter opacity-0 group-hover:opacity-100 transition-opacity">Unlock</span>
+                        </div>
+                    </div>
+                  )}
+
+                  {opt === value && !isLocked && (
                     <Check size={12} className="text-white shrink-0" />
-                  ) : isLocked ? (
-                    <Lock size={10} className="text-zinc-600 group-hover:text-amber-500 shrink-0" />
-                  ) : null}
+                  )}
                 </button>
               );
             })}

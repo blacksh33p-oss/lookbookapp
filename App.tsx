@@ -75,6 +75,31 @@ const Toast: React.FC<{ message: string; type: 'success' | 'error' | 'info'; onC
   );
 };
 
+interface FeatureLockWrapperProps {
+    isLocked: boolean;
+    children: React.ReactNode;
+    onClick: () => void;
+    label?: string;
+}
+
+const FeatureLockWrapper: React.FC<FeatureLockWrapperProps> = ({ isLocked, children, onClick, label }) => {
+    if (!isLocked) return <>{children}</>;
+    return (
+        <div className="relative group cursor-pointer" onClick={onClick}>
+            <div className="opacity-40 grayscale pointer-events-none">
+                {children}
+            </div>
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity bg-black/5 rounded-lg border border-transparent group-hover:border-amber-500/20 group-hover:bg-amber-500/5">
+                <Lock size={12} className="text-amber-500 shadow-lg" />
+                {label && <span className="text-[7px] font-black text-amber-500 uppercase tracking-tighter bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">{label}</span>}
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-black border border-zinc-800 rounded-lg text-[9px] font-bold text-center opacity-0 group-hover:opacity-100 pointer-events-none transition-all translate-y-2 group-hover:translate-y-0 shadow-2xl z-[100]">
+                    Exclusive to Studio Tier <span className="text-amber-500">Upgrade →</span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 interface ConfigSectionProps {
   title: string;
   icon: React.ElementType;
@@ -212,6 +237,14 @@ const App: React.FC = () => {
     return false;
   };
 
+  const handleStudioInterceptor = () => {
+    if (!isStudio) {
+        setShowUpgradeModal(true);
+        return true;
+    }
+    return false;
+  };
+
   const fetchProjects = async () => {
     if (!isConfigured) return;
     try {
@@ -249,6 +282,9 @@ const App: React.FC = () => {
     }
   };
 
+  /**
+   * PERFORMANCE FIX: Binary Offload & Dirty Column Scrubbing
+   */
   const saveToLibrary = async (imageUrl: string) => {
     if (!session || !imageUrl || !isConfigured) return;
     
@@ -259,6 +295,7 @@ const App: React.FC = () => {
     try {
       let publicCdnUrl = imageUrl;
 
+      // 1. Convert Base64 result to binary Blob and offload to Storage
       if (imageUrl.startsWith('data:image')) {
         const timestamp = Date.now();
         const filePath = `${session.user.id}/${timestamp}.png`;
@@ -471,7 +508,7 @@ const App: React.FC = () => {
   const activeProjectName = activeProjectId === null ? "Main Archive" : projects.find(p => p.id === activeProjectId)?.name || "Main Archive";
 
   return (
-    <div className="h-[100dvh] w-full flex flex-col text-zinc-300 font-sans bg-black overflow-hidden relative">
+    <div className="h-screen w-full flex flex-col text-zinc-300 font-sans bg-black overflow-hidden relative">
       <header className="flex-shrink-0 z-[60] bg-black/80 backdrop-blur-xl border-b border-zinc-800/50 h-14">
           <div className="max-w-[1920px] mx-auto h-full flex justify-between items-center px-4 sm:px-6">
               <div className="flex items-center gap-3">
@@ -562,24 +599,25 @@ const App: React.FC = () => {
                   </div>
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-zinc-900/30 border border-zinc-800 rounded-md">
-                  <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded bg-zinc-800/50 border border-zinc-700`}>
-                          <Monitor size={14} className="text-zinc-400" />
+              <FeatureLockWrapper isLocked={!isStudio} onClick={handleStudioInterceptor} label="Studio Only">
+                  <div className="flex items-center justify-between p-3 bg-zinc-900/30 border border-zinc-800 rounded-md">
+                      <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded bg-zinc-800/50 border border-zinc-700`}>
+                              <Monitor size={14} className="text-zinc-400" />
+                          </div>
+                          <div>
+                              <span className={`text-[10px] font-bold uppercase tracking-widest block text-zinc-300`}>4K Production Upscale</span>
+                              <span className="text-[8px] text-zinc-500 font-medium">{isStudio ? 'High-Res Output' : 'Requires Studio Tier'}</span>
+                          </div>
                       </div>
-                      <div>
-                          <span className={`text-[10px] font-bold uppercase tracking-widest block text-zinc-300`}>4K Production Upscale</span>
-                          <span className="text-[8px] text-zinc-500 font-medium">{isStudio ? 'High-Res Output' : 'Requires Studio Tier'}</span>
-                      </div>
+                      <button 
+                          onClick={() => isStudio ? setOptions({...options, enable4K: !options.enable4K}) : handleStudioInterceptor()}
+                          className={`w-10 h-5 rounded-full relative transition-all duration-300 ${options.enable4K && isStudio ? 'bg-white' : 'bg-zinc-800'}`}
+                      >
+                          <div className={`absolute top-1 w-3 h-3 rounded-full transition-all duration-300 ${options.enable4K && isStudio ? 'right-1 bg-black' : 'left-1 bg-zinc-600'}`}></div>
+                      </button>
                   </div>
-                  <button 
-                      onClick={() => isStudio ? setOptions({...options, enable4K: !options.enable4K}) : setShowUpgradeModal(true)}
-                      className={`w-10 h-5 rounded-full relative transition-all duration-300 ${options.enable4K && isStudio ? 'bg-white' : 'bg-zinc-800'}`}
-                  >
-                      <div className={`absolute top-1 w-3 h-3 rounded-full transition-all duration-300 ${options.enable4K && isStudio ? 'right-1 bg-black' : 'left-1 bg-zinc-600'}`}></div>
-                      {!isStudio && <Lock size={8} className="absolute left-1.5 top-1.5 text-zinc-900 pointer-events-none" />}
-                  </button>
-              </div>
+              </FeatureLockWrapper>
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 min-h-0 max-h-full">
@@ -678,13 +716,13 @@ const App: React.FC = () => {
                               />
                           </div>
                           <div className="space-y-1.5">
-                              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide pl-1">Custom Features</label>
+                              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Custom Features</label>
                               <div className="relative">
                                   <textarea 
                                     placeholder="Freckles, sharp jawline, blue eyes..." 
                                     value={options.modelFeatures} 
                                     onChange={(e) => hasProAccess ? setOptions({...options, modelFeatures: e.target.value}) : handleProInterceptor()} 
-                                    className="w-full h-20 bg-black border border-zinc-800 rounded-md py-2 px-3 text-white focus:border-zinc-500 resize-none" 
+                                    className="w-full h-20 bg-black border border-zinc-800 rounded-md py-2 px-3 text-white resize-none focus:border-zinc-500" 
                                   />
                                   {!hasProAccess && <Lock size={10} className="absolute right-3 top-3 text-amber-500/50" />}
                               </div>
@@ -704,21 +742,22 @@ const App: React.FC = () => {
                       <div className="space-y-4">
                           <div className="space-y-1.5">
                               <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Lookbook Layout</label>
-                              <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-1 flex gap-1">
-                                  <button
-                                      onClick={() => setOptions({ ...options, layout: LayoutMode.Single })}
-                                      className={`flex-1 py-2 px-3 rounded-md text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 ${options.layout === LayoutMode.Single ? 'bg-zinc-100 text-black' : 'text-zinc-500 hover:text-white'}`}
-                                  >
-                                      Single
-                                  </button>
-                                  <button
-                                      onClick={() => isStudio ? setOptions({ ...options, layout: LayoutMode.Diptych }) : setShowUpgradeModal(true)}
-                                      className={`flex-1 py-2 px-3 rounded-md text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 relative ${options.layout === LayoutMode.Diptych ? 'bg-zinc-100 text-black' : 'text-zinc-500 hover:text-white'}`}
-                                  >
-                                      {!isStudio && <Lock size={10} className="text-amber-500/50" />}
-                                      Diptych
-                                  </button>
-                              </div>
+                              <FeatureLockWrapper isLocked={!isStudio} onClick={handleStudioInterceptor} label="Studio Only">
+                                  <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-1 flex gap-1">
+                                      <button
+                                          onClick={() => setOptions({ ...options, layout: LayoutMode.Single })}
+                                          className={`flex-1 py-2 px-3 rounded-md text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 ${options.layout === LayoutMode.Single ? 'bg-zinc-100 text-black' : 'text-zinc-500 hover:text-white'}`}
+                                      >
+                                          Single
+                                      </button>
+                                      <button
+                                          onClick={() => isStudio ? setOptions({ ...options, layout: LayoutMode.Diptych }) : handleStudioInterceptor()}
+                                          className={`flex-1 py-2 px-3 rounded-md text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 relative ${options.layout === LayoutMode.Diptych ? 'bg-zinc-100 text-black' : 'text-zinc-500 hover:text-white'}`}
+                                      >
+                                          Diptych
+                                      </button>
+                                  </div>
+                              </FeatureLockWrapper>
                           </div>
 
                           <div className="grid grid-cols-2 gap-3">
@@ -779,8 +818,7 @@ const App: React.FC = () => {
         </section>
       </div>
 
-      {/* FIXED MOBILE FOOTER */}
-      <div className="lg:hidden flex-shrink-0 h-16 border-t border-zinc-800 bg-zinc-950/80 backdrop-blur-xl flex items-center justify-around px-6 z-[80]">
+      <div className="lg:hidden h-16 border-t border-zinc-800 bg-zinc-950/80 backdrop-blur-xl flex items-center justify-around px-6 z-[80]">
           <button 
             onClick={() => setActiveTab('editor')}
             className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'editor' ? 'text-white' : 'text-zinc-500'}`}
