@@ -63,8 +63,6 @@ export const SpotlightGate: React.FC<{
     <div 
       className={`relative ${containerClassName} ${isLocked ? 'cursor-pointer' : ''}`}
       onClick={(e) => {
-        // Fix: Call onClick regardless of lock state if it exists,
-        // handlers in App will decide what to do (e.g. check for auth/tier)
         if (onClick) {
           onClick();
         }
@@ -341,7 +339,6 @@ const App: React.FC = () => {
         publicCdnUrl = publicUrl;
       }
 
-      // Fix: renamed 'sanitized outfit' to 'sanitizedOutfit' to fix syntax error
       const sanitizedOutfit = JSON.parse(JSON.stringify(options.outfit));
       (Object.keys(sanitizedOutfit) as Array<keyof typeof sanitizedOutfit>).forEach(key => {
         sanitizedOutfit[key].images = []; 
@@ -486,13 +483,6 @@ const App: React.FC = () => {
           }
       } catch (err: any) { 
           const errorMessage = err.message || 'Error';
-          if (errorMessage.includes("Requested entity was not found")) {
-              showToast("API Key missing Pro access. Please select a Paid project key.", "error");
-              const aistudio = (window as any).aistudio;
-              if (aistudio && typeof aistudio.openSelectKey === 'function') {
-                await aistudio.openSelectKey();
-              }
-          }
           setError(errorMessage); 
       } finally { 
           setIsLoading(false); 
@@ -611,7 +601,7 @@ const App: React.FC = () => {
                           className="h-full"
                           interactive={true}
                           onClick={() => {
-                            if (handleSoftGateTrigger()) return;
+                            handleSoftGateTrigger();
                             setSelectedModel('pro-3');
                           }}
                       >
@@ -631,7 +621,7 @@ const App: React.FC = () => {
                 tier="STUDIO" 
                 interactive={true}
                 onClick={() => {
-                  if (handleSoftGateTrigger()) return;
+                  handleSoftGateTrigger();
                   setOptions({...options, enable4K: !options.enable4K});
                 }}
               >
@@ -646,7 +636,7 @@ const App: React.FC = () => {
                     </div>
                     <button 
                         onClick={() => {
-                          if (handleSoftGateTrigger()) return;
+                          handleSoftGateTrigger();
                           setOptions({...options, enable4K: !options.enable4K});
                         }}
                         className={`w-10 h-5 rounded-full relative transition-all duration-300 shrink-0 ${options.enable4K ? 'bg-white' : 'bg-zinc-800'}`}
@@ -703,7 +693,7 @@ const App: React.FC = () => {
                             onChange={(val) => setOptions({ ...options, sex: val })} 
                             lockedOptions={!hasProAccess ? Object.values(ModelSex).filter(s => s !== ModelSex.Female) : []}
                             onLockedClick={() => {
-                              if (handleSoftGateTrigger()) return;
+                              handleSoftGateTrigger();
                               handleProInterceptor();
                             }}
                             requiredTier="CREATOR"
@@ -715,7 +705,7 @@ const App: React.FC = () => {
                             onChange={(val) => setOptions({ ...options, ethnicity: val })} 
                             lockedOptions={!hasProAccess ? Object.values(ModelEthnicity).filter(e => e !== ModelEthnicity.Mixed) : []}
                             onLockedClick={() => {
-                              if (handleSoftGateTrigger()) return;
+                              handleSoftGateTrigger();
                               handleProInterceptor();
                             }}
                             requiredTier="CREATOR"
@@ -727,7 +717,7 @@ const App: React.FC = () => {
                             onChange={(val) => setOptions({ ...options, age: val })} 
                             lockedOptions={!hasProAccess ? Object.values(ModelAge).filter(a => a !== ModelAge.YoungAdult) : []}
                             onLockedClick={() => {
-                              if (handleSoftGateTrigger()) return;
+                              handleSoftGateTrigger();
                               handleProInterceptor();
                             }}
                             requiredTier="CREATOR"
@@ -739,7 +729,7 @@ const App: React.FC = () => {
                             onChange={(val) => setOptions({ ...options, facialExpression: val })} 
                             lockedOptions={!hasProAccess ? Object.values(FacialExpression).filter(f => f !== FacialExpression.Neutral) : []}
                             onLockedClick={() => {
-                              if (handleSoftGateTrigger()) return;
+                              handleSoftGateTrigger();
                               handleProInterceptor();
                             }}
                             requiredTier="CREATOR"
@@ -754,7 +744,7 @@ const App: React.FC = () => {
                                 onChange={(val) => setOptions({ ...options, hairColor: val })} 
                                 lockedOptions={!hasProAccess ? Object.values(HairColor).filter(h => h !== HairColor.JetBlack) : []}
                                 onLockedClick={() => {
-                                  if (handleSoftGateTrigger()) return;
+                                  handleSoftGateTrigger();
                                   handleProInterceptor();
                                 }}
                                 requiredTier="CREATOR"
@@ -766,7 +756,7 @@ const App: React.FC = () => {
                                 onChange={(val) => setOptions({ ...options, hairStyle: val })} 
                                 lockedOptions={!hasProAccess ? Object.values(HairStyle).filter(h => h !== HairStyle.StraightSleek) : []}
                                 onLockedClick={() => {
-                                  if (handleSoftGateTrigger()) return;
+                                  handleSoftGateTrigger();
                                   handleProInterceptor();
                                 }}
                                 requiredTier="CREATOR"
