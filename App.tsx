@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { UserCircle, ChevronDown, Shirt, Ruler, Zap, Hexagon, Sparkles, Move, LogOut, Star, CheckCircle, XCircle, Info, Crown, X, Loader2, Palette, Folder, Library, Plus, Save, Check, AlertCircle, Monitor, Columns, Square } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
@@ -166,6 +167,7 @@ const App: React.FC = () => {
   const [justSaved, setJustSaved] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
 
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginModalView, setLoginModalView] = useState<'login' | 'signup'>('signup'); 
@@ -176,6 +178,7 @@ const App: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState<'flash-2.5' | 'pro-3'>('flash-2.5');
 
   const projectMenuRef = useRef<HTMLDivElement>(null);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
 
   const [options, setOptions] = useState<PhotoshootOptions>({
     sex: ModelSex.Female, ethnicity: ModelEthnicity.Mixed, age: ModelAge.YoungAdult,
@@ -217,6 +220,16 @@ const App: React.FC = () => {
     }
     return false;
   };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) {
+        setShowAccountMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const isRestrictedActive = (
     (options.layout === LayoutMode.Diptych && !isStudio) ||
@@ -425,6 +438,7 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
       if (isConfigured) await supabase.auth.signOut(); 
+      setShowAccountMenu(false);
       showToast('Signed out successfully', 'info');
   };
 
@@ -535,22 +549,27 @@ const App: React.FC = () => {
                         </button>
                     )}
                     {session ? (
-                        <div className="relative group">
-                            <button className="w-8 h-8 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700 text-xs font-bold text-white uppercase hover:border-white transition-all">
+                        <div className="relative" ref={accountMenuRef}>
+                            <button 
+                              onClick={() => setShowAccountMenu(!showAccountMenu)}
+                              className="w-8 h-8 bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-700 text-xs font-bold text-white uppercase hover:border-white transition-all cursor-pointer"
+                            >
                                 {session.user.email?.[0]}
                             </button>
-                            <div className="absolute top-full right-0 mt-2 w-48 bg-black border border-zinc-800 rounded-lg shadow-2xl py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all translate-y-2 group-hover:translate-y-0 z-[100]">
-                                <div className="px-4 py-3 border-b border-zinc-900">
-                                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Signed in as</p>
-                                    <p className="text-xs text-white truncate font-medium">{session.user.email}</p>
-                                </div>
-                                <button onClick={() => setShowUpgradeModal(true)} className="w-full text-left px-4 py-2.5 text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white flex items-center gap-2">
-                                    <Star size={14} className="text-amber-400" /> Subscription
-                                </button>
-                                <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-xs text-red-400 hover:bg-zinc-900 flex items-center gap-2">
-                                    <LogOut size={14} /> Sign Out
-                                </button>
-                            </div>
+                            {showAccountMenu && (
+                              <div className="absolute top-full right-0 mt-2 w-48 bg-black border border-zinc-800 rounded-lg shadow-2xl py-1 transition-all z-[100] animate-fade-in">
+                                  <div className="px-4 py-3 border-b border-zinc-900">
+                                      <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Signed in as</p>
+                                      <p className="text-xs text-white truncate font-medium">{session.user.email}</p>
+                                  </div>
+                                  <button onClick={() => { setShowUpgradeModal(true); setShowAccountMenu(false); }} className="w-full text-left px-4 py-2.5 text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white flex items-center gap-2">
+                                      <Star size={14} className="text-amber-400" /> Subscription
+                                  </button>
+                                  <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-xs text-red-400 hover:bg-zinc-900 flex items-center gap-2">
+                                      <LogOut size={14} /> Sign Out
+                                  </button>
+                              </div>
+                            )}
                         </div>
                     ) : (
                         <div className="flex items-center gap-3 sm:gap-6">
