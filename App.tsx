@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, Hexagon, Sparkles, Move, LogOut, Star, CheckCircle, XCircle, Info, Lock, Crown, X, Loader2, Palette, Folder, Library, Plus, Save, Check, AlertCircle, Monitor, Settings, Eye, Layout, Columns, Square } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, Hexagon, Sparkles, Move, LogOut, Star, CheckCircle, XCircle, Info, Crown, X, Loader2, Palette, Folder, Library, Plus, Save, Check, AlertCircle, Monitor, Columns, Square } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -675,24 +674,44 @@ const App: React.FC = () => {
                             value={options.sex} 
                             options={Object.values(ModelSex)} 
                             onChange={(val) => setOptions({ ...options, sex: val })} 
+                            lockedOptions={!hasProAccess ? Object.values(ModelSex).filter(s => s !== ModelSex.Female) : []}
+                            onLockedClick={() => {
+                              if (!session) setShowSoftGate(true);
+                              else setShowUpgradeModal(true);
+                            }}
                           />
                           <Dropdown 
                             label="Ethnicity" 
                             value={options.ethnicity} 
                             options={Object.values(ModelEthnicity)} 
                             onChange={(val) => setOptions({ ...options, ethnicity: val })} 
+                            lockedOptions={!hasProAccess ? Object.values(ModelEthnicity).filter(e => e !== ModelEthnicity.Mixed) : []}
+                            onLockedClick={() => {
+                              if (!session) setShowSoftGate(true);
+                              else setShowUpgradeModal(true);
+                            }}
                           />
                           <Dropdown 
                             label="Age Range" 
                             value={options.age} 
                             options={Object.values(ModelAge)} 
                             onChange={(val) => setOptions({ ...options, age: val })} 
+                            lockedOptions={!hasProAccess ? Object.values(ModelAge).filter(a => a !== ModelAge.YoungAdult) : []}
+                            onLockedClick={() => {
+                              if (!session) setShowSoftGate(true);
+                              else setShowUpgradeModal(true);
+                            }}
                           />
                           <Dropdown 
                             label="Expression" 
                             value={options.facialExpression} 
                             options={Object.values(FacialExpression)} 
                             onChange={(val) => setOptions({ ...options, facialExpression: val })} 
+                            lockedOptions={!hasProAccess ? Object.values(FacialExpression).filter(f => f !== FacialExpression.Neutral) : []}
+                            onLockedClick={() => {
+                              if (!session) setShowSoftGate(true);
+                              else setShowUpgradeModal(true);
+                            }}
                           />
                       </div>
                       <div className="space-y-3 pt-2">
@@ -702,12 +721,22 @@ const App: React.FC = () => {
                                 value={options.hairColor as HairColor} 
                                 options={Object.values(HairColor)} 
                                 onChange={(val) => setOptions({ ...options, hairColor: val })} 
+                                lockedOptions={!hasProAccess ? Object.values(HairColor).filter(h => h !== HairColor.JetBlack) : []}
+                                onLockedClick={() => {
+                                  if (!session) setShowSoftGate(true);
+                                  else setShowUpgradeModal(true);
+                                }}
                               />
                               <Dropdown 
                                 label="Hair Style" 
                                 value={options.hairStyle as HairStyle} 
                                 options={Object.values(HairStyle)} 
                                 onChange={(val) => setOptions({ ...options, hairStyle: val })} 
+                                lockedOptions={!hasProAccess ? Object.values(HairStyle).filter(h => h !== HairStyle.StraightSleek) : []}
+                                onLockedClick={() => {
+                                  if (!session) setShowSoftGate(true);
+                                  else setShowUpgradeModal(true);
+                                }}
                               />
                           </div>
                           <div className="space-y-1.5">
@@ -860,8 +889,8 @@ const App: React.FC = () => {
       </div>
 
       {showSoftGate && (
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[99999] w-[calc(100%-2rem)] max-w-md px-4 animate-slide-up">
-          <div className="bg-black/85 backdrop-blur-2xl border border-zinc-800 p-6 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] relative overflow-hidden">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[99999] w-[calc(100%-2rem)] max-w-md px-4 animate-slide-up">
+          <div className="bg-black/90 backdrop-blur-2xl border border-zinc-800 p-6 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] relative overflow-hidden">
              <button onClick={() => setShowSoftGate(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors z-10 p-1">
                 <X size={18}/>
              </button>
