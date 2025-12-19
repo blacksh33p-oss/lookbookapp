@@ -14,18 +14,14 @@ interface LibraryDrawerProps {
 const PAGE_SIZE = 30;
 
 /**
- * PERFORMANCE ARCHITECTURE: URL-First Resizing
- * This helper ensures the DOM never touches a Data URI.
- * It leverages the Supabase Render engine to transform high-res cloud assets 
- * into highly compressed WebP thumbnails (15MB -> ~20KB).
+ * ARCHITECTURAL FIX: Cloud-First Image Transformation
+ * Filters out Base64 data strings. Only cloud URLs are passed to the Render engine.
  */
 const getThumbnailUrl = (url: string | undefined): string => {
   if (!url || url.startsWith('data:')) return '';
   
-  // Apply CDN transformation parameters if it's a Supabase asset
   if (url.includes('supabase.co/storage/v1/object/public')) {
     const renderUrl = url.replace('/storage/v1/object/public', '/storage/v1/render/image/public');
-    // Using 300x400 at 60% quality for maximum responsiveness
     return `${renderUrl}?width=300&height=400&quality=60&resize=contain`;
   }
   
@@ -57,9 +53,9 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
   const observerTarget = useRef<HTMLDivElement>(null);
 
   /**
-   * LAZY MIGRATION WORKER
-   * Background task to move binary data from DB strings to Storage buckets.
-   * This permanently fixes the "Legacy Item" issue by offloading to 'artworks'.
+   * LAZY MIGRATION LOGIC
+   * Background task to move binary data from DB to Storage permanently.
+   * Resolves the 400 malformed body error by ensuring clean Blob creation.
    */
   const migrateItem = async (gen: Generation) => {
     if (migratingIds.has(gen.id)) return;
@@ -73,28 +69,36 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
       const timestamp = Date.now();
       const filePath = `${session.user.id}/migrated_${gen.id}_${timestamp}.png`;
       
-      // 1. Convert Base64 residue to Binary Blob
-      const base64Data = gen.image_url.split(',')[1];
-      if (!base64Data) throw new Error("Corrupt Base64 data");
+      // 1. Convert Base64 string to Binary
+      // Split on comma to handle both 'data:image/png;base64,ABC' and just 'ABC'
+      const parts = gen.image_url.split(',');
+      const base64Data = parts.length > 1 ? parts[1] : parts[0];
       
+      // Detect MIME type from the prefix if available, default to png
+      let mimeType = 'image/png';
+      const mimeMatch = gen.image_url.match(/^data:(image\/[a-z]+);base64,/);
+      if (mimeMatch) mimeType = mimeMatch[1];
+
       const binaryStr = atob(base64Data);
       const bytes = new Uint8Array(binaryStr.length);
       for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
-      const blob = new Blob([bytes], { type: 'image/png' });
+      const blob = new Blob([bytes], { type: mimeType });
 
-      // 2. Binary Upload to the 'artworks' bucket
+      // 2. Upload to Storage (artworks bucket)
       const { error: uploadError } = await supabase.storage
         .from('artworks')
-        .upload(filePath, blob, { contentType: 'image/png', upsert: true });
+        .upload(filePath, blob, { 
+          contentType: mimeType,
+          upsert: true // Using upsert to prevent path collisions during retries
+        });
 
       if (uploadError) throw uploadError;
 
-      // 3. Generate the new public CDN URL
       const { data: { publicUrl } } = supabase.storage
         .from('artworks')
         .getPublicUrl(filePath);
 
-      // 4. Update Database permanently (replacing the Base64 string with the URL)
+      // 3. Update Database permanently
       const { error: updateError } = await supabase
         .from('generations')
         .update({ image_url: publicUrl })
@@ -102,13 +106,13 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
 
       if (updateError) throw updateError;
 
-      // 5. Update Local UI State - The image will now render via getThumbnailUrl
+      // 4. Update Local State to show the image
       setGenerations(prev => prev.map(item => 
         item.id === gen.id ? { ...item, image_url: publicUrl } : item
       ));
 
     } catch (err) {
-      console.error(`Migration failed for generation ${gen.id}:`, err);
+      console.error(`Migration failed for ${gen.id}:`, err);
     } finally {
       setMigratingIds(prev => {
         const next = new Set(prev);
@@ -119,14 +123,14 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
   };
 
   /**
-   * MIGRATION QUEUE TRIGGER
-   * Automatically picks up legacy items for one-by-one background processing.
+   * EFFECT: Background Migration Queue
+   * Automatically picks the first unmigrated legacy item and processes it.
    */
   useEffect(() => {
-    if (!isOpen || migratingIds.size >= 1) return; // Process one at a time to avoid browser overhead
+    if (!isOpen) return;
     
     const nextLegacyItem = generations.find(g => 
-      g.image_url && g.image_url.startsWith('data:') && !migratingIds.has(g.id)
+      g.image_url.startsWith('data:') && !migratingIds.has(g.id)
     );
 
     if (nextLegacyItem) {
@@ -135,9 +139,8 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
   }, [generations, migratingIds, isOpen]);
 
   /**
-   * NUCLEAR OPTION: SELECTIVE PROJECTION
-   * We explicitly exclude the 'config' and 'outfit' columns to avoid transferring
-   * multi-megabyte JSON blocks. This ensures the Archive list loads in < 1s.
+   * SELECTIVE PROJECTION FETCH
+   * Keeps load times under 1 second by ignoring massive config columns.
    */
   const fetchPage = useCallback(async (pageNum: number, isReset = false) => {
     if (isLoading || (!hasMore && !isReset)) return;
@@ -150,7 +153,7 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
       const from = pageNum * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
-      // STRICT PROJECTION: id, image_url, created_at, project_id only.
+      // Projection-filtered query for high performance
       let query = supabase
         .from('generations')
         .select('id, image_url, created_at, project_id', { count: 'exact' })
@@ -255,7 +258,6 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
               onClick={() => fetchPage(0, true)} 
               disabled={isLoading}
               className="p-2 text-zinc-500 hover:text-white transition-colors disabled:opacity-30 rounded-md hover:bg-zinc-900"
-              title="Force Refresh"
             >
               <RotateCw size={16} className={isLoading ? 'animate-spin' : ''} />
             </button>

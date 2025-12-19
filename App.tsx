@@ -249,12 +249,6 @@ const App: React.FC = () => {
     }
   };
 
-  /**
-   * PERFORMANCE FIX: Binary Offload & Dirty Column Scrubbing
-   * 1. Offloads generated Base64 to binary Storage (artworks bucket).
-   * 2. Deeply sanitizes the 'config' payload to strip all garment Base64 strings.
-   * 3. Ensures the database response payload remains sub-10KB.
-   */
   const saveToLibrary = async (imageUrl: string) => {
     if (!session || !imageUrl || !isConfigured) return;
     
@@ -265,20 +259,25 @@ const App: React.FC = () => {
     try {
       let publicCdnUrl = imageUrl;
 
-      // 1. Convert Base64 result to binary Blob and offload to Storage
       if (imageUrl.startsWith('data:image')) {
         const timestamp = Date.now();
         const filePath = `${session.user.id}/${timestamp}.png`;
         
-        const base64Data = imageUrl.split(',')[1];
+        const parts = imageUrl.split(',');
+        const base64Data = parts.length > 1 ? parts[1] : parts[0];
+        
+        let mimeType = 'image/png';
+        const mimeMatch = imageUrl.match(/^data:(image\/[a-z]+);base64,/);
+        if (mimeMatch) mimeType = mimeMatch[1];
+
         const binaryStr = atob(base64Data);
         const bytes = new Uint8Array(binaryStr.length);
         for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
-        const blob = new Blob([bytes], { type: 'image/png' });
+        const blob = new Blob([bytes], { type: mimeType });
 
         const { error: uploadError } = await supabase.storage
           .from('artworks')
-          .upload(filePath, blob, { contentType: 'image/png', upsert: false });
+          .upload(filePath, blob, { contentType: mimeType, upsert: false });
 
         if (uploadError) throw uploadError;
 
@@ -289,7 +288,6 @@ const App: React.FC = () => {
         publicCdnUrl = publicUrl;
       }
 
-      // 2. CRITICAL SANITIZATION: Aggressively strip garment Base64s from the JSONB column.
       const sanitizedOutfit = JSON.parse(JSON.stringify(options.outfit));
       (Object.keys(sanitizedOutfit) as Array<keyof typeof sanitizedOutfit>).forEach(key => {
         sanitizedOutfit[key].images = []; 
@@ -302,7 +300,6 @@ const App: React.FC = () => {
         referenceModelImage: undefined 
       };
 
-      // 3. DATABASE COMMIT: Save only high-performance URLs and lean metadata
       const { error: dbError } = await supabase.from('generations').insert([{
         image_url: publicCdnUrl,
         user_id: session.user.id,
@@ -474,7 +471,7 @@ const App: React.FC = () => {
   const activeProjectName = activeProjectId === null ? "Main Archive" : projects.find(p => p.id === activeProjectId)?.name || "Main Archive";
 
   return (
-    <div className="h-screen w-full flex flex-col text-zinc-300 font-sans bg-black overflow-hidden relative">
+    <div className="h-[100dvh] w-full flex flex-col text-zinc-300 font-sans bg-black overflow-hidden relative">
       <header className="flex-shrink-0 z-[60] bg-black/80 backdrop-blur-xl border-b border-zinc-800/50 h-14">
           <div className="max-w-[1920px] mx-auto h-full flex justify-between items-center px-4 sm:px-6">
               <div className="flex items-center gap-3">
@@ -681,13 +678,13 @@ const App: React.FC = () => {
                               />
                           </div>
                           <div className="space-y-1.5">
-                              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Custom Features</label>
+                              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide pl-1">Custom Features</label>
                               <div className="relative">
                                   <textarea 
                                     placeholder="Freckles, sharp jawline, blue eyes..." 
                                     value={options.modelFeatures} 
                                     onChange={(e) => hasProAccess ? setOptions({...options, modelFeatures: e.target.value}) : handleProInterceptor()} 
-                                    className="w-full h-20 bg-black border border-zinc-800 rounded-md py-2 px-3 text-white resize-none focus:border-zinc-500" 
+                                    className="w-full h-20 bg-black border border-zinc-800 rounded-md py-2 px-3 text-white focus:border-zinc-500 resize-none" 
                                   />
                                   {!hasProAccess && <Lock size={10} className="absolute right-3 top-3 text-amber-500/50" />}
                               </div>
@@ -782,7 +779,8 @@ const App: React.FC = () => {
         </section>
       </div>
 
-      <div className="lg:hidden h-16 border-t border-zinc-800 bg-zinc-950/80 backdrop-blur-xl flex items-center justify-around px-6 z-[80]">
+      {/* FIXED MOBILE FOOTER */}
+      <div className="lg:hidden flex-shrink-0 h-16 border-t border-zinc-800 bg-zinc-950/80 backdrop-blur-xl flex items-center justify-around px-6 z-[80]">
           <button 
             onClick={() => setActiveTab('editor')}
             className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'editor' ? 'text-white' : 'text-zinc-500'}`}
