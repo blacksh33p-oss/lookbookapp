@@ -48,7 +48,7 @@ const getGenerationCost = (options: PhotoshootOptions): number => {
 /**
  * SpotlightGate Component
  * Wraps restricted features with desaturation/opacity rules.
- * Click triggers the global auth snackbar. Tooltips removed for cleanliness.
+ * Click triggers the relevant modal (Login or Upgrade) immediately.
  */
 export const SpotlightGate: React.FC<{ 
   children: React.ReactNode; 
@@ -86,12 +86,14 @@ const Toast: React.FC<{ message: string; type: 'success' | 'error' | 'info'; onC
   const Icon = type === 'success' ? CheckCircle : type === 'error' ? XCircle : Info;
 
   return (
-    <div className={`fixed bottom-24 lg:bottom-10 left-1/2 z-[150] px-5 py-3.5 rounded-xl border shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center gap-3 animate-slide-up ${bgColor} backdrop-blur-xl`}>
-      <Icon size={18} className={textColor} />
-      <span className="text-[11px] font-black uppercase tracking-widest text-white whitespace-nowrap">{message}</span>
-      <button onClick={onClose} className="ml-2 text-zinc-500 hover:text-white transition-colors">
-        <X size={14} />
-      </button>
+    <div className="fixed bottom-24 lg:bottom-10 left-0 w-full flex justify-center z-[150] pointer-events-none px-4">
+      <div className={`pointer-events-auto px-5 py-3.5 rounded-xl border shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center gap-3 animate-slide-up ${bgColor} backdrop-blur-xl`}>
+        <Icon size={18} className={textColor} />
+        <span className="text-[11px] font-black uppercase tracking-widest text-white whitespace-nowrap">{message}</span>
+        <button onClick={onClose} className="ml-2 text-zinc-500 hover:text-white transition-colors">
+          <X size={14} />
+        </button>
+      </div>
     </div>
   );
 };
@@ -152,7 +154,6 @@ const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor');
-  const [showSoftGate, setShowSoftGate] = useState(false);
   
   const [guestCredits, setGuestCredits] = useState<number>(() => {
     const saved = localStorage.getItem('fashion_guest_credits');
@@ -213,12 +214,13 @@ const App: React.FC = () => {
 
   const showToast = (message: string, type: 'success' | 'error' | 'info') => setToast({ message, type });
 
-  const handleSoftGateTrigger = () => {
+  const handleLockedClick = () => {
     if (!session) {
-      setShowSoftGate(true);
-      return true;
+      setLoginModalView('signup');
+      setShowLoginModal(true);
+    } else {
+      setShowUpgradeModal(true);
     }
-    return false;
   };
 
   useEffect(() => {
@@ -251,7 +253,8 @@ const App: React.FC = () => {
 
   const handleProInterceptor = () => {
     if (!session) {
-        setShowSoftGate(true);
+        setLoginModalView('signup');
+        setShowLoginModal(true);
         return true;
     }
     if (!hasProAccess) {
@@ -263,7 +266,8 @@ const App: React.FC = () => {
 
   const handleStudioInterceptor = () => {
     if (!session) {
-        setShowSoftGate(true);
+        setLoginModalView('signup');
+        setShowLoginModal(true);
         return true;
     }
     if (!isStudio) {
@@ -605,7 +609,7 @@ const App: React.FC = () => {
                           className="h-full"
                           interactive={true}
                           onClick={() => {
-                            if (!session) { setShowSoftGate(true); return; }
+                            if (!session) { setLoginModalView('signup'); setShowLoginModal(true); return; }
                             if (!hasProAccess) { setShowUpgradeModal(true); return; }
                             setSelectedModel('pro-3');
                           }}
@@ -626,7 +630,7 @@ const App: React.FC = () => {
                 tier="STUDIO" 
                 interactive={true}
                 onClick={() => {
-                  if (!session) { setShowSoftGate(true); return; }
+                  if (!session) { setLoginModalView('signup'); setShowLoginModal(true); return; }
                   if (!isStudio) { setShowUpgradeModal(true); return; }
                   setOptions({...options, enable4K: !options.enable4K});
                 }}
@@ -694,10 +698,7 @@ const App: React.FC = () => {
                             options={Object.values(ModelSex)} 
                             onChange={(val) => setOptions({ ...options, sex: val })} 
                             lockedOptions={!hasProAccess ? Object.values(ModelSex).filter(s => s !== ModelSex.Female) : []}
-                            onLockedClick={() => {
-                              if (!session) setShowSoftGate(true);
-                              else setShowUpgradeModal(true);
-                            }}
+                            onLockedClick={handleLockedClick}
                           />
                           <Dropdown 
                             label="Ethnicity" 
@@ -705,10 +706,7 @@ const App: React.FC = () => {
                             options={Object.values(ModelEthnicity)} 
                             onChange={(val) => setOptions({ ...options, ethnicity: val })} 
                             lockedOptions={!hasProAccess ? Object.values(ModelEthnicity).filter(e => e !== ModelEthnicity.Mixed) : []}
-                            onLockedClick={() => {
-                              if (!session) setShowSoftGate(true);
-                              else setShowUpgradeModal(true);
-                            }}
+                            onLockedClick={handleLockedClick}
                           />
                           <Dropdown 
                             label="Age Range" 
@@ -716,10 +714,7 @@ const App: React.FC = () => {
                             options={Object.values(ModelAge)} 
                             onChange={(val) => setOptions({ ...options, age: val })} 
                             lockedOptions={!hasProAccess ? Object.values(ModelAge).filter(a => a !== ModelAge.YoungAdult) : []}
-                            onLockedClick={() => {
-                              if (!session) setShowSoftGate(true);
-                              else setShowUpgradeModal(true);
-                            }}
+                            onLockedClick={handleLockedClick}
                           />
                           <Dropdown 
                             label="Expression" 
@@ -727,10 +722,7 @@ const App: React.FC = () => {
                             options={Object.values(FacialExpression)} 
                             onChange={(val) => setOptions({ ...options, facialExpression: val })} 
                             lockedOptions={!hasProAccess ? Object.values(FacialExpression).filter(f => f !== FacialExpression.Neutral) : []}
-                            onLockedClick={() => {
-                              if (!session) setShowSoftGate(true);
-                              else setShowUpgradeModal(true);
-                            }}
+                            onLockedClick={handleLockedClick}
                           />
                       </div>
                       <div className="space-y-3 pt-2">
@@ -741,10 +733,7 @@ const App: React.FC = () => {
                                 options={Object.values(HairColor)} 
                                 onChange={(val) => setOptions({ ...options, hairColor: val })} 
                                 lockedOptions={!hasProAccess ? Object.values(HairColor).filter(h => h !== HairColor.JetBlack) : []}
-                                onLockedClick={() => {
-                                  if (!session) setShowSoftGate(true);
-                                  else setShowUpgradeModal(true);
-                                }}
+                                onLockedClick={handleLockedClick}
                               />
                               <Dropdown 
                                 label="Hair Style" 
@@ -752,15 +741,12 @@ const App: React.FC = () => {
                                 options={Object.values(HairStyle)} 
                                 onChange={(val) => setOptions({ ...options, hairStyle: val })} 
                                 lockedOptions={!hasProAccess ? Object.values(HairStyle).filter(h => h !== HairStyle.StraightSleek) : []}
-                                onLockedClick={() => {
-                                  if (!session) setShowSoftGate(true);
-                                  else setShowUpgradeModal(true);
-                                }}
+                                onLockedClick={handleLockedClick}
                               />
                           </div>
                           <div className="space-y-1.5">
                               <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1">Custom Features</label>
-                              <SpotlightGate isLocked={!hasProAccess} tier="CREATOR" interactive={true} onClick={() => { if (!session) setShowSoftGate(true); else if (!hasProAccess) setShowUpgradeModal(true); }}>
+                              <SpotlightGate isLocked={!hasProAccess} tier="CREATOR" interactive={true} onClick={handleLockedClick}>
                                 <textarea 
                                   placeholder="" 
                                   value={options.modelFeatures} 
@@ -786,7 +772,7 @@ const App: React.FC = () => {
                         hasSession={!!session}
                         onUpgrade={handleProInterceptor} 
                         SpotlightGate={SpotlightGate}
-                        onLockedClick={() => { if (!session) setShowSoftGate(true); else if (!isPremium) setShowUpgradeModal(true); }}
+                        onLockedClick={() => { if (!session) { setLoginModalView('signup'); setShowLoginModal(true); } else if (!isPremium) setShowUpgradeModal(true); }}
                       />
                   </ConfigSection>
 
@@ -811,7 +797,7 @@ const App: React.FC = () => {
                                       </div>
                                   </button>
 
-                                  <SpotlightGate isLocked={!isStudio} tier="STUDIO" interactive={true} onClick={() => { if (!session) setShowSoftGate(true); else if (!isStudio) setShowUpgradeModal(true); else setOptions({...options, layout: LayoutMode.Diptych}); }}>
+                                  <SpotlightGate isLocked={!isStudio} tier="STUDIO" interactive={true} onClick={handleStudioInterceptor}>
                                     <button
                                         className={`w-full px-4 py-3 rounded-lg border transition-all flex flex-col gap-3 group relative overflow-hidden pr-4
                                         ${options.layout === LayoutMode.Diptych ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-600'}`}
@@ -837,7 +823,7 @@ const App: React.FC = () => {
 
                               <div className="space-y-3 pt-2">
                                   <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider px-1">Professional Styles</label>
-                                  <SpotlightGate isLocked={!hasProAccess} tier="CREATOR" interactive={true} onClick={() => { if (!session) setShowSoftGate(true); else if (!hasProAccess) setShowUpgradeModal(true); }}>
+                                  <SpotlightGate isLocked={!hasProAccess} tier="CREATOR" interactive={true} onClick={handleProInterceptor}>
                                     <div className={`grid grid-cols-2 gap-3 transition-all`}>
                                         {PRO_STYLES.map(s => (
                                             <StyleButton 
@@ -888,7 +874,7 @@ const App: React.FC = () => {
              <ResultDisplay 
                 isLoading={isLoading} image={generatedImage} onDownload={handleDownload} 
                 onRegenerate={(keepModel) => { 
-                    if (keepModel && !session) { setShowSoftGate(true); return; }
+                    if (keepModel && !session) { setLoginModalView('signup'); setShowLoginModal(true); return; }
                     if (keepModel && !isPremium) { setShowUpgradeModal(true); return; }
                     const seed = keepModel ? options.seed : getRandomSeed(); 
                     setOptions({ ...options, seed, isModelLocked: keepModel }); 
@@ -906,39 +892,6 @@ const App: React.FC = () => {
            </div>
         </section>
       </div>
-
-      {showSoftGate && (
-        <div className="fixed bottom-6 left-1/2 z-[99999] w-[calc(100%-2rem)] max-w-md px-4 animate-slide-up">
-          <div className="bg-black/90 backdrop-blur-2xl border border-zinc-800 p-6 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] relative overflow-hidden">
-             <button onClick={() => setShowSoftGate(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors z-10 p-1">
-                <X size={18}/>
-             </button>
-             <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
-                   <Sparkles size={16} className="text-black" />
-                </div>
-                <p className="text-xs font-black uppercase text-white tracking-[0.1em]">Access Pro Features</p>
-             </div>
-             <p className="text-[11px] font-medium text-zinc-400 leading-relaxed mb-6">
-                Create a free account to save your work and upgrade to unlock premium features like Manual Poses and 4K output.
-             </p>
-             <div className="flex flex-col gap-3">
-                <button 
-                  onClick={() => { setLoginModalView('signup'); setShowLoginModal(true); setShowSoftGate(false); }} 
-                  className="w-full bg-white text-black py-3.5 rounded-md text-[10px] font-black uppercase tracking-[0.2em] hover:bg-zinc-200 transition-all shadow-xl active:scale-[0.98]"
-                >
-                  Sign Up for Free
-                </button>
-                <button 
-                  onClick={() => { setLoginModalView('login'); setShowLoginModal(true); setShowSoftGate(false); }} 
-                  className="text-zinc-500 py-1 text-[9px] font-bold uppercase tracking-widest hover:text-white transition-colors"
-                >
-                  Already have an account? Log In
-                </button>
-             </div>
-          </div>
-        </div>
-      )}
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onAuth={handleAuth} initialView={loginModalView} />
