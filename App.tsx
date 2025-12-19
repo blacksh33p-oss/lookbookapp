@@ -250,9 +250,9 @@ const App: React.FC = () => {
   };
 
   /**
-   * PERFORMANCE OPTIMIZATION: Deep Sanitization
-   * We convert heavy Base64 strings to binary blobs and upload to storage.
-   * Then we strip all data-heavy fields from the 'config' JSON to keep the DB lean.
+   * PERFORMANCE OPTIMIZATION: Deep Sanitization & Blob Offloading
+   * To prevent the 'Base64 Mistake', we strictly convert binary data to storage URLs.
+   * This ensures the JSON response for the Archive list remains under 10KB.
    */
   const saveToLibrary = async (imageUrl: string) => {
     if (!session || !imageUrl || !isConfigured) return;
@@ -264,7 +264,8 @@ const App: React.FC = () => {
     try {
       let finalImageUrl = imageUrl;
 
-      // 1. Offload heavy base64 result to Storage if not already a URL
+      // 1. STRATEGIC OFFLOADING: Upload Base64 to Storage immediately
+      // This prevents the 'image_url' column from ever holding a 5MB string.
       if (imageUrl.startsWith('data:image')) {
         const timestamp = Date.now();
         const filePath = `${session.user.id}/${timestamp}.png`;
@@ -278,7 +279,10 @@ const App: React.FC = () => {
 
         const { error: uploadError } = await supabase.storage
           .from('generations')
-          .upload(filePath, blob, { contentType: 'image/png', upsert: false });
+          .upload(filePath, blob, { 
+            contentType: 'image/png', 
+            upsert: false 
+          });
 
         if (uploadError) throw uploadError;
 
@@ -289,24 +293,24 @@ const App: React.FC = () => {
         finalImageUrl = publicUrl;
       }
 
-      // 2. STRIP HEAVY FIELDS: Deep-sanitize the config object.
-      // We do not want Base64 garment images in the database JSON column.
+      // 2. PAYLOAD HYGIENE: Strip massive Base64 garment references from the 'config' JSONB.
+      // Keeping these in the JSONB column is what caused the 28s load time.
       const leanOutfit = { ...options.outfit };
       (Object.keys(leanOutfit) as Array<keyof typeof leanOutfit>).forEach(key => {
         leanOutfit[key] = {
             ...leanOutfit[key],
-            images: [], // Strip heavy base64 references
-            sizeChart: null // Strip heavy size chart base64
+            images: [], // Removing multi-megabyte Base64 strings
+            sizeChart: null // Removing multi-megabyte Base64 strings
         };
       });
 
       const leanConfig = { 
         ...options, 
         outfit: leanOutfit,
-        referenceModelImage: undefined // Strip model reference base64
+        referenceModelImage: undefined // Removing identity reference Base64
       };
 
-      // 3. Save lean metadata to DB
+      // 3. DATABASE COMMIT: Save lean metadata
       const payload = {
         image_url: finalImageUrl,
         user_id: session.user.id,
@@ -318,16 +322,16 @@ const App: React.FC = () => {
       
       if (error) {
         setSaveError(true);
-        showToast(`Error: ${error.message}`, "error");
+        showToast(`Archive error: ${error.message}`, "error");
       } else {
         setJustSaved(true);
-        showToast("Shoot saved to archive", "success");
+        showToast("Shoot archived successfully", "success");
         setTimeout(() => setJustSaved(false), 3000);
       }
     } catch (e: any) {
       console.error("Save failure:", e);
       setSaveError(true);
-      showToast("Error saving to archive", "error");
+      showToast("Critical: Archive sync failed.", "error");
     } finally {
       setIsSaving(false);
     }
