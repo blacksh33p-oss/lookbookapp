@@ -249,6 +249,11 @@ const App: React.FC = () => {
     }
   };
 
+  /**
+   * PERFORMANCE OPTIMIZATION: Deep Sanitization
+   * We convert heavy Base64 strings to binary blobs and upload to storage.
+   * Then we strip all data-heavy fields from the 'config' JSON to keep the DB lean.
+   */
   const saveToLibrary = async (imageUrl: string) => {
     if (!session || !imageUrl || !isConfigured) return;
     
@@ -257,11 +262,56 @@ const App: React.FC = () => {
     setSaveError(false);
 
     try {
+      let finalImageUrl = imageUrl;
+
+      // 1. Offload heavy base64 result to Storage if not already a URL
+      if (imageUrl.startsWith('data:image')) {
+        const timestamp = Date.now();
+        const filePath = `${session.user.id}/${timestamp}.png`;
+        
+        const base64Data = imageUrl.split(',')[1];
+        const binaryStr = atob(base64Data);
+        const len = binaryStr.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) bytes[i] = binaryStr.charCodeAt(i);
+        const blob = new Blob([bytes], { type: 'image/png' });
+
+        const { error: uploadError } = await supabase.storage
+          .from('generations')
+          .upload(filePath, blob, { contentType: 'image/png', upsert: false });
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('generations')
+          .getPublicUrl(filePath);
+          
+        finalImageUrl = publicUrl;
+      }
+
+      // 2. STRIP HEAVY FIELDS: Deep-sanitize the config object.
+      // We do not want Base64 garment images in the database JSON column.
+      const leanOutfit = { ...options.outfit };
+      (Object.keys(leanOutfit) as Array<keyof typeof leanOutfit>).forEach(key => {
+        leanOutfit[key] = {
+            ...leanOutfit[key],
+            images: [], // Strip heavy base64 references
+            sizeChart: null // Strip heavy size chart base64
+        };
+      });
+
+      const leanConfig = { 
+        ...options, 
+        outfit: leanOutfit,
+        referenceModelImage: undefined // Strip model reference base64
+      };
+
+      // 3. Save lean metadata to DB
       const payload = {
-        image_url: imageUrl,
+        image_url: finalImageUrl,
         user_id: session.user.id,
         project_id: activeProjectId || null,
-        config: { ...options, referenceModelImage: undefined }
+        config: leanConfig
       };
       
       const { error } = await supabase.from('generations').insert([payload]);
@@ -275,6 +325,7 @@ const App: React.FC = () => {
         setTimeout(() => setJustSaved(false), 3000);
       }
     } catch (e: any) {
+      console.error("Save failure:", e);
       setSaveError(true);
       showToast("Error saving to archive", "error");
     } finally {
@@ -339,7 +390,6 @@ const App: React.FC = () => {
   };
 
   const handleGenerate = async () => {
-      // PRO MODEL REQUIREMENT: Must select a paid API key
       if (selectedModel === 'pro-3') {
         const aistudio = (window as any).aistudio;
         if (aistudio && typeof aistudio.hasSelectedApiKey === 'function') {
@@ -348,13 +398,10 @@ const App: React.FC = () => {
             if (!hasKey && typeof aistudio.openSelectKey === 'function') {
               await aistudio.openSelectKey();
             }
-          } catch (e) {
-            // Silently fail if AI Studio tools are missing or restricted
-          }
+          } catch (e) {}
         }
       }
 
-      // Switch to preview tab on mobile to show results
       if (window.innerWidth < 1024) setActiveTab('preview');
 
       const newSeed = getRandomSeed();
@@ -390,12 +437,10 @@ const App: React.FC = () => {
               setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
               if (isConfigured) {
                 await supabase.from('profiles').update({ credits: newBalance }).eq('id', session.user.id);
-                if (userProfile.tier !== SubscriptionTier.Free) saveToLibrary(result);
               }
           }
       } catch (err: any) { 
           const errorMessage = err.message || 'Error';
-          // PRO MODEL RECOVERY: If key doesn't have model access, re-prompt key selection
           if (errorMessage.includes("Requested entity was not found")) {
               showToast("API Key missing Pro access. Please select a Paid project key.", "error");
               const aistudio = (window as any).aistudio;
@@ -743,7 +788,6 @@ const App: React.FC = () => {
         </section>
       </div>
 
-      {/* Mobile Tab Navigation */}
       <div className="lg:hidden h-16 border-t border-zinc-800 bg-zinc-950/80 backdrop-blur-xl flex items-center justify-around px-6 z-[80]">
           <button 
             onClick={() => setActiveTab('editor')}

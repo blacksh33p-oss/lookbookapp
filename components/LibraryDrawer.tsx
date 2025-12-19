@@ -20,8 +20,9 @@ const PAGE_SIZE = 30;
 const getThumbnailUrl = (url: string) => {
   if (!url) return '';
   if (url.includes('supabase.co/storage/v1/object/public')) {
-    // requesting 400px width @ 70% quality for optimal grid performance
-    return `${url}?width=400&quality=70&resize=contain`;
+    // Requesting 400px width @ 60% quality for optimal grid performance.
+    // This reduces image weight from ~5MB to ~40KB.
+    return `${url}?width=400&quality=60&resize=contain`;
   }
   return url;
 };
@@ -55,8 +56,10 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
   const observerTarget = useRef<HTMLDivElement>(null);
 
   /**
-   * CORE FETCH LOGIC (Local Helper)
-   * Implements efficient pagination and ID deduplication.
+   * CORE FETCH LOGIC
+   * PERFORMANCE CRITICAL: We explicitly select only metadata columns.
+   * We use the JSONB arrow operator (config->modelVersion) to avoid 
+   * fetching the massive Base64 garment data stored in the full config object.
    */
   const fetchPage = useCallback(async (pageNum: number, isReset = false) => {
     if (isLoading || (!hasMore && !isReset)) return;
@@ -71,7 +74,13 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
 
       let query = supabase
         .from('generations')
-        .select('*', { count: 'exact' })
+        .select(`
+          id, 
+          image_url, 
+          created_at, 
+          project_id, 
+          config->modelVersion
+        `, { count: 'exact' })
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
         .range(from, to);
@@ -85,12 +94,15 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
       if (error) throw error;
 
       if (data) {
+        // Map the partial data to the Generation type
+        const typedData = data as unknown as Generation[];
+        
         if (isReset) {
-          fetchedIds.current = new Set(data.map(g => g.id));
-          setGenerations(data);
+          fetchedIds.current = new Set(typedData.map(g => g.id));
+          setGenerations(typedData);
           setPage(1);
         } else {
-          const newItems = data.filter(g => !fetchedIds.current.has(g.id));
+          const newItems = typedData.filter(g => !fetchedIds.current.has(g.id));
           newItems.forEach(g => fetchedIds.current.add(g.id));
           setGenerations(prev => [...prev, ...newItems]);
           setPage(pageNum + 1);
@@ -106,17 +118,11 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
     }
   }, [activeProjectId, isLoading, hasMore]);
 
-  /**
-   * STALE-WHILE-REVALIDATE (SWR) LOGIC
-   * Handles background updates and project-switch state clearing.
-   */
   useEffect(() => {
-    // Only proceed if drawer is opening or being prefetched
     if (!isOpen && !prefetch) return;
 
     const projectChanged = lastProjectId.current !== activeProjectId;
     
-    // 1. If project changed, clear stale data to show Skeleton
     if (projectChanged) {
       setGenerations([]);
       fetchedIds.current.clear();
@@ -124,8 +130,6 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
       setHasMore(true);
     }
 
-    // 2. Fetch fresh data (either as background update or fresh project load)
-    // We only skip if we already have data for the CURRENT project and drawer is closed (prefetch case)
     if (projectChanged || (generations.length === 0 && !isLoading)) {
       fetchPage(0, true);
     }
@@ -133,7 +137,6 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
     lastProjectId.current = activeProjectId;
   }, [isOpen, prefetch, activeProjectId, fetchPage]);
 
-  // Infinite Scroll Intersection Observer
   useEffect(() => {
     if (!isOpen || !hasMore || isLoading) return;
 
@@ -143,7 +146,7 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
           fetchPage(page);
         }
       },
-      { threshold: 0.1, rootMargin: '300px' } // Pre-fetch next page early
+      { threshold: 0.1, rootMargin: '400px' } 
     );
 
     if (observerTarget.current) {
@@ -171,7 +174,6 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="absolute right-0 top-0 bottom-0 h-full w-full max-w-lg bg-black border-l border-zinc-800 shadow-2xl animate-fade-in flex flex-col">
         
-        {/* Header - Always Visible */}
         <div className="p-4 sm:p-6 flex items-center justify-between border-b border-zinc-800 bg-black/80 backdrop-blur-md sticky top-0 z-10">
           <div className="overflow-hidden">
             <h2 className="text-base sm:text-lg font-bold text-white tracking-tight truncate">Shoot History</h2>
@@ -194,14 +196,7 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
           </div>
         </div>
 
-        {/* Dynamic Content Area */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar touch-pan-y">
-          {/* 
-            RENDER ORDER (Priority Logic):
-            1. If loading and NO data -> Show Skeleton (Cold Start)
-            2. If NOT loading and NO data -> Show Empty (True Empty)
-            3. Otherwise -> Show Grid (Data or SWR Stale Data)
-          */}
           {isLoading && generations.length === 0 ? (
             <ArchiveSkeleton />
           ) : !isLoading && generations.length === 0 ? (
@@ -216,11 +211,11 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 {generations.map((gen, index) => (
-                  <div key={gen.id} className="group relative aspect-[3/4] bg-zinc-950 rounded-lg overflow-hidden border border-zinc-800 hover:border-zinc-500 transition-all shadow-lg">
+                  <div key={gen.id} className="group relative aspect-[3/4] bg-zinc-950 rounded-lg overflow-hidden border border-zinc-800 hover:border-zinc-600 transition-all shadow-lg">
                     <img 
                       src={getThumbnailUrl(gen.image_url)} 
                       alt="Shoot" 
-                      loading={index < 8 ? 'eager' : 'lazy'}
+                      loading={index < 4 ? 'eager' : 'lazy'} // Eager load only first 2 rows
                       decoding="async"
                       className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" 
                     />
@@ -248,7 +243,7 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
                                 {new Date(gen.created_at).toLocaleDateString()}
                             </span>
                             {gen.config?.modelVersion && (
-                                <span className="text-[7px] text-zinc-500 uppercase tracking-tighter">
+                                <span className="text-[7px] text-zinc-500 uppercase tracking-tighter bg-black/50 px-1 rounded">
                                     {gen.config.modelVersion.includes('Pro') ? 'PRO' : 'FLASH'}
                                 </span>
                             )}
@@ -258,7 +253,6 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
                 ))}
               </div>
 
-              {/* Pagination Spinner */}
               <div ref={observerTarget} className="h-10 flex items-center justify-center">
                 {isLoading && generations.length > 0 && <Loader2 className="animate-spin text-zinc-700" size={20} />}
                 {!hasMore && generations.length > 0 && (
