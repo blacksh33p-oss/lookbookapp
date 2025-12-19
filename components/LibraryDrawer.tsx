@@ -55,6 +55,7 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
   /**
    * LAZY MIGRATION LOGIC
    * Background task to move binary data from DB to Storage permanently.
+   * Targets the 'artworks' bucket specifically.
    */
   const migrateItem = async (gen: Generation) => {
     if (migratingIds.has(gen.id)) return;
@@ -75,15 +76,15 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
       for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
       const blob = new Blob([bytes], { type: 'image/png' });
 
-      // 2. Upload to Storage
+      // 2. Upload to Storage (artworks bucket)
       const { error: uploadError } = await supabase.storage
-        .from('generations')
+        .from('artworks')
         .upload(filePath, blob, { contentType: 'image/png' });
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('generations')
+        .from('artworks')
         .getPublicUrl(filePath);
 
       // 3. Update Database permanently
@@ -94,7 +95,7 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
 
       if (updateError) throw updateError;
 
-      // 4. Update Local State to show the image
+      // 4. Update Local State to show the image instantly
       setGenerations(prev => prev.map(item => 
         item.id === gen.id ? { ...item, image_url: publicUrl } : item
       ));

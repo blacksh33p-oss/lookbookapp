@@ -251,11 +251,7 @@ const App: React.FC = () => {
 
   /**
    * PERFORMANCE FIX: Binary Offload & Dirty Column Scrubbing
-   * This is the only way to achieve sub-200ms loads.
-   * 1. Generates a binary Blob from the Base64 result.
-   * 2. Offloads the Blob to Cloud Storage (CDN).
-   * 3. SCRUBS the 'config' JSONB object to remove all garment Base64 strings (15MB -> 2KB).
-   * 4. Saves only the public CDN URL to the database.
+   * Updates image storage to 'artworks' bucket.
    */
   const saveToLibrary = async (imageUrl: string) => {
     if (!session || !imageUrl || !isConfigured) return;
@@ -267,7 +263,7 @@ const App: React.FC = () => {
     try {
       let publicCdnUrl = imageUrl;
 
-      // 1. Convert Base64 result to binary Blob and offload to Storage
+      // 1. Convert Base64 result to binary Blob and offload to Storage (artworks bucket)
       if (imageUrl.startsWith('data:image')) {
         const timestamp = Date.now();
         const filePath = `${session.user.id}/${timestamp}.png`;
@@ -279,20 +275,19 @@ const App: React.FC = () => {
         const blob = new Blob([bytes], { type: 'image/png' });
 
         const { error: uploadError } = await supabase.storage
-          .from('generations')
+          .from('artworks')
           .upload(filePath, blob, { contentType: 'image/png', upsert: false });
 
         if (uploadError) throw uploadError;
 
         const { data: { publicUrl } } = supabase.storage
-          .from('generations')
+          .from('artworks')
           .getPublicUrl(filePath);
           
         publicCdnUrl = publicUrl;
       }
 
-      // 2. CRITICAL SANITIZATION: Strip massive Base64 garment references from the JSONB payload.
-      // This ensures that even if we ever accidentally select 'config', it won't be 15MB.
+      // 2. CRITICAL SANITIZATION: Strip massive Base64 garment references
       const sanitizedOutfit = JSON.parse(JSON.stringify(options.outfit));
       (Object.keys(sanitizedOutfit) as Array<keyof typeof sanitizedOutfit>).forEach(key => {
         sanitizedOutfit[key].images = []; 
@@ -305,7 +300,7 @@ const App: React.FC = () => {
         referenceModelImage: undefined 
       };
 
-      // 3. DATABASE COMMIT: Save only the CDN URL and lightweight metadata
+      // 3. DATABASE COMMIT
       const { error: dbError } = await supabase.from('generations').insert([{
         image_url: publicCdnUrl,
         user_id: session.user.id,
