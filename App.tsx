@@ -86,7 +86,7 @@ const Toast: React.FC<{ message: string; type: 'success' | 'error' | 'info'; onC
   const Icon = type === 'success' ? CheckCircle : type === 'error' ? XCircle : Info;
 
   return (
-    <div className={`fixed bottom-24 lg:bottom-10 left-1/2 -translate-x-1/2 z-[150] px-5 py-3.5 rounded-xl border shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center gap-3 animate-slide-up ${bgColor} backdrop-blur-xl`}>
+    <div className={`fixed bottom-24 lg:bottom-10 left-1/2 z-[150] px-5 py-3.5 rounded-xl border shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center gap-3 animate-slide-up ${bgColor} backdrop-blur-xl`}>
       <Icon size={18} className={textColor} />
       <span className="text-[11px] font-black uppercase tracking-widest text-white whitespace-nowrap">{message}</span>
       <button onClick={onClose} className="ml-2 text-zinc-500 hover:text-white transition-colors">
@@ -908,7 +908,7 @@ const App: React.FC = () => {
       </div>
 
       {showSoftGate && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[99999] w-[calc(100%-2rem)] max-w-md px-4 animate-slide-up">
+        <div className="fixed bottom-6 left-1/2 z-[99999] w-[calc(100%-2rem)] max-w-md px-4 animate-slide-up">
           <div className="bg-black/90 backdrop-blur-2xl border border-zinc-800 p-6 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] relative overflow-hidden">
              <button onClick={() => setShowSoftGate(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors z-10 p-1">
                 <X size={18}/>
