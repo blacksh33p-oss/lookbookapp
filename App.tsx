@@ -239,8 +239,7 @@ const App: React.FC = () => {
 
   const handleProInterceptor = () => {
     if (!session) {
-        setLoginModalView('signup');
-        setShowLoginModal(true);
+        setShowSoftGate(true);
         return true;
     }
     if (!hasProAccess) {
@@ -252,8 +251,7 @@ const App: React.FC = () => {
 
   const handleStudioInterceptor = () => {
     if (!session) {
-        setLoginModalView('signup');
-        setShowLoginModal(true);
+        setShowSoftGate(true);
         return true;
     }
     if (!isStudio) {
@@ -432,18 +430,6 @@ const App: React.FC = () => {
   };
 
   const handleGenerate = async () => {
-      if (selectedModel === 'pro-3') {
-        const aistudio = (window as any).aistudio;
-        if (aistudio && typeof aistudio.hasSelectedApiKey === 'function') {
-          try {
-            const hasKey = await aistudio.hasSelectedApiKey();
-            if (!hasKey && typeof aistudio.openSelectKey === 'function') {
-              await aistudio.openSelectKey();
-            }
-          } catch (e) {}
-        }
-      }
-
       if (window.innerWidth < 1024) setActiveTab('preview');
 
       const newSeed = getRandomSeed();
@@ -482,7 +468,7 @@ const App: React.FC = () => {
               }
           }
       } catch (err: any) { 
-          const errorMessage = err.message || 'Error';
+          const errorMessage = err.message || 'The studio is currently offline. Please check your credentials.';
           setError(errorMessage); 
       } finally { 
           setIsLoading(false); 
@@ -601,7 +587,8 @@ const App: React.FC = () => {
                           className="h-full"
                           interactive={true}
                           onClick={() => {
-                            handleSoftGateTrigger();
+                            if (!session) { setShowSoftGate(true); return; }
+                            if (!hasProAccess) { setShowUpgradeModal(true); return; }
                             setSelectedModel('pro-3');
                           }}
                       >
@@ -621,7 +608,8 @@ const App: React.FC = () => {
                 tier="STUDIO" 
                 interactive={true}
                 onClick={() => {
-                  handleSoftGateTrigger();
+                  if (!session) { setShowSoftGate(true); return; }
+                  if (!isStudio) { setShowUpgradeModal(true); return; }
                   setOptions({...options, enable4K: !options.enable4K});
                 }}
               >
@@ -635,10 +623,6 @@ const App: React.FC = () => {
                         </div>
                     </div>
                     <button 
-                        onClick={() => {
-                          handleSoftGateTrigger();
-                          setOptions({...options, enable4K: !options.enable4K});
-                        }}
                         className={`w-10 h-5 rounded-full relative transition-all duration-300 shrink-0 ${options.enable4K ? 'bg-white' : 'bg-zinc-800'}`}
                     >
                         <div className={`absolute top-1 w-3 h-3 rounded-full transition-all duration-300 ${options.enable4K ? 'right-1 bg-black' : 'left-1 bg-zinc-600'}`}></div>
@@ -691,48 +675,24 @@ const App: React.FC = () => {
                             value={options.sex} 
                             options={Object.values(ModelSex)} 
                             onChange={(val) => setOptions({ ...options, sex: val })} 
-                            lockedOptions={!hasProAccess ? Object.values(ModelSex).filter(s => s !== ModelSex.Female) : []}
-                            onLockedClick={() => {
-                              handleSoftGateTrigger();
-                              handleProInterceptor();
-                            }}
-                            requiredTier="CREATOR"
                           />
                           <Dropdown 
                             label="Ethnicity" 
                             value={options.ethnicity} 
                             options={Object.values(ModelEthnicity)} 
                             onChange={(val) => setOptions({ ...options, ethnicity: val })} 
-                            lockedOptions={!hasProAccess ? Object.values(ModelEthnicity).filter(e => e !== ModelEthnicity.Mixed) : []}
-                            onLockedClick={() => {
-                              handleSoftGateTrigger();
-                              handleProInterceptor();
-                            }}
-                            requiredTier="CREATOR"
                           />
                           <Dropdown 
                             label="Age Range" 
                             value={options.age} 
                             options={Object.values(ModelAge)} 
                             onChange={(val) => setOptions({ ...options, age: val })} 
-                            lockedOptions={!hasProAccess ? Object.values(ModelAge).filter(a => a !== ModelAge.YoungAdult) : []}
-                            onLockedClick={() => {
-                              handleSoftGateTrigger();
-                              handleProInterceptor();
-                            }}
-                            requiredTier="CREATOR"
                           />
                           <Dropdown 
                             label="Expression" 
                             value={options.facialExpression} 
                             options={Object.values(FacialExpression)} 
                             onChange={(val) => setOptions({ ...options, facialExpression: val })} 
-                            lockedOptions={!hasProAccess ? Object.values(FacialExpression).filter(f => f !== FacialExpression.Neutral) : []}
-                            onLockedClick={() => {
-                              handleSoftGateTrigger();
-                              handleProInterceptor();
-                            }}
-                            requiredTier="CREATOR"
                           />
                       </div>
                       <div className="space-y-3 pt-2">
@@ -742,29 +702,17 @@ const App: React.FC = () => {
                                 value={options.hairColor as HairColor} 
                                 options={Object.values(HairColor)} 
                                 onChange={(val) => setOptions({ ...options, hairColor: val })} 
-                                lockedOptions={!hasProAccess ? Object.values(HairColor).filter(h => h !== HairColor.JetBlack) : []}
-                                onLockedClick={() => {
-                                  handleSoftGateTrigger();
-                                  handleProInterceptor();
-                                }}
-                                requiredTier="CREATOR"
                               />
                               <Dropdown 
                                 label="Hair Style" 
                                 value={options.hairStyle as HairStyle} 
                                 options={Object.values(HairStyle)} 
                                 onChange={(val) => setOptions({ ...options, hairStyle: val })} 
-                                lockedOptions={!hasProAccess ? Object.values(HairStyle).filter(h => h !== HairStyle.StraightSleek) : []}
-                                onLockedClick={() => {
-                                  handleSoftGateTrigger();
-                                  handleProInterceptor();
-                                }}
-                                requiredTier="CREATOR"
                               />
                           </div>
                           <div className="space-y-1.5">
                               <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1">Custom Features</label>
-                              <SpotlightGate isLocked={!hasProAccess} tier="CREATOR" interactive={true} onClick={handleSoftGateTrigger}>
+                              <SpotlightGate isLocked={!hasProAccess} tier="CREATOR" interactive={true} onClick={() => { if (!session) setShowSoftGate(true); else if (!hasProAccess) setShowUpgradeModal(true); }}>
                                 <textarea 
                                   placeholder="" 
                                   value={options.modelFeatures} 
@@ -790,7 +738,7 @@ const App: React.FC = () => {
                         hasSession={!!session}
                         onUpgrade={handleProInterceptor} 
                         SpotlightGate={SpotlightGate}
-                        onLockedClick={handleSoftGateTrigger}
+                        onLockedClick={() => { if (!session) setShowSoftGate(true); else if (!isPremium) setShowUpgradeModal(true); }}
                       />
                   </ConfigSection>
 
@@ -815,9 +763,8 @@ const App: React.FC = () => {
                                       </div>
                                   </button>
 
-                                  <SpotlightGate isLocked={!isStudio} tier="STUDIO" interactive={true} onClick={handleSoftGateTrigger}>
+                                  <SpotlightGate isLocked={!isStudio} tier="STUDIO" interactive={true} onClick={() => { if (!session) setShowSoftGate(true); else if (!isStudio) setShowUpgradeModal(true); else setOptions({...options, layout: LayoutMode.Diptych}); }}>
                                     <button
-                                        onClick={() => setOptions({ ...options, layout: LayoutMode.Diptych })}
                                         className={`w-full px-4 py-3 rounded-lg border transition-all flex flex-col gap-3 group relative overflow-hidden pr-4
                                         ${options.layout === LayoutMode.Diptych ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-600'}`}
                                     >
@@ -842,14 +789,14 @@ const App: React.FC = () => {
 
                               <div className="space-y-3 pt-2">
                                   <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider px-1">Professional Styles</label>
-                                  <SpotlightGate isLocked={!hasProAccess} tier="CREATOR" interactive={true} onClick={handleSoftGateTrigger}>
+                                  <SpotlightGate isLocked={!hasProAccess} tier="CREATOR" interactive={true} onClick={() => { if (!session) setShowSoftGate(true); else if (!hasProAccess) setShowUpgradeModal(true); }}>
                                     <div className={`grid grid-cols-2 gap-3 transition-all`}>
                                         {PRO_STYLES.map(s => (
                                             <StyleButton 
                                               key={s} 
                                               label={s} 
                                               isSelected={options.style === s} 
-                                              onClick={() => setOptions({...options, style: s})} 
+                                              onClick={() => { if (hasProAccess) setOptions({...options, style: s}); }} 
                                             />
                                         ))}
                                     </div>
@@ -893,15 +840,8 @@ const App: React.FC = () => {
              <ResultDisplay 
                 isLoading={isLoading} image={generatedImage} onDownload={handleDownload} 
                 onRegenerate={(keepModel) => { 
-                    if (keepModel && !session) {
-                        setLoginModalView('signup');
-                        setShowLoginModal(true);
-                        return;
-                    }
-                    if (keepModel && !isPremium) {
-                        setShowUpgradeModal(true);
-                        return;
-                    }
+                    if (keepModel && !session) { setShowSoftGate(true); return; }
+                    if (keepModel && !isPremium) { setShowUpgradeModal(true); return; }
                     const seed = keepModel ? options.seed : getRandomSeed(); 
                     setOptions({ ...options, seed, isModelLocked: keepModel }); 
                     executeGeneration({ ...options, seed, isModelLocked: keepModel }); 
@@ -920,8 +860,8 @@ const App: React.FC = () => {
       </div>
 
       {showSoftGate && (
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[99999] w-full max-w-md px-4 animate-slide-up">
-          <div className="bg-black/85 backdrop-blur-2xl border border-zinc-800 p-6 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] relative overflow-hidden group">
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[99999] w-[calc(100%-2rem)] max-w-md px-4 animate-slide-up">
+          <div className="bg-black/85 backdrop-blur-2xl border border-zinc-800 p-6 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] relative overflow-hidden">
              <button onClick={() => setShowSoftGate(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors z-10 p-1">
                 <X size={18}/>
              </button>

@@ -11,12 +11,12 @@ export const generatePhotoshootImage = async (options: PhotoshootOptions): Promi
 
   if (!response.ok) {
     const errorData = await response.json();
-    throw new Error(errorData.error || `Server Error: ${response.status}`);
+    throw new Error(errorData.error || `Generation Failed: ${response.status}`);
   }
 
   const data = await response.json();
   if (!data.image) {
-    throw new Error("Invalid response from server: No image returned.");
+    throw new Error("The studio backend returned an empty frame.");
   }
 
   return data.image;

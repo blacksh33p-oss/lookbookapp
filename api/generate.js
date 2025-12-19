@@ -38,7 +38,10 @@ export default async function handler(req, res) {
 
   try {
     const options = req.body;
-    // Always use process.env.API_KEY directly as per guidelines
+    if (!process.env.API_KEY) {
+      throw new Error("Server configuration error: Missing API Key.");
+    }
+
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const heightStr = options.height ? `Model Height: ${options.height} ${options.measurementUnit}` : 'Height: Standard Model Height';
@@ -80,20 +83,20 @@ export default async function handler(req, res) {
     const richExpressionPrompt = EXPRESSION_PROMPTS[options.facialExpression] || options.facialExpression;
     const sceneryContext = options.sceneDetails ? `SCENERY & ENVIRONMENT: ${options.sceneDetails}` : '';
 
-    const layoutInstruction = options.layout === 'Diptych (Pro Layout)' 
-      ? `CRITICAL LAYOUT: The final output must be a professional diptych fashion editorial. Left panel: full-body. Right panel: fabric close-up.`
+    const layoutInstruction = options.layout.includes('Diptych') 
+      ? `CRITICAL LAYOUT: Produce a professional diptych editorial split. Left: full-body action. Right: material fabric close-up.`
       : '';
 
     const promptText = `
-      Create a professional high-fashion lookbook photograph.
-      ${options.isModelLocked ? 'CRITICAL: Maintain the exact facial features from the IDENTITY_REFERENCE image.' : ''}
+      Professional high-fashion lookbook photograph.
+      ${options.isModelLocked ? 'IDENTITY: Match the facial structure from reference EXACTLY.' : ''}
       ${layoutInstruction}
-
+      
       ART DIRECTION: ${richStylePrompt}. ${sceneryContext}
-      MODEL: ${options.sex}, ${options.age}, ${options.ethnicity}. Hair: ${options.hairColor}, ${options.hairStyle}. Expression: ${richExpressionPrompt}. ${heightStr}, ${bodyTypeStr}.
-      OUTFIT:
+      MODEL IDENTITY: ${options.sex}, ${options.age}, ${options.ethnicity}. Hair: ${options.hairColor}, ${options.hairStyle}. Expression: ${richExpressionPrompt}. Stats: ${heightStr}, ${bodyTypeStr}.
+      WARDROBE:
       ${outfitParts.join('\n')}
-      POSE: ${options.pose || 'Standing naturally'}
+      POSE & STAGING: ${options.pose || 'Standing naturally'}
     `;
 
     const modelName = options.modelVersion.includes('Pro') ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
@@ -101,16 +104,16 @@ export default async function handler(req, res) {
     const config = {
       imageConfig: {
         aspectRatio: options.aspectRatio,
-        imageSize: options.enable4K ? "4K" : (options.modelVersion.includes('Pro') ? "2K" : "1K")
       },
       seed: options.seed
     };
 
     if (modelName === 'gemini-3-pro-image-preview') {
+      config.imageConfig.imageSize = options.enable4K ? "4K" : "2K";
       config.tools = [{ google_search: {} }];
     }
 
-    const response = await ai.models.generateContent({
+    const result = await ai.models.generateContent({
       model: modelName,
       contents: { 
         parts: [{ text: promptText }, ...imageParts] 
@@ -118,18 +121,18 @@ export default async function handler(req, res) {
       config
     });
 
-    if (response.candidates && response.candidates[0].content && response.candidates[0].content.parts) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData && part.inlineData.data) {
+    if (result.candidates?.[0]?.content?.parts) {
+      for (const part of result.candidates[0].content.parts) {
+        if (part.inlineData?.data) {
           return res.status(200).json({ image: `data:image/png;base64,${part.inlineData.data}` });
         }
       }
     }
     
-    throw new Error("Model failed to return an image part.");
+    throw new Error("Generation completed but no image was returned. Check safety filters.");
 
   } catch (err) {
-    console.error("Backend Generation Error:", err);
-    res.status(500).json({ error: err.message });
+    console.error("API Error:", err);
+    res.status(500).json({ error: err.message || "Internal server error during generation" });
   }
 }
