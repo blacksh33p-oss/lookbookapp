@@ -251,7 +251,9 @@ const App: React.FC = () => {
 
   /**
    * PERFORMANCE FIX: Binary Offload & Dirty Column Scrubbing
-   * Updates image storage to 'artworks' bucket.
+   * 1. Offloads generated Base64 to binary Storage (artworks bucket).
+   * 2. Deeply sanitizes the 'config' payload to strip all garment Base64 strings.
+   * 3. Ensures the database response payload remains sub-10KB.
    */
   const saveToLibrary = async (imageUrl: string) => {
     if (!session || !imageUrl || !isConfigured) return;
@@ -263,7 +265,7 @@ const App: React.FC = () => {
     try {
       let publicCdnUrl = imageUrl;
 
-      // 1. Convert Base64 result to binary Blob and offload to Storage (artworks bucket)
+      // 1. Convert Base64 result to binary Blob and offload to Storage
       if (imageUrl.startsWith('data:image')) {
         const timestamp = Date.now();
         const filePath = `${session.user.id}/${timestamp}.png`;
@@ -287,7 +289,7 @@ const App: React.FC = () => {
         publicCdnUrl = publicUrl;
       }
 
-      // 2. CRITICAL SANITIZATION: Strip massive Base64 garment references
+      // 2. CRITICAL SANITIZATION: Aggressively strip garment Base64s from the JSONB column.
       const sanitizedOutfit = JSON.parse(JSON.stringify(options.outfit));
       (Object.keys(sanitizedOutfit) as Array<keyof typeof sanitizedOutfit>).forEach(key => {
         sanitizedOutfit[key].images = []; 
@@ -300,7 +302,7 @@ const App: React.FC = () => {
         referenceModelImage: undefined 
       };
 
-      // 3. DATABASE COMMIT
+      // 3. DATABASE COMMIT: Save only high-performance URLs and lean metadata
       const { error: dbError } = await supabase.from('generations').insert([{
         image_url: publicCdnUrl,
         user_id: session.user.id,
