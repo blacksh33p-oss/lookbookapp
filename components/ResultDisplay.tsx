@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Download, RefreshCw, Loader2, User, Users, Sparkles, Shirt, Wand2, ChevronUp } from 'lucide-react';
+import { Download, RefreshCw, Loader2, User, Users, Camera, Lock, Sparkles, Shirt, Wand2, ChevronUp } from 'lucide-react';
 
 interface ResultDisplayProps {
   isLoading: boolean;
@@ -18,11 +18,12 @@ interface ResultDisplayProps {
 }
 
 const LOADING_LOGS = [
-    { id: 1, text: "INIT_NEURAL_FRAME" },
-    { id: 2, text: "CALC_DIFFUSION_PATH" },
-    { id: 3, text: "SYNT_TEXTILE_GRAIN" },
-    { id: 4, text: "REFINING_OPTICS" },
-    { id: 5, text: "UP_PRODUCTION_RES" }
+    { id: 1, text: "INITIALIZING_TENSORS" },
+    { id: 2, text: "ANALYZING_GEOMETRY" },
+    { id: 3, text: "CALCULATING_LIGHT_PATHS" },
+    { id: 4, text: "SYNTHESIZING_TEXTURES" },
+    { id: 5, text: "REFINING_DETAILS" },
+    { id: 6, text: "FINALIZING_OUTPUT" }
 ];
 
 export const ResultDisplay: React.FC<ResultDisplayProps> = ({ 
@@ -53,25 +54,26 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
         setCurrentStep(0);
         const interval = setInterval(() => {
             setCurrentStep((prev) => Math.min(prev + 1, LOADING_LOGS.length - 1));
-        }, 1200);
+        }, 1500);
         return () => clearInterval(interval);
     }
   }, [isLoading]);
 
+  // Loading - System Log Style
   if (isLoading) {
     return (
-      <div className="h-full w-full flex flex-col items-center justify-center relative font-mono">
-        <div className="w-80">
-             <div className="flex items-center gap-4 mb-12">
-                <div className="w-4 h-4 border border-white/20 border-t-white rounded-full animate-spin"></div>
-                <span className="text-[9px] font-black text-white uppercase tracking-[0.5em]">SYNTHESIZING</span>
+      <div className="h-full w-full bg-black flex flex-col items-center justify-center relative font-mono">
+        <div className="w-64">
+             <div className="flex items-center gap-3 mb-6">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-xs font-bold text-white uppercase tracking-widest">Processing</span>
              </div>
              
-             <div className="space-y-4 border-l border-white/5 pl-8">
+             <div className="space-y-2 border-l border-zinc-800 pl-4 relative">
                  {LOADING_LOGS.map((log, idx) => (
-                     <div key={log.id} className={`flex items-center gap-4 text-[8px] transition-all duration-700 tracking-[0.3em] ${idx === currentStep ? 'text-white translate-x-1' : idx < currentStep ? 'text-zinc-700' : 'text-zinc-900'}`}>
-                         <span className={`w-1 h-1 rounded-full ${idx === currentStep ? 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.5)]' : idx < currentStep ? 'bg-zinc-800' : 'bg-transparent'}`}></span>
-                         {log.text}
+                     <div key={log.id} className={`flex items-center gap-2 text-[10px] transition-all duration-300 ${idx === currentStep ? 'text-white translate-x-1' : idx < currentStep ? 'text-zinc-600' : 'text-zinc-800'}`}>
+                         <span className={`w-1.5 h-1.5 rounded-full ${idx === currentStep ? 'bg-white' : idx < currentStep ? 'bg-zinc-800' : 'bg-transparent'}`}></span>
+                         {log.text}... {idx < currentStep && <span className="text-zinc-700 ml-auto">[OK]</span>}
                      </div>
                  ))}
              </div>
@@ -80,131 +82,136 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
     );
   }
 
+  // Error
   if (error) {
     return (
-      <div className="h-full w-full flex flex-col items-center justify-center p-12 text-center animate-fade-in">
-        <div className="border border-red-500/20 py-10 px-14 bg-red-500/[0.01] rounded-sm backdrop-blur-md">
-            <h3 className="text-[9px] font-black text-red-500 mb-5 uppercase tracking-[0.4em]">ERR_LATENT_FAILURE</h3>
-            <p className="text-zinc-600 font-mono text-[10px] uppercase tracking-[0.2em] max-w-[200px] mx-auto leading-relaxed">{error}</p>
+      <div className="h-full w-full bg-black flex flex-col items-center justify-center p-8 text-center">
+        <div className="border border-red-900/50 p-6 rounded-lg max-w-md bg-red-950/10">
+            <h3 className="text-sm font-bold text-red-500 mb-2 uppercase tracking-wide">System Failure</h3>
+            <p className="text-zinc-400 font-mono text-xs leading-relaxed">{error}</p>
         </div>
       </div>
     );
   }
 
+  // Empty State / Onboarding Hero
   if (!image) {
     return (
-      <div className="h-full w-full flex flex-col items-center justify-center relative overflow-hidden group">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(255,255,255,0.02)_0%,_transparent_60%)] pointer-events-none transition-opacity duration-1000 group-hover:opacity-100" />
+      <div className="h-full w-full bg-black flex flex-col items-center justify-center relative overflow-hidden">
+        {/* Background ambient glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-white/5 rounded-full blur-[100px] pointer-events-none"></div>
 
-        <div className="relative z-10 max-w-xl text-center px-12 animate-slide-up">
-            <div className="mb-14 flex justify-center">
-                <div className="w-16 h-16 bg-transparent border border-white/5 flex items-center justify-center shadow-2xl relative">
-                    <div className="absolute inset-0 bg-white/[0.02] blur-xl -z-10" />
-                    <Sparkles className="w-6 h-6 text-zinc-600" strokeWidth={1} />
+        <div className="relative z-10 max-w-md text-center px-6">
+            <div className="mb-8 flex justify-center">
+                <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center shadow-2xl shadow-black">
+                    <Sparkles className="w-8 h-8 text-white" strokeWidth={1.5} />
                 </div>
             </div>
             
-            <p className="text-[8px] font-black text-zinc-700 uppercase tracking-[0.8em] mb-8">ATELIER_CORE_v2.5</p>
-            <h2 className="text-5xl md:text-7xl font-serif font-light text-white italic mb-12 tracking-tighter opacity-80 group-hover:opacity-100 transition-opacity">
-                Digital Atelier
+            <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-4">
+                Virtual Fashion Studio
             </h2>
-            <p className="text-zinc-700 text-[10px] uppercase tracking-[0.4em] font-medium leading-[2.5] mb-20 max-w-xs mx-auto">
-                Synthesizing production-grade fashion imagery through generative optics.
+            <p className="text-zinc-500 text-sm leading-relaxed mb-10 max-w-xs mx-auto">
+                Turn garment photos into professional high-fashion editorials using Generative AI.
             </p>
 
-            <div className="flex items-center justify-center gap-10 opacity-10">
-                <div className="flex flex-col items-center gap-4">
-                    <Shirt size={16} strokeWidth={1} />
-                    <span className="text-[7px] uppercase font-black tracking-[0.4em]">ASSET</span>
+            <div className="grid grid-cols-3 gap-4 border-t border-zinc-800 pt-8">
+                <div className="flex flex-col items-center gap-2 group">
+                    <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:border-zinc-600 transition-colors">
+                        <Shirt size={16} className="text-zinc-400 group-hover:text-white" />
+                    </div>
+                    <span className="text-[10px] uppercase font-bold text-zinc-600 tracking-wider">1. Upload</span>
                 </div>
-                <div className="h-px w-6 bg-white" />
-                <div className="flex flex-col items-center gap-4">
-                    <User size={16} strokeWidth={1} />
-                    <span className="text-[7px] uppercase font-black tracking-[0.4em]">ID</span>
+                <div className="flex flex-col items-center gap-2 group">
+                    <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:border-zinc-600 transition-colors">
+                        <User size={16} className="text-zinc-400 group-hover:text-white" />
+                    </div>
+                    <span className="text-[10px] uppercase font-bold text-zinc-600 tracking-wider">2. Model</span>
                 </div>
-                <div className="h-px w-6 bg-white" />
-                <div className="flex flex-col items-center gap-4">
-                    <Wand2 size={16} strokeWidth={1} />
-                    <span className="text-[7px] uppercase font-black tracking-[0.4em]">GEN</span>
+                <div className="flex flex-col items-center gap-2 group">
+                    <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:border-zinc-600 transition-colors">
+                        <Wand2 size={16} className="text-zinc-400 group-hover:text-white" />
+                    </div>
+                    <span className="text-[10px] uppercase font-bold text-zinc-600 tracking-wider">3. Create</span>
                 </div>
             </div>
         </div>
-        
-        {/* Micro-Typography corners */}
-        <div className="absolute top-6 left-6 text-metadata">STUDIO_LIGHTBOX_v2</div>
-        <div className="absolute top-6 right-6 text-metadata">RENDER_ENGINE:GEMINI_2.5_FL</div>
-        <div className="absolute bottom-6 left-6 text-metadata">READY_FOR_SYNTH</div>
-        <div className="absolute bottom-6 right-6 text-metadata">0.00ms_LATENCY</div>
       </div>
     );
   }
 
+  // Success
   return (
-    <div className="h-full w-full relative flex flex-col group animate-fade-in">
-      {/* Micro-Typography corners */}
-      <div className="absolute top-8 left-8 text-metadata z-20">FRAME_ID: FS_{Math.floor(Math.random()*9999)}</div>
-      <div className="absolute top-8 right-8 text-metadata z-20">RESOLUTION: 2048x2048_PX</div>
-      <div className="absolute bottom-8 left-8 text-metadata z-20">SAMP_RATE: PRO_DENSITY</div>
-      <div className="absolute bottom-8 right-8 text-metadata z-20">SYNTH_COMPLETE_OK</div>
-
-      <div className="flex-1 relative flex items-center justify-center overflow-hidden z-10">
+    <div className="h-full w-full bg-black relative flex flex-col group">
+      <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-zinc-950/30">
         <img 
             src={image} 
-            alt="Editorial Output" 
-            className="h-full w-full object-contain p-12 md:p-24 transition-all duration-1000 group-hover:scale-[1.02] filter group-hover:brightness-110"
+            alt="Generated Photoshoot" 
+            className="h-full w-full object-contain z-10 shadow-2xl"
         />
       </div>
       
-      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-30 flex items-center animate-slide-up">
-        <div className="flex items-center bg-[#050505]/90 backdrop-blur-2xl border border-white/5 p-1 rounded-sm shadow-2xl shadow-black/80" ref={menuRef}>
+      {/* Floating Action Dock */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex items-center">
+        <div className="flex items-center bg-zinc-950/80 backdrop-blur-2xl border border-zinc-800 p-1 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.8)]" ref={menuRef}>
             
+            {/* Regenerate Trigger */}
             <div className="relative">
                 <button
                     onClick={() => setShowMenu(!showMenu)}
-                    className="h-11 pl-8 pr-6 hover:bg-white hover:text-black text-zinc-400 rounded-sm font-black text-[9px] uppercase tracking-[0.4em] transition-all flex items-center gap-4 group/btn"
+                    className="h-10 pl-5 pr-4 hover:bg-zinc-800/50 text-white rounded-l-full font-bold text-[10px] uppercase tracking-widest transition-all flex items-center gap-3 group"
                 >
-                    <RefreshCw size={12} className={`transition-transform duration-700 ${showMenu ? 'rotate-180 text-black' : 'group-hover/btn:text-white'}`} />
-                    <span className="group-hover/btn:text-white">Regenerate</span>
-                    <ChevronUp size={12} className={`transition-transform ${showMenu ? 'rotate-180' : ''}`} />
+                    <RefreshCw size={14} className={`transition-transform duration-500 ${showMenu ? 'rotate-180' : 'group-hover:rotate-45'}`} />
+                    <span>Regenerate</span>
+                    <ChevronUp size={12} className={`text-zinc-600 transition-transform ${showMenu ? 'rotate-180' : ''}`} />
                 </button>
 
+                {/* Regenerate Menu - Floats Upwards */}
                 {showMenu && (
-                    <div className="absolute bottom-full left-0 mb-6 w-64 bg-black border border-white/5 shadow-2xl z-50 overflow-hidden animate-slide-up shadow-[0_0_0_1px_rgba(255,255,255,0.01)]">
+                    <div className="absolute bottom-full left-0 mb-4 w-56 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] z-50 overflow-hidden animate-slide-up">
                         <SpotlightGate isLocked={!isPremium} tier="CREATOR">
                           <button
                               onClick={() => { 
                                   onRegenerate(true); 
                                   if (isPremium) setShowMenu(false); 
                               }}
-                              className={`w-full text-left px-6 py-6 flex items-center gap-5 transition-all border-b border-white/5 group/sub ${isPremium ? 'hover:bg-white text-zinc-600' : ''}`}
+                              className={`w-full text-left px-5 py-4 flex items-center gap-4 transition-colors border-b border-zinc-900 ${isPremium ? 'hover:bg-zinc-900 text-zinc-300' : ''}`}
                           >
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isPremium ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-500'}`}>
+                                      <User size={14} />
+                                  </div>
                                   <div className="flex-1">
-                                      <span className={`text-[9px] font-black uppercase tracking-[0.2em] block mb-1 ${isPremium ? 'group-hover/sub:text-black text-white' : 'text-zinc-800'}`}>Preserve Model</span>
-                                      <span className="text-[7px] text-zinc-800 font-bold uppercase tracking-widest">Locked Identity Matrix</span>
+                                      <span className={`text-[10px] font-black uppercase tracking-wider block ${isPremium ? 'text-white' : 'text-zinc-500'}`}>Keep Identity</span>
+                                      <span className="text-[9px] text-zinc-600 font-medium">Locked current model</span>
                                   </div>
                           </button>
                         </SpotlightGate>
                         <button
                             onClick={() => { onRegenerate(false); setShowMenu(false); }}
-                            className="w-full text-left px-6 py-6 hover:bg-white flex items-center gap-5 text-zinc-600 transition-all group/sub"
+                            className="w-full text-left px-5 py-4 hover:bg-zinc-900 flex items-center gap-4 text-zinc-300 transition-colors"
                         >
+                            <div className="w-8 h-8 rounded-full bg-zinc-800 text-white flex items-center justify-center">
+                                <Users size={14} />
+                            </div>
                             <div className="flex-1">
-                                <span className="text-[9px] font-black uppercase tracking-[0.2em] block mb-1 group-hover/sub:text-black text-white">New Casting</span>
-                                <span className="text-[7px] text-zinc-800 font-bold uppercase tracking-widest">Randomize Talent Node</span>
+                                <span className="text-[10px] font-black uppercase tracking-wider block text-white">New Casting</span>
+                                <span className="text-[9px] text-zinc-600 font-medium">Randomize identity</span>
                             </div>
                         </button>
                     </div>
                 )}
             </div>
 
-            <div className="w-px h-5 bg-white/5 mx-1"></div>
+            {/* Separator */}
+            <div className="w-px h-6 bg-zinc-800/50 mx-1"></div>
 
+            {/* Save Button */}
             <button
                 onClick={onDownload}
-                className="h-11 pl-6 pr-8 hover:bg-white hover:text-black text-zinc-400 rounded-sm font-black text-[9px] uppercase tracking-[0.4em] transition-all flex items-center gap-4 group/btn"
+                className="h-10 pl-4 pr-5 hover:bg-zinc-800/50 text-white rounded-r-full font-bold text-[10px] uppercase tracking-widest transition-all flex items-center gap-3 group"
             >
-                <Download size={12} className="group-hover/btn:text-white" />
-                <span className="group-hover/btn:text-white">Save_Output</span>
+                <Download size={14} className="group-hover:-translate-y-0.5 transition-transform" />
+                <span>Save</span>
             </button>
         </div>
       </div>
