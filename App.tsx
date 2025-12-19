@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, Hexagon, Sparkles, Move, LogOut, Star, CheckCircle, XCircle, Info, Lock, Crown, X, Loader2, Palette, Folder, Library, Plus, Save, Check, AlertCircle, Monitor, Settings, Eye } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, Hexagon, Sparkles, Move, LogOut, Star, CheckCircle, XCircle, Info, Lock, Crown, X, Loader2, Palette, Folder, Library, Plus, Save, Check, AlertCircle, Monitor, Settings, Eye, Layout, Columns } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -25,7 +25,7 @@ const SKIN_DETAILS = ["Freckles", "Clear complexion", "Sun-kissed skin", "Dewy s
 const STANDARD_STYLES = [ PhotoStyle.Studio, PhotoStyle.Urban, PhotoStyle.Nature, PhotoStyle.Coastal ];
 const PRO_STYLES = [ PhotoStyle.Luxury, PhotoStyle.Chromatic, PhotoStyle.Minimalist, PhotoStyle.Film, PhotoStyle.Newton, PhotoStyle.Lindbergh, PhotoStyle.Leibovitz, PhotoStyle.Avedon, PhotoStyle.LaChapelle, PhotoStyle.Testino ];
 
-const ACCOUNT_PORTAL_URL = (import.meta as any).env?.VITE_ACCOUNT_PORTAL_URL || 'https://fashionstudio.onfastspring.com/account';
+const ACCOUNT_PORTAL_URL = (import.meta as any).env?.VITE_ACCOUNT_PORTAL_URL || 'https://lookbook.test.onfastspring.com/account';
 
 const getRandomPose = () => POSES[Math.floor(Math.random() * POSES.length)];
 const getRandomSeed = () => Math.floor(Math.random() * 1000000000);
@@ -42,15 +42,6 @@ const getGenerationCost = (options: PhotoshootOptions): number => {
     if (options.enable4K) cost += 5;
     if (options.layout === LayoutMode.Diptych) cost += 5;
     return cost;
-};
-
-const getProductPath = (tier: SubscriptionTier): string => {
-    let val = '';
-    const env = (import.meta as any).env || {};
-    if (tier === SubscriptionTier.Starter) val = env.VITE_FASTSPRING_STARTER_PATH || '';
-    if (tier === SubscriptionTier.Creator) val = env.VITE_FASTSPRING_CREATOR_PATH || '';
-    if (tier === SubscriptionTier.Studio) val = env.VITE_FASTSPRING_STUDIO_PATH || '';
-    return val || tier.toLowerCase();
 };
 
 const Toast: React.FC<{ message: string; type: 'success' | 'error' | 'info'; onClose: () => void }> = ({ message, type, onClose }) => {
@@ -76,21 +67,29 @@ const Toast: React.FC<{ message: string; type: 'success' | 'error' | 'info'; onC
 
 interface FeatureLockWrapperProps {
     isLocked: boolean;
+    requiredTier?: string;
+    hasSession: boolean;
     children: React.ReactNode;
     onClick: () => void;
+    overlayOnly?: boolean;
 }
 
-const FeatureLockWrapper: React.FC<FeatureLockWrapperProps> = ({ isLocked, children, onClick }) => {
+const FeatureLockWrapper: React.FC<FeatureLockWrapperProps> = ({ isLocked, requiredTier, hasSession, children, onClick, overlayOnly = false }) => {
     if (!isLocked) return <>{children}</>;
+    
+    const message = requiredTier 
+        ? `Requires ${requiredTier} Tier` 
+        : "Premium Feature";
+
     return (
         <div className="relative group cursor-pointer" onClick={onClick}>
-            <div className="opacity-60 transition-all group-hover:opacity-40 pointer-events-none">
+            <div className={`transition-all group-hover:opacity-40 pointer-events-none filter ${overlayOnly ? '' : 'opacity-85 grayscale'}`}>
                 {children}
             </div>
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/5 rounded-lg">
-                <Lock size={12} className="text-amber-500 shadow-lg" />
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-black border border-zinc-800 rounded-lg text-[9px] font-bold text-center shadow-2xl z-[100]">
-                    Exclusive to Studio Tier <span className="text-amber-500">Upgrade →</span>
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/5 rounded-lg z-20">
+                <div className="bg-black/95 border border-zinc-800 px-3 py-2 rounded-lg flex flex-col items-center gap-1 shadow-2xl scale-95 group-hover:scale-100 transition-transform">
+                    <Lock size={12} className="text-amber-500" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-white whitespace-nowrap">{message}</span>
                 </div>
             </div>
         </div>
@@ -116,11 +115,10 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({ title, icon: Icon, childr
         <div className="flex items-center gap-3">
           <div className="relative">
             <Icon size={14} className={`text-zinc-500 group-hover:text-white transition-colors ${isOpen ? 'text-white' : ''}`} />
-            {isLocked && <Lock size={8} className="absolute -top-1.5 -right-1.5 text-amber-500" />}
           </div>
-          <span className="font-mono text-xs font-medium tracking-wide text-zinc-300 group-hover:text-white transition-colors flex items-center gap-2">
+          <span className="font-mono text-xs font-medium tracking-wide text-zinc-300 group-hover:text-white transition-colors flex items-center gap-2 uppercase">
             {title}
-            {isLocked && <span className="text-[8px] bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded-full border border-amber-500/20 font-black">PRO</span>}
+            {isLocked && <Lock size={10} className="text-amber-500 ml-1" />}
           </span>
         </div>
         <div className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
@@ -130,7 +128,7 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({ title, icon: Icon, childr
       {isOpen && (
         <div className="p-4 pt-0 animate-fade-in relative">
             <div className={`mt-2 space-y-5 relative`}>
-                <div className={`${isLocked ? 'grayscale opacity-75' : ''}`}>
+                <div className={`${isLocked ? 'grayscale-0 opacity-100' : ''}`}>
                     {children}
                 </div>
             </div>
@@ -174,7 +172,7 @@ const App: React.FC = () => {
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
 
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [loginModalView, setLoginModalView] = useState<'pricing' | 'login' | 'signup'>('signup'); 
+  const [loginModalView, setLoginModalView] = useState<'login' | 'signup'>('signup'); 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [autoPose, setAutoPose] = useState(true);
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
@@ -227,8 +225,12 @@ const App: React.FC = () => {
   }, [session]);
 
   const handleProInterceptor = () => {
+    if (!session) {
+        setLoginModalView('signup');
+        setShowLoginModal(true);
+        return true;
+    }
     if (!hasProAccess) {
-        showToast("Upgrade to Creator Tier to unlock Premium models.", "info");
         setShowUpgradeModal(true);
         return true;
     }
@@ -236,8 +238,12 @@ const App: React.FC = () => {
   };
 
   const handleStudioInterceptor = () => {
+    if (!session) {
+        setLoginModalView('signup');
+        setShowLoginModal(true);
+        return true;
+    }
     if (!isStudio) {
-        showToast("Upgrade to Studio Tier to unlock 4K Production Upscaling.", "info");
         setShowUpgradeModal(true);
         return true;
     }
@@ -281,9 +287,6 @@ const App: React.FC = () => {
     }
   };
 
-  /**
-   * PERFORMANCE FIX: Binary Offload & Dirty Column Scrubbing
-   */
   const saveToLibrary = async (imageUrl: string) => {
     if (!session || !imageUrl || !isConfigured) return;
     
@@ -487,7 +490,7 @@ const App: React.FC = () => {
      }
      const fs = (window as any).fastspring;
      if (fs?.builder && tier) {
-         const productPath = getProductPath(tier);
+         const productPath = tier.toLowerCase();
          fs.builder.push({ products: [{ path: productPath, quantity: 1 }], tags: { userId: session.user.id } });
          if (fs.builder.checkout) fs.builder.checkout();
          setShowUpgradeModal(false);
@@ -592,32 +595,30 @@ const App: React.FC = () => {
                       >
                           {!hasProAccess && <Lock size={10} className="absolute top-1 right-1 text-amber-500" />}
                           <span className="text-[10px] font-black uppercase tracking-tight">Pro 3</span>
-                          <span className={`text-[8px] font-bold uppercase ${selectedModel === 'pro-3' ? 'text-zinc-500' : 'text-zinc-700'}`}>High Detail</span>
+                          <span className={`text-[8px] font-bold uppercase ${selectedModel === 'pro-3' ? 'text-zinc-500' : 'text-amber-500/80'}`}>
+                             {!hasProAccess ? 'Requires Creator Tier' : 'High Detail'}
+                          </span>
                       </button>
                   </div>
               </div>
 
-              <FeatureLockWrapper isLocked={!isStudio} onClick={handleStudioInterceptor}>
-                  <div className={`flex items-center justify-between p-3 bg-zinc-900/30 border border-zinc-800 rounded-md transition-opacity ${!isStudio ? 'opacity-60' : ''}`}>
+              <FeatureLockWrapper isLocked={!isStudio} requiredTier="Studio" hasSession={!!session} onClick={handleStudioInterceptor}>
+                  <div className={`flex items-center justify-between p-3 bg-zinc-900/30 border border-zinc-800 rounded-md transition-opacity ${!isStudio ? 'opacity-85 grayscale' : ''}`}>
                       <div className="flex items-center gap-3">
                           <div className={`p-2 rounded bg-zinc-800/50 border border-zinc-700`}>
                               <Monitor size={14} className="text-zinc-400" />
                           </div>
-                          <div className="flex flex-col gap-0.5">
-                              <div className="flex items-center gap-2">
-                                <span className={`text-[10px] font-bold uppercase tracking-widest block text-zinc-300 whitespace-nowrap`}>4K Production Upscale</span>
-                                {!isStudio && (
-                                    <span className="text-[7px] font-black text-amber-500 uppercase bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 leading-none shrink-0">
-                                        Studio Only
-                                    </span>
-                                )}
+                          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2 w-full">
+                                <span className={`text-[10px] font-bold uppercase tracking-widest block text-zinc-300 truncate`}>4K Production Upscale</span>
+                                {!isStudio && <Lock size={10} className="text-amber-500 shrink-0" />}
                               </div>
                               <span className="text-[8px] text-zinc-500 font-medium">Requires Studio Tier</span>
                           </div>
                       </div>
                       <button 
                           onClick={() => isStudio ? setOptions({...options, enable4K: !options.enable4K}) : handleStudioInterceptor()}
-                          className={`w-10 h-5 rounded-full relative transition-all duration-300 ${options.enable4K && isStudio ? 'bg-white' : 'bg-zinc-800'}`}
+                          className={`w-10 h-5 rounded-full relative transition-all duration-300 shrink-0 ${options.enable4K && isStudio ? 'bg-white' : 'bg-zinc-800'}`}
                       >
                           <div className={`absolute top-1 w-3 h-3 rounded-full transition-all duration-300 ${options.enable4K && isStudio ? 'right-1 bg-black' : 'left-1 bg-zinc-600'}`}></div>
                       </button>
@@ -665,7 +666,6 @@ const App: React.FC = () => {
                   <ConfigSection 
                     title="Model Identity" 
                     icon={UserCircle} 
-                    isLocked={!hasProAccess} 
                   >
                       <div className="grid grid-cols-2 gap-4">
                           <Dropdown 
@@ -673,32 +673,40 @@ const App: React.FC = () => {
                             value={options.sex} 
                             options={Object.values(ModelSex)} 
                             onChange={(val) => setOptions({ ...options, sex: val })} 
-                            lockedOptions={!hasProAccess ? Object.values(ModelSex) : []}
+                            lockedOptions={!hasProAccess ? Object.values(ModelSex).filter(s => s !== ModelSex.Female) : []}
                             onLockedClick={handleProInterceptor}
+                            requiredTier="Creator"
+                            hasSession={!!session}
                           />
                           <Dropdown 
                             label="Ethnicity" 
                             value={options.ethnicity} 
                             options={Object.values(ModelEthnicity)} 
                             onChange={(val) => setOptions({ ...options, ethnicity: val })} 
-                            lockedOptions={!hasProAccess ? Object.values(ModelEthnicity) : []}
+                            lockedOptions={!hasProAccess ? Object.values(ModelEthnicity).filter(e => e !== ModelEthnicity.Mixed) : []}
                             onLockedClick={handleProInterceptor}
+                            requiredTier="Creator"
+                            hasSession={!!session}
                           />
                           <Dropdown 
                             label="Age Range" 
                             value={options.age} 
                             options={Object.values(ModelAge)} 
                             onChange={(val) => setOptions({ ...options, age: val })} 
-                            lockedOptions={!hasProAccess ? Object.values(ModelAge) : []}
+                            lockedOptions={!hasProAccess ? Object.values(ModelAge).filter(a => a !== ModelAge.YoungAdult) : []}
                             onLockedClick={handleProInterceptor}
+                            requiredTier="Creator"
+                            hasSession={!!session}
                           />
                           <Dropdown 
                             label="Expression" 
                             value={options.facialExpression} 
                             options={Object.values(FacialExpression)} 
                             onChange={(val) => setOptions({ ...options, facialExpression: val })} 
-                            lockedOptions={!hasProAccess ? Object.values(FacialExpression) : []}
+                            lockedOptions={!hasProAccess ? Object.values(FacialExpression).filter(f => f !== FacialExpression.Neutral) : []}
                             onLockedClick={handleProInterceptor}
+                            requiredTier="Creator"
+                            hasSession={!!session}
                           />
                       </div>
                       <div className="space-y-3 pt-2">
@@ -708,28 +716,36 @@ const App: React.FC = () => {
                                 value={options.hairColor as HairColor} 
                                 options={Object.values(HairColor)} 
                                 onChange={(val) => setOptions({ ...options, hairColor: val })} 
-                                lockedOptions={!hasProAccess ? Object.values(HairColor) : []}
+                                lockedOptions={!hasProAccess ? Object.values(HairColor).filter(h => h !== HairColor.JetBlack) : []}
                                 onLockedClick={handleProInterceptor}
+                                requiredTier="Creator"
+                                hasSession={!!session}
                               />
                               <Dropdown 
                                 label="Hair Style" 
                                 value={options.hairStyle as HairStyle} 
                                 options={Object.values(HairStyle)} 
                                 onChange={(val) => setOptions({ ...options, hairStyle: val })} 
-                                lockedOptions={!hasProAccess ? Object.values(HairStyle) : []}
+                                lockedOptions={!hasProAccess ? Object.values(HairStyle).filter(h => h !== HairStyle.StraightSleek) : []}
                                 onLockedClick={handleProInterceptor}
+                                requiredTier="Creator"
+                                hasSession={!!session}
                               />
                           </div>
                           <div className="space-y-1.5">
                               <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Custom Features</label>
-                              <div className="relative">
+                              <div className="relative group">
                                   <textarea 
                                     placeholder="Freckles, sharp jawline, blue eyes..." 
                                     value={options.modelFeatures} 
                                     onChange={(e) => hasProAccess ? setOptions({...options, modelFeatures: e.target.value}) : handleProInterceptor()} 
-                                    className="w-full h-20 bg-black border border-zinc-800 rounded-md py-2 px-3 text-white resize-none focus:border-zinc-500" 
+                                    className="w-full h-20 bg-black border border-zinc-800 rounded-md py-2 px-3 text-white resize-none focus:border-zinc-500 font-mono" 
                                   />
-                                  {!hasProAccess && <Lock size={10} className="absolute right-3 top-3 text-amber-500/50" />}
+                                  {!hasProAccess && (
+                                    <div className="absolute top-2 right-2 text-amber-500/50 pointer-events-none group-hover:text-amber-500 transition-colors">
+                                        <Lock size={12} />
+                                    </div>
+                                  )}
                               </div>
                           </div>
                       </div>
@@ -740,49 +756,85 @@ const App: React.FC = () => {
                   </ConfigSection>
 
                   <ConfigSection title="Pose & Staging" icon={Move}>
-                      <PoseControl selectedPose={options.pose} onPoseChange={(p) => setOptions({...options, pose: p})} isAutoMode={autoPose} onToggleAutoMode={setAutoPose} isPremium={isPremium} onUpgrade={() => setShowUpgradeModal(true)} />
+                      <PoseControl 
+                        selectedPose={options.pose} 
+                        onPoseChange={(p) => setOptions({...options, pose: p})} 
+                        isAutoMode={autoPose} 
+                        onToggleAutoMode={setAutoPose} 
+                        isPremium={isPremium} 
+                        hasSession={!!session}
+                        onUpgrade={handleProInterceptor} 
+                      />
                   </ConfigSection>
 
                   <ConfigSection title="Visual Style & Scene" icon={Palette}>
-                      <div className="space-y-4">
-                          <div className="space-y-1.5">
-                              <div className="flex flex-col gap-0.5 mb-1.5">
-                                <div className="flex items-center gap-2">
-                                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Lookbook Layout</label>
-                                  {!isStudio && (
-                                    <span className="text-[7px] font-black text-amber-500 uppercase bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 leading-none shrink-0">
-                                      Studio Only
-                                    </span>
-                                  )}
-                                </div>
-                                <span className="text-[8px] text-zinc-600 font-medium pl-1">Professional multi-panel display</span>
+                      <div className="space-y-6">
+                          {/* Structural Layout Section */}
+                          <div className="space-y-3">
+                              <div className="flex flex-col gap-0.5 px-1">
+                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Lookbook Composition</label>
+                                <span className="text-[8px] text-zinc-600 font-medium">Define structural rendering mode</span>
                               </div>
-                              <FeatureLockWrapper isLocked={!isStudio} onClick={handleStudioInterceptor}>
-                                  <div className={`bg-zinc-950 border border-zinc-800 rounded-lg p-1 flex gap-1 transition-opacity ${!isStudio ? 'opacity-60' : ''}`}>
-                                      <button
-                                          onClick={() => setOptions({ ...options, layout: LayoutMode.Single })}
-                                          className={`flex-1 py-2 px-3 rounded-md text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 ${options.layout === LayoutMode.Single ? 'bg-zinc-100 text-black' : 'text-zinc-500 hover:text-white'}`}
-                                      >
-                                          Single
-                                      </button>
-                                      <button
-                                          onClick={() => isStudio ? setOptions({ ...options, layout: LayoutMode.Diptych }) : handleStudioInterceptor()}
-                                          className={`flex-1 py-2 px-3 rounded-md text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 relative ${options.layout === LayoutMode.Diptych ? 'bg-zinc-100 text-black' : 'text-zinc-500 hover:text-white'}`}
-                                      >
-                                          Diptych
-                                      </button>
-                                  </div>
-                              </FeatureLockWrapper>
+                              
+                              <div className="grid grid-cols-2 gap-3">
+                                  <button
+                                      onClick={() => setOptions({ ...options, layout: LayoutMode.Single })}
+                                      className={`p-3 rounded-lg border transition-all flex flex-col gap-3 group ${options.layout === LayoutMode.Single ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-600'}`}
+                                  >
+                                      <div className={`w-full aspect-[4/3] rounded border flex items-center justify-center ${options.layout === LayoutMode.Single ? 'bg-zinc-100 border-zinc-200' : 'bg-zinc-900/50 border-zinc-800'}`}>
+                                          <Layout size={24} className={options.layout === LayoutMode.Single ? 'text-black' : 'text-zinc-700'} />
+                                      </div>
+                                      <div className="flex flex-col gap-0.5 text-left">
+                                          <span className={`text-[10px] font-black uppercase tracking-tight ${options.layout === LayoutMode.Single ? 'text-black' : 'text-white'}`}>Single View</span>
+                                          <span className={`text-[8px] font-medium uppercase ${options.layout === LayoutMode.Single ? 'text-zinc-500' : 'text-zinc-600'}`}>Standard Lens</span>
+                                      </div>
+                                  </button>
+
+                                  <button
+                                      onClick={() => isStudio ? setOptions({ ...options, layout: LayoutMode.Diptych }) : handleStudioInterceptor()}
+                                      className={`p-3 rounded-lg border transition-all flex flex-col gap-3 group relative ${options.layout === LayoutMode.Diptych ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-600'}`}
+                                  >
+                                      <div className={`w-full aspect-[4/3] rounded border flex items-center justify-center ${options.layout === LayoutMode.Diptych ? 'bg-zinc-100 border-zinc-200' : 'bg-zinc-900/50 border-zinc-800'}`}>
+                                          <Columns size={24} className={options.layout === LayoutMode.Diptych ? 'text-black' : 'text-zinc-700'} />
+                                      </div>
+                                      <div className="flex flex-col gap-0.5 text-left">
+                                          <span className={`text-[10px] font-black uppercase tracking-tight ${options.layout === LayoutMode.Diptych ? 'text-black' : 'text-white'}`}>Diptych Split</span>
+                                          <span className={`text-[8px] font-black uppercase ${options.layout === LayoutMode.Diptych ? 'text-zinc-400' : 'text-amber-500'}`}>Requires Studio Tier</span>
+                                      </div>
+                                      {!isStudio && options.layout !== LayoutMode.Diptych && <Lock size={10} className="absolute top-2 right-2 text-zinc-600 group-hover:text-amber-500" />}
+                                  </button>
+                              </div>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-3">
-                              {STANDARD_STYLES.map(s => <StyleButton key={s} label={s} isSelected={options.style === s} onClick={() => setOptions({...options, style: s})} />)}
+                          {/* Style Grids */}
+                          <div className="space-y-4 pt-4 border-t border-zinc-800/50">
+                              <div className="space-y-3">
+                                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Standard Aesthetics</label>
+                                  <div className="grid grid-cols-2 gap-3">
+                                      {STANDARD_STYLES.map(s => <StyleButton key={s} label={s} isSelected={options.style === s} onClick={() => setOptions({...options, style: s})} />)}
+                                  </div>
+                              </div>
+
+                              <div className="space-y-3 pt-2">
+                                  <div className="flex items-center justify-between px-1">
+                                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Professional Styles</label>
+                                      {!hasProAccess && <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest border border-amber-500/30 px-2 py-0.5 rounded">Requires Creator Tier</span>}
+                                  </div>
+                                  <div className={`grid grid-cols-2 gap-3 transition-all ${!hasProAccess ? 'opacity-85 grayscale' : ''}`}>
+                                      {PRO_STYLES.map(s => (
+                                          <StyleButton 
+                                            key={s} 
+                                            label={s} 
+                                            isSelected={options.style === s} 
+                                            isLocked={!hasProAccess} 
+                                            onClick={() => handleProInterceptor() ? null : setOptions({...options, style: s})} 
+                                          />
+                                      ))}
+                                  </div>
+                              </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-3 pt-2 border-t border-zinc-800/50 relative">
-                              {!hasProAccess && <div className="absolute inset-x-0 -top-2 flex justify-center z-20"><span className="bg-amber-500 text-black text-[8px] font-black px-2 py-0.5 rounded-full border border-black uppercase tracking-tighter shadow-xl">Premium Collection</span></div>}
-                              {PRO_STYLES.map(s => <StyleButton key={s} label={s} isSelected={options.style === s} isLocked={!hasProAccess} onClick={() => handleProInterceptor() ? null : setOptions({...options, style: s})} />)}
-                          </div>
-                          <div className="space-y-3 pt-2 border-t border-zinc-800/50">
+
+                          <div className="space-y-3 pt-4 border-t border-zinc-800/50">
                               <div className="space-y-1.5">
                                   <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Scenery Details</label>
                                   <textarea placeholder="e.g. Modern concrete loft, soft morning light, minimalist furniture..." value={options.sceneDetails} onChange={(e) => setOptions({...options, sceneDetails: e.target.value})} className="w-full h-24 bg-black border border-zinc-800 rounded-md py-2 px-3 text-xs text-white focus:border-zinc-500 font-mono resize-none" />
@@ -813,6 +865,11 @@ const App: React.FC = () => {
              <ResultDisplay 
                 isLoading={isLoading} image={generatedImage} onDownload={handleDownload} 
                 onRegenerate={(keepModel) => { 
+                    if (keepModel && !session) {
+                        setLoginModalView('signup');
+                        setShowLoginModal(true);
+                        return;
+                    }
                     if (keepModel && !isPremium) {
                         setShowUpgradeModal(true);
                         return;
@@ -833,23 +890,6 @@ const App: React.FC = () => {
         </section>
       </div>
 
-      <div className="lg:hidden h-16 border-t border-zinc-800 bg-zinc-950/80 backdrop-blur-xl flex items-center justify-around px-6 z-[80]">
-          <button 
-            onClick={() => setActiveTab('editor')}
-            className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'editor' ? 'text-white' : 'text-zinc-500'}`}
-          >
-            <Settings size={20} strokeWidth={activeTab === 'editor' ? 2.5 : 2} />
-            <span className="text-[9px] font-black uppercase tracking-widest">Editor</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab('preview')}
-            className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'preview' ? 'text-white' : 'text-zinc-500'}`}
-          >
-            <Eye size={20} strokeWidth={activeTab === 'preview' ? 2.5 : 2} />
-            <span className="text-[9px] font-black uppercase tracking-widest">Preview</span>
-          </button>
-      </div>
-
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onAuth={handleAuth} initialView={loginModalView} />
       <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} onUpgrade={handleUpgrade} currentTier={userProfile?.tier || SubscriptionTier.Free} />
@@ -858,4 +898,5 @@ const App: React.FC = () => {
   );
 };
 
+// Export the App component as the default export to fix the import error in index.tsx
 export default App;

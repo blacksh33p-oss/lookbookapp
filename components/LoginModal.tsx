@@ -1,26 +1,21 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Mail, ArrowRight, Loader2, Check, User, Building2, Lock, Fingerprint, Eye, EyeOff, ExternalLink, RefreshCw, Zap, Crown, Star, ShieldCheck } from 'lucide-react';
-import { SubscriptionTier } from '../types';
+import { X, Mail, Loader2, User, Lock, Eye, EyeOff, Hexagon, AlertCircle } from 'lucide-react';
 
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAuth: (email: string, password?: string, isSignUp?: boolean, username?: string) => Promise<void>;
-  showToast?: (message: string, type: 'success' | 'error' | 'info') => void;
-  initialView?: 'pricing' | 'login' | 'signup';
+  initialView?: 'login' | 'signup';
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({ 
   isOpen, 
   onClose, 
   onAuth, 
-  showToast,
-  initialView = 'pricing' 
+  initialView = 'signup' 
 }) => {
-  const [step, setStep] = useState<'selection' | 'credentials'>('selection');
-  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
-  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>(SubscriptionTier.Free);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>(initialView === 'login' ? 'signin' : 'signup');
   const [isSuccess, setIsSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
@@ -38,34 +33,17 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-        if (initialView === 'pricing') {
-            setStep('selection');
-            // Auth mode defaults to signup, but will be set when they click a card
-            setAuthMode('signup');
-        } else {
-            setStep('credentials');
-            setAuthMode(initialView === 'login' ? 'signin' : 'signup');
-        }
-        
+        setAuthMode(initialView === 'login' ? 'signin' : 'signup');
         setError(null); setEmail(''); setPassword(''); setUsername(''); setIsSuccess(false);
     }
   }, [isOpen, initialView]);
 
   if (!isOpen) return null;
 
-  const handleTierSelect = (tier: SubscriptionTier) => {
-    setSelectedTier(tier);
-    if (tier !== SubscriptionTier.Free) localStorage.setItem('pending_plan', tier);
-    else localStorage.removeItem('pending_plan');
-    setAuthMode('signup');
-    setStep('credentials');
-    setError(null);
-  };
-
   const handleSubmit = async () => {
-    if (!email || !email.includes('@')) { setError("Invalid email."); return; }
-    if (authMode === 'signup' && (!username || username.length < 3)) { setError("Username too short."); return; }
-    if (!password || password.length < 6) { setError("Password too short."); return; }
+    if (!email || !email.includes('@')) { setError("Please enter a valid email."); return; }
+    if (authMode === 'signup' && (!username || username.length < 3)) { setError("Username must be at least 3 characters."); return; }
+    if (!password || password.length < 6) { setError("Password must be at least 6 characters."); return; }
     
     setIsLoading(true);
     setError(null);
@@ -75,7 +53,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         if (authMode === 'signup') setIsSuccess(true);
         else onClose();
     } catch (err: any) {
-        setError(err.message || "Auth failed.");
+        setError(err.message || "Authentication failed. Please try again.");
     } finally {
         setIsLoading(false);
     }
@@ -84,20 +62,20 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   if (isSuccess) {
       return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-black border border-zinc-800 rounded-lg w-full max-w-md p-8 text-center relative">
-                <button onClick={onClose} className="absolute top-4 right-4 text-zinc-500 hover:text-white"><X size={16}/></button>
+            <div className="bg-black border border-zinc-800 rounded-lg w-full max-w-md p-8 text-center relative shadow-2xl">
+                <button onClick={onClose} className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors"><X size={16}/></button>
                 <div className="w-12 h-12 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-6 border border-zinc-800">
                     <Mail className="text-white" size={20} />
                 </div>
                 <h3 className="text-xl font-bold text-white mb-2">Check your inbox</h3>
-                <p className="text-zinc-500 mb-8 text-sm">Verification link sent to <span className="text-white">{email}</span></p>
+                <p className="text-zinc-500 mb-8 text-sm leading-relaxed">We sent a verification link to <span className="text-white font-medium">{email}</span>. Please verify your account to continue.</p>
                 
                 <div className="grid grid-cols-2 gap-3 mb-6">
-                    <a href="https://mail.google.com" target="_blank" className="flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white py-2.5 rounded-md text-xs font-bold uppercase">Gmail</a>
-                    <a href="https://outlook.live.com" target="_blank" className="flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white py-2.5 rounded-md text-xs font-bold uppercase">Outlook</a>
+                    <a href="https://mail.google.com" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white py-2.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all">Gmail</a>
+                    <a href="https://outlook.live.com" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white py-2.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all">Outlook</a>
                 </div>
-                <div className="text-xs text-zinc-600">
-                    {resendTimer > 0 ? `Resend in ${resendTimer}s` : <button onClick={() => setResendTimer(60)} className="hover:text-white">Resend Email</button>}
+                <div className="text-[10px] text-zinc-600 font-bold uppercase tracking-tighter">
+                    {resendTimer > 0 ? `Resend available in ${resendTimer}s` : <button onClick={() => setResendTimer(60)} className="hover:text-white transition-colors">Resend Verification Email</button>}
                 </div>
             </div>
         </div>
@@ -105,128 +83,67 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
-      <div className={`bg-black border border-zinc-800 rounded-xl w-full ${step === 'selection' ? 'max-w-6xl' : 'max-w-md'} overflow-hidden relative`}>
-        <button onClick={onClose} className="absolute top-4 right-4 text-zinc-500 hover:text-white z-20"><X size={16} /></button>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md">
+      <div className="bg-black border border-zinc-800 rounded-xl w-full max-w-md overflow-hidden relative shadow-[0_0_100px_rgba(255,255,255,0.05)]">
+        <button onClick={onClose} className="absolute top-6 right-6 text-zinc-500 hover:text-white z-20 transition-colors"><X size={18} /></button>
 
-        {step === 'selection' ? (
-             <div className="p-8 md:p-12">
-                <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-4">
-                    <div>
-                        <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">Select Plan</h2>
-                        <p className="text-zinc-500 text-sm">Scale your fashion photography with AI.</p>
-                    </div>
-                    <button onClick={() => { setStep('credentials'); setAuthMode('signin'); }} className="text-zinc-400 hover:text-white text-sm font-medium">Log In</button>
+        <div className="p-10">
+            <div className="mb-10 text-center">
+                <div className="w-12 h-12 bg-white text-black rounded-lg flex items-center justify-center mx-auto mb-6 shadow-lg">
+                    <Hexagon size={24} fill="currentColor" />
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                     {/* GUEST TIER */}
-                     <div className="bg-black border border-zinc-800 rounded-lg p-6 hover:border-zinc-600 transition-colors cursor-pointer flex flex-col group" onClick={() => handleTierSelect(SubscriptionTier.Free)}>
-                        <div className="mb-4">
-                            <div className="text-white font-bold text-lg mb-1">Guest</div>
-                            <div className="text-zinc-500 text-xs">For quick tests.</div>
+                <h2 className="text-2xl font-black text-white mb-2 tracking-tighter uppercase font-mono">
+                    {authMode === 'signin' ? 'Welcome Back' : 'Create Account'}
+                </h2>
+                <p className="text-zinc-500 text-xs">Access pro-grade fashion photography AI</p>
+            </div>
+            
+            <div className="space-y-5">
+                {authMode === 'signup' && (
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] pl-1">Identity Name</label>
+                        <div className="relative">
+                            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-md py-3 px-4 pl-10 text-white focus:border-zinc-500 transition-all font-mono" placeholder="Your name or agency" />
+                            <User className="absolute left-3 top-3.5 text-zinc-700" size={14} />
                         </div>
-                        <ul className="space-y-3 mb-6 flex-1 text-sm text-zinc-400">
-                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-600" /> 5 Daily Drafts</li>
-                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-600" /> Gemini Flash 2.5 Model</li>
-                        </ul>
-                        <button className="w-full bg-zinc-900 text-zinc-400 font-medium py-3 rounded-md border border-zinc-800 text-xs group-hover:bg-zinc-800 group-hover:text-white transition-all">Try Free</button>
                     </div>
-
-                    {/* STARTER TIER */}
-                    <div className="bg-black border border-zinc-800 rounded-lg p-6 hover:border-zinc-500 transition-colors cursor-pointer flex flex-col group" onClick={() => handleTierSelect(SubscriptionTier.Starter)}>
-                        <div className="mb-4">
-                            <div className="text-white font-bold text-lg mb-1">Starter</div>
-                            <div className="text-zinc-500 text-xs">$9/mo</div>
-                        </div>
-                        <ul className="space-y-3 mb-6 flex-1 text-sm text-zinc-400">
-                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> <span className="text-zinc-200">100 Credits</span></li>
-                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> 100 Fast Drafts</li>
-                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> Gemini Flash 2.5 Model</li>
-                        </ul>
-                        <button className="w-full bg-zinc-900 text-white font-medium py-3 rounded-md border border-zinc-800 text-xs group-hover:bg-zinc-800 group-hover:border-zinc-600 transition-all">Select Starter</button>
+                )}
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] pl-1">Email Address</label>
+                    <div className="relative">
+                        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-md py-3 px-4 pl-10 text-white focus:border-zinc-500 transition-all font-mono" placeholder="name@company.com" />
+                        <Mail className="absolute left-3 top-3.5 text-zinc-700" size={14} />
                     </div>
-
-                    {/* CREATOR TIER (ANCHOR) */}
-                    <div className="bg-white border border-transparent rounded-lg p-6 cursor-pointer flex flex-col relative transform hover:-translate-y-1 transition-all duration-300 shadow-xl shadow-white/5" onClick={() => handleTierSelect(SubscriptionTier.Creator)}>
-                        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-zinc-200 via-zinc-400 to-zinc-200"></div>
-                        <div className="mb-4 mt-2">
-                            <div className="flex justify-between items-center mb-1">
-                                <div className="text-black font-extrabold text-xl tracking-tight">Creator</div>
-                                <span className="bg-black text-white text-[9px] font-bold px-2 py-1 rounded-full uppercase tracking-widest shadow-lg">Most Popular</span>
-                            </div>
-                            <div className="text-zinc-600 text-xs font-medium">$29/mo</div>
-                        </div>
-                        <ul className="space-y-3 mb-8 flex-1 text-sm text-zinc-700">
-                             <li className="flex items-center gap-2"><Check size={14} className="text-black stroke-[3px]" /> <span className="font-bold">500 Credits</span></li>
-                             <li className="flex items-center gap-2"><Check size={14} className="text-black" /> 50 Studio Quality</li>
-                             <li className="flex items-center gap-2"><Check size={14} className="text-black" /> <span className="text-zinc-600">or 500 Fast Drafts</span></li>
-                             <li className="flex items-center gap-2"><Check size={14} className="text-black" /> Gemini Pro V3</li>
-                             <li className="flex items-center gap-2"><Check size={14} className="text-black" /> 2K Resolution</li>
-                        </ul>
-                        <button className="w-full bg-black text-white font-bold py-3.5 rounded-md text-xs hover:bg-zinc-800 hover:shadow-lg transition-all flex items-center justify-center gap-2">
-                            Get Pro Access <ArrowRight size={12} />
+                </div>
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] pl-1">Secure Password</label>
+                    <div className="relative">
+                        <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSubmit()} className="w-full bg-black border border-zinc-800 rounded-md py-3 px-4 pl-10 pr-10 text-white focus:border-zinc-500 transition-all font-mono" placeholder="••••••••" />
+                        <Lock className="absolute left-3 top-3.5 text-zinc-700" size={14} />
+                        <button onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3.5 text-zinc-700 hover:text-white transition-colors">
+                            {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                         </button>
                     </div>
-
-                    {/* STUDIO TIER */}
-                    <div className="bg-black border border-zinc-800 rounded-lg p-6 hover:border-zinc-500 transition-colors cursor-pointer flex flex-col group" onClick={() => handleTierSelect(SubscriptionTier.Studio)}>
-                        <div className="mb-4">
-                            <div className="text-white font-bold text-lg mb-1">Studio</div>
-                            <div className="text-zinc-500 text-xs">$99/mo</div>
-                        </div>
-                        <ul className="space-y-3 mb-6 flex-1 text-sm text-zinc-400">
-                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> <span className="text-zinc-200">2000 Credits</span></li>
-                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> 200 Studio Quality</li>
-                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> <span className="text-zinc-500">or 2000 Fast Drafts</span></li>
-                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> Gemini Pro V3</li>
-                            <li className="flex items-center gap-2"><Check size={12} className="text-zinc-500" /> 4K Resolution Available</li>
-                        </ul>
-                        <button className="w-full bg-zinc-900 text-white font-medium py-3 rounded-md border border-zinc-800 text-xs group-hover:bg-zinc-800 group-hover:border-zinc-600 transition-all">Select Studio</button>
-                    </div>
                 </div>
-             </div>
-        ) : (
-             <div className="p-8">
-                {/* Only show Back button if we started in Pricing view */}
-                {initialView === 'pricing' && (
-                    <button onClick={() => { setStep('selection'); setAuthMode('signup'); }} className="text-xs text-zinc-500 hover:text-white mb-6">← Back</button>
+
+                {error && (
+                    <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] font-bold p-3 rounded-md flex items-start gap-2">
+                        <AlertCircle size={14} className="shrink-0" />
+                        {error}
+                    </div>
                 )}
-                
-                <h2 className="text-xl font-bold text-white mb-6">
-                    {authMode === 'signin' ? 'Sign In' : 'Create Account'}
-                </h2>
-                
-                <div className="space-y-4">
-                    {authMode === 'signup' && (
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">Username</label>
-                            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-md py-2 px-3 text-white focus:border-zinc-500" />
-                        </div>
-                    )}
-                    <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">Email</label>
-                        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-md py-2 px-3 text-white focus:border-zinc-500" />
-                    </div>
-                    <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">Password</label>
-                        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSubmit()} className="w-full bg-black border border-zinc-800 rounded-md py-2 px-3 text-white focus:border-zinc-500" />
-                    </div>
 
-                    {error && <div className="text-red-500 text-xs">{error}</div>}
-
-                    <button onClick={handleSubmit} disabled={isLoading} className="w-full bg-white hover:bg-zinc-200 text-black font-bold py-2.5 rounded-md transition-all mt-2">
-                        {isLoading ? <Loader2 size={16} className="animate-spin mx-auto" /> : (authMode === 'signin' ? 'Continue' : 'Create Account')}
-                    </button>
-                    
-                    <div className="pt-2 text-center">
-                         <button onClick={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')} className="text-xs text-zinc-500 hover:text-white">
-                            {authMode === 'signin' ? "Don't have an account? Sign up" : "Already have an account? Log in"}
-                         </button>
-                    </div>
+                <button onClick={handleSubmit} disabled={isLoading} className="w-full bg-white hover:bg-zinc-200 text-black font-black uppercase tracking-[0.2em] text-[10px] py-4 rounded-md transition-all mt-4 shadow-xl active:scale-[0.98] disabled:opacity-50">
+                    {isLoading ? <Loader2 size={16} className="animate-spin mx-auto" /> : (authMode === 'signin' ? 'Continue' : 'Join Now')}
+                </button>
+                
+                <div className="pt-6 text-center border-t border-zinc-900 mt-2">
+                     <button onClick={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')} className="text-[10px] font-black text-zinc-500 hover:text-white uppercase tracking-widest transition-all">
+                        {authMode === 'signin' ? "Don't have an account? Sign up" : "Already registered? Sign in"}
+                     </button>
                 </div>
             </div>
-        )}
+        </div>
       </div>
     </div>
   );

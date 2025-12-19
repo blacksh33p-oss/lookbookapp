@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Check, Lock } from 'lucide-react';
 
@@ -10,7 +9,8 @@ interface DropdownProps<T> {
   disabled?: boolean;
   lockedOptions?: T[];
   onLockedClick?: () => void;
-  lockReason?: string;
+  requiredTier?: string;
+  hasSession?: boolean;
 }
 
 export const Dropdown = <T extends string>({
@@ -21,7 +21,8 @@ export const Dropdown = <T extends string>({
   disabled,
   lockedOptions = [],
   onLockedClick,
-  lockReason = "Upgrade to unlock"
+  requiredTier,
+  hasSession = false
 }: DropdownProps<T>) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -44,6 +45,8 @@ export const Dropdown = <T extends string>({
     onChange(opt);
     setIsOpen(false);
   };
+
+  const lockMessage = requiredTier ? `Requires ${requiredTier} Tier` : "Premium Option";
 
   return (
     <div className="flex flex-col gap-1.5" ref={dropdownRef}>
@@ -70,14 +73,16 @@ export const Dropdown = <T extends string>({
                   onClick={() => handleOptionClick(opt)}
                   className={`w-full relative flex items-center justify-between px-4 py-3 text-xs text-left transition-all group ${opt === value ? 'bg-zinc-900 text-white font-bold' : 'text-zinc-400 hover:bg-zinc-900/80 hover:text-zinc-200'}`}
                 >
-                  <span className={`truncate ${isLocked ? 'opacity-30' : ''}`}>{opt}</span>
+                  <div className="flex-1 min-w-0 mr-2">
+                    <span className={`block truncate ${isLocked ? 'opacity-60' : ''}`}>{opt}</span>
+                  </div>
                   
                   {isLocked && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="flex flex-col items-center gap-0.5">
-                            <Lock size={10} className="text-amber-500" />
-                            <span className="text-[7px] font-black uppercase text-amber-500 tracking-tighter opacity-0 group-hover:opacity-100 transition-opacity">Unlock</span>
-                        </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[7px] font-black uppercase text-amber-500 tracking-widest opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                            {lockMessage}
+                        </span>
+                        <Lock size={10} className="text-amber-500 shrink-0" />
                     </div>
                   )}
 

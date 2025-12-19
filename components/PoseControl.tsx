@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { User, Move, Armchair, Lock, Wand2, RefreshCcw, Briefcase, Shuffle } from 'lucide-react';
 
@@ -8,6 +7,7 @@ interface PoseControlProps {
   isAutoMode: boolean;
   onToggleAutoMode: (isAuto: boolean) => void;
   isPremium: boolean;
+  hasSession: boolean;
   onUpgrade: () => void;
 }
 
@@ -62,6 +62,7 @@ export const PoseControl: React.FC<PoseControlProps> = ({
   isAutoMode,
   onToggleAutoMode,
   isPremium,
+  hasSession,
   onUpgrade
 }) => {
   
@@ -71,7 +72,6 @@ export const PoseControl: React.FC<PoseControlProps> = ({
   };
 
   const handleModeToggle = (targetModeIsAuto: boolean) => {
-      if (!targetModeIsAuto && !isPremium) { onUpgrade(); return; }
       onToggleAutoMode(targetModeIsAuto);
       if (targetModeIsAuto) onPoseChange(undefined);
   };
@@ -94,47 +94,50 @@ export const PoseControl: React.FC<PoseControlProps> = ({
             !isAutoMode ? 'bg-zinc-100 text-black' : 'bg-black text-zinc-500 hover:text-zinc-300'
           }`}
         >
-           {!isPremium && <Lock size={10} className="text-zinc-500" />} Manual
+           {!isPremium && <Lock size={10} className="text-amber-500 mr-1" />} Manual
         </button>
       </div>
 
       {!isAutoMode ? (
-        <div className="space-y-4">
-            {POSE_CATEGORIES.map((category) => (
-                <div key={category.id}>
-                    <h4 className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mb-2">{category.label}</h4>
-                    <div className="grid grid-cols-3 gap-2">
-                        {category.poses.map((pose) => {
-                            const isSelected = selectedPose === pose.prompt;
-                            const isLocked = !isPremium;
-                            return (
-                                <button
-                                    key={pose.id}
-                                    onClick={() => handlePresetClick(pose.prompt)}
-                                    className={`relative p-2 rounded-md border text-center transition-all flex flex-col items-center justify-center gap-2 min-h-[4rem] group
-                                        ${isSelected 
-                                            ? 'bg-white border-white text-black' 
-                                            : 'bg-black border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-white'
-                                        }
-                                    `}
-                                >
-                                    <div className={`${isLocked ? 'opacity-30' : ''} flex flex-col items-center gap-2`}>
-                                        <pose.icon size={16} strokeWidth={1.5} />
-                                        <span className="text-[9px] font-medium leading-tight">{pose.label}</span>
-                                    </div>
-                                    
-                                    {isLocked && (
-                                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-                                            <Lock size={12} className="text-amber-500" />
-                                            <span className="text-[7px] font-black uppercase text-amber-500 tracking-tighter opacity-0 group-hover:opacity-100 transition-opacity">Unlock</span>
-                                        </div>
-                                    )}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-            ))}
+        <div className="relative">
+          <div 
+            className={`space-y-4 transition-all ${!isPremium ? 'opacity-85 grayscale cursor-pointer' : ''}`}
+            onClick={() => !isPremium && onUpgrade()}
+          >
+              <div className="flex items-center justify-between px-1 mb-2">
+                 <span className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Premium Pose Library</span>
+                 {!isPremium && <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest border border-amber-500/30 px-2 py-0.5 rounded shadow-[0_0_10px_rgba(245,158,11,0.1)]">Requires Creator Tier</span>}
+              </div>
+
+              {POSE_CATEGORIES.map((category) => (
+                  <div key={category.id}>
+                      <h4 className="text-[9px] text-zinc-600 font-bold uppercase tracking-wider mb-2">{category.label}</h4>
+                      <div className="grid grid-cols-3 gap-2">
+                          {category.poses.map((pose) => {
+                              const isSelected = selectedPose === pose.prompt;
+                              return (
+                                  <button
+                                      key={pose.id}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handlePresetClick(pose.prompt);
+                                      }}
+                                      className={`relative p-2 rounded-md border text-center transition-all flex flex-col items-center justify-center gap-2 min-h-[4rem] group
+                                          ${isSelected 
+                                              ? 'bg-white border-white text-black' 
+                                              : 'bg-black border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-white'
+                                          }
+                                      `}
+                                  >
+                                      <pose.icon size={16} strokeWidth={1.5} />
+                                      <span className="text-[9px] font-medium leading-tight">{pose.label}</span>
+                                  </button>
+                              );
+                          })}
+                      </div>
+                  </div>
+              ))}
+          </div>
         </div>
       ) : (
         <div className="p-6 border border-zinc-800 rounded-lg flex flex-col items-center justify-center text-center bg-zinc-900/30">
