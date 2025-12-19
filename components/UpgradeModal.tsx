@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Check, ChevronRight } from 'lucide-react';
+import { X, ChevronRight } from 'lucide-react';
 import { SubscriptionTier } from '../types';
 
 interface UpgradeModalProps {
@@ -18,38 +18,38 @@ const TIER_RANK = {
 
 const TIER_FEATURES: Record<SubscriptionTier, string[]> = {
   [SubscriptionTier.Free]: [
-    "5 Daily Credits",
-    "Flash Rendering Engine",
-    "Standard Styles",
-    "Basic Layout Mode"
+    "5 Daily Drafts",
+    "Flash 2.5 Access"
   ],
   [SubscriptionTier.Starter]: [
     "100 Monthly Credits",
-    "Flash Rendering Engine",
-    "Standard Styles",
-    "Basic Layout Mode"
+    "Flash 2.5 Access",
+    "Manual Pose Selection"
   ],
   [SubscriptionTier.Creator]: [
     "500 Monthly Credits",
-    "Pro Precision Engine",
-    "2K High-Detail Output",
-    "Premium Style Collection",
+    "Pro 3 Model",
+    "2K High Detail",
+    "Premium Styles",
+    "Model & Identity",
     "Manual Pose Selection"
   ],
   [SubscriptionTier.Studio]: [
     "2000 Monthly Credits",
-    "Pro Precision Engine",
-    "4K Production Upscaling",
-    "Diptych Editorial Layouts",
-    "Premium Style Collection"
+    "Pro 3 Model",
+    "4K Upscale",
+    "Premium Styles",
+    "Model & Identity",
+    "Manual Pose Selection",
+    "Layout Selection"
   ]
 };
 
 const PLAN_DATA = [
-  { id: SubscriptionTier.Free, name: "GUEST", price: "0", label: "FREE" },
-  { id: SubscriptionTier.Starter, name: "STARTER", price: "9", label: "STARTER" },
-  { id: SubscriptionTier.Creator, name: "CREATOR", price: "29", label: "POPULAR" },
-  { id: SubscriptionTier.Studio, name: "STUDIO", price: "99", label: "PROFESSIONAL", premium: true }
+  { id: SubscriptionTier.Free, name: "GUEST", price: "0" },
+  { id: SubscriptionTier.Starter, name: "STARTER", price: "9" },
+  { id: SubscriptionTier.Creator, name: "CREATOR", price: "29" },
+  { id: SubscriptionTier.Studio, name: "STUDIO", price: "99" }
 ];
 
 export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onUpgrade, currentTier }) => {
@@ -59,98 +59,74 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/98 backdrop-blur-2xl overflow-y-auto">
-      <div className="w-full max-w-[1400px] my-auto relative flex flex-col items-center py-12">
+      <div className="w-full max-w-[1200px] my-auto relative py-16">
         
         {/* Editorial Close Button */}
         <button 
           onClick={onClose} 
-          className="fixed top-8 right-8 text-zinc-500 hover:text-white transition-all z-50 p-2 group"
-          aria-label="Close pricing"
+          className="absolute top-0 right-0 p-4 text-zinc-500 hover:text-white transition-all z-50 group"
+          aria-label="Close"
         >
-          <X size={32} strokeWidth={1} className="group-hover:rotate-90 transition-transform duration-300" />
+          <X size={40} strokeWidth={1} className="group-hover:scale-110 transition-transform" />
         </button>
 
         {/* Brand Header */}
-        <div className="text-center mb-20 space-y-4">
-          <p className="text-[10px] font-black uppercase tracking-[0.6em] text-zinc-600">Investment Selection</p>
-          <h2 className="font-serif text-5xl md:text-7xl text-white italic">The Pricing Suite</h2>
+        <div className="mb-20 px-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-600 mb-2">ACCESS CONTROL</p>
+          <h2 className="font-serif text-4xl md:text-5xl text-white font-light italic">Subscription Specification</h2>
         </div>
         
-        {/* Editorial Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full px-4">
-          {PLAN_DATA.map((plan) => {
+        {/* Spec Sheet Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-4 w-full border-t border-white/10">
+          {PLAN_DATA.map((plan, idx) => {
             const planRank = TIER_RANK[plan.id];
             const isCurrent = plan.id === currentTier;
             const isDowngrade = planRank < currentRank;
             const isUpgrade = planRank > currentRank;
             
-            // Border Logic
-            let borderClass = 'border-neutral-800';
-            if (isCurrent) borderClass = 'border-white';
-            else if (plan.id === SubscriptionTier.Studio) borderClass = 'border-yellow-600';
-
             return (
               <div 
                 key={plan.id} 
-                className={`flex flex-col p-12 bg-neutral-950 border transition-all duration-700 relative group min-h-[600px] ${borderClass}`}
+                className={`flex flex-col p-8 md:p-10 border-b md:border-b-0 md:border-r border-white/10 last:border-r-0 transition-colors hover:bg-white/[0.02]`}
               >
-                {/* Visual Label */}
-                <div className="mb-14 h-4">
-                  <span className={`text-[10px] font-black uppercase tracking-[0.3em] ${plan.premium ? 'text-yellow-600' : 'text-zinc-500'}`}>
-                    {plan.label}
-                  </span>
-                </div>
-
                 {/* Plan Header */}
                 <div className="mb-12">
-                  <h3 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400 mb-6">{plan.name}</h3>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-zinc-600 font-serif text-3xl">$</span>
-                    <span className="font-serif text-7xl text-white">{plan.price}</span>
-                    {plan.id !== SubscriptionTier.Free && (
-                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-700 ml-2">/MO</span>
-                    )}
+                  <h3 className="text-[10px] font-bold uppercase tracking-[0.4em] text-zinc-500 mb-8">{plan.name}</h3>
+                  <div className="flex items-baseline">
+                    <span className="font-serif text-6xl text-white font-light">{plan.price}</span>
+                    <span className="text-[10px] font-bold text-zinc-700 ml-3 tracking-widest">USD / MO</span>
                   </div>
                 </div>
 
-                {/* Separator */}
-                <div className="h-px w-full bg-neutral-900 mb-10" />
-
-                {/* Feature List */}
-                <div className="space-y-6 flex-1 mb-12">
+                {/* Technical Features List */}
+                <div className="space-y-4 flex-1 mb-16">
                   {TIER_FEATURES[plan.id].map((feature, i) => (
-                    <div key={i} className="flex items-start gap-4">
-                      <Check size={14} className={`shrink-0 mt-0.5 ${plan.premium ? 'text-yellow-600' : 'text-white'}`} strokeWidth={2} />
-                      <span className="text-[11px] font-medium leading-relaxed text-zinc-400 tracking-wide uppercase">{feature}</span>
+                    <div key={i} className="text-[11px] font-medium text-zinc-400 tracking-wide uppercase">
+                      {feature}
                     </div>
                   ))}
                 </div>
 
-                {/* Smart Action Button */}
-                <div className="mt-auto">
+                {/* Logic Driven Actions */}
+                <div className="mt-auto pt-8 border-t border-white/5">
                   {isCurrent ? (
                     <button
                       onClick={() => onUpgrade()}
-                      className="w-full py-5 border border-white flex items-center justify-center gap-3 group/btn hover:bg-white transition-all"
+                      className="text-[10px] font-black uppercase tracking-[0.3em] text-white underline underline-offset-8 hover:text-zinc-400 transition-colors"
                     >
-                      <Check size={14} className="text-emerald-500" strokeWidth={3} />
-                      <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white group-hover/btn:text-black">Current Plan</span>
+                      Manage Plan
                     </button>
                   ) : isDowngrade ? (
-                    <div className="w-full py-5 border border-transparent flex items-center justify-center">
-                      <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-700">Included</span>
-                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-700 opacity-50 cursor-default">
+                      Included
+                    </span>
                   ) : (
                     <button
                       onClick={() => onUpgrade(plan.id)}
-                      className={`w-full py-5 text-[10px] font-black uppercase tracking-[0.4em] transition-all flex items-center justify-center gap-2 group/btn
-                        ${plan.id === SubscriptionTier.Studio 
-                          ? 'bg-yellow-600 text-black hover:bg-yellow-500' 
-                          : 'bg-white text-black hover:bg-zinc-300'}
-                      `}
+                      className="w-full py-4 bg-white text-black text-[10px] font-black uppercase tracking-[0.3em] hover:bg-zinc-200 transition-all flex items-center justify-center gap-2"
                     >
                       Upgrade
-                      <ChevronRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
+                      <ChevronRight size={14} />
                     </button>
                   )}
                 </div>
@@ -159,15 +135,20 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
           })}
         </div>
 
-        {/* Editorial Footer */}
-        <div className="mt-24 pb-12 text-center space-y-8 max-w-lg">
-           <div className="flex items-center justify-center gap-12 opacity-20">
-              <div className="h-px w-24 bg-zinc-500" />
-              <div className="h-px w-24 bg-zinc-500" />
+        {/* Footer Specification Details */}
+        <div className="mt-16 px-4 grid grid-cols-1 md:grid-cols-2 gap-8 opacity-20">
+           <div className="space-y-2">
+              <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-zinc-500">Service Standards</p>
+              <p className="text-[9px] leading-relaxed text-zinc-600 uppercase">
+                All monthly tiers include encrypted archival and priority GPU processing.
+                Cancellations take effect at the end of the current billing cycle.
+              </p>
            </div>
-           <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-zinc-500 leading-loose">
-             Secure payment via FastSpring. All prices in USD. Subscription terms are billed monthly and subject to archival policy.
-           </p>
+           <div className="flex items-end md:justify-end">
+              <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-zinc-600">
+                Secure Deployment &copy; 2025 FashionStudio.ai
+              </p>
+           </div>
         </div>
       </div>
     </div>
