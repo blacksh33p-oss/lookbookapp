@@ -4,6 +4,14 @@ import { X, Loader2, Download, Trash2, RotateCw, Inbox } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Generation } from '../types';
 
+// Define the missing LibraryDrawerProps interface
+interface LibraryDrawerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  activeProjectId: string | null;
+  prefetch: boolean;
+}
+
 /**
  * ARCHITECTURAL LOAD OPTIMIZATION
  * Batch size of 50 is the optimal saturation point for 4K displays.
@@ -18,9 +26,11 @@ const PAGE_SIZE = 50;
  */
 const getThumbnailUrl = (url: string) => {
   if (!url) return '';
-  if (url.includes('supabase.co/storage/v1/object/public')) {
+  // Check for standard Supabase Storage URL pattern
+  if (url.includes('/storage/v1/object/public')) {
     // 400px width is the breakpoint for high-DPI thumbnails at 50% grid width
-    return `${url}?width=400&quality=70&resize=contain`;
+    // Quality 60 provides excellent visual fidelity for thumbnails while reducing size by ~40%
+    return `${url}?width=400&quality=60&resize=contain`;
   }
   return url;
 };
@@ -223,8 +233,8 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
                     <img 
                       src={getThumbnailUrl(gen.image_url)} 
                       alt="Shoot" 
-                      loading={index < 10 ? 'eager' : 'lazy'}
-                      decoding="async"
+                      loading={index < 4 ? 'eager' : 'lazy'} // PERFORMANCE: Only eager load top 2 rows
+                      decoding="async" // PERFORMANCE: Non-blocking decoding
                       className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" 
                     />
                     

@@ -42,14 +42,8 @@ const getModelName = (version: ModelVersion): string => {
 };
 
 export const generatePhotoshootImage = async (options: PhotoshootOptions): Promise<string> => {
-  // Always access API_KEY dynamically from process.env to support live updates from key dialogs
-  const API_KEY = (window as any).process?.env?.API_KEY || (import.meta as any).env?.VITE_API_KEY;
-  
-  if (!API_KEY) {
-    throw new Error("API Key is missing. If you are using Gemini 3 Pro, please ensure you have selected a paid project key via the selector.");
-  }
-  
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
+  // Always use a new GoogleGenAI instance with process.env.API_KEY as per guidelines.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const heightStr = options.height ? `Model Height: ${options.height} ${options.measurementUnit}` : 'Height: Standard Model Height';
   const bodyTypeStr = `Body Type: ${options.bodyType}`;
