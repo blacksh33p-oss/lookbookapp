@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, Check, Zap, Crown, Building2, User, ArrowRight, ExternalLink, Info, Lock, Sparkles, Monitor, Layout, ShieldCheck, Clock, Minus } from 'lucide-react';
+import { X, Check, Zap, Crown, Building2, User, ArrowRight, ExternalLink, Info, Lock, Sparkles, Monitor, Layout, ShieldCheck, Clock, Circle } from 'lucide-react';
 import { SubscriptionTier } from '../types';
 
 interface UpgradeModalProps {
@@ -61,7 +61,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
         
         <div className="p-6 md:p-12">
           <div className="text-center mb-10">
-            <h2 className="text-3xl font-black text-white mb-3 tracking-tighter uppercase font-mono">Select Studio Tier</h2>
+            <h2 className="text-3xl font-black text-white mb-3 tracking-tighter uppercase font-mono text-gradient">Select Studio Tier</h2>
             <p className="text-zinc-500 text-sm max-w-lg mx-auto">Elevate your fashion production with the most advanced AI models and high-resolution output.</p>
           </div>
           
@@ -91,7 +91,8 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
 
                   <div className={`h-px w-full mb-6 ${plan.premium ? 'bg-zinc-200' : 'bg-zinc-800'}`}></div>
 
-                  <div className="space-y-3 mb-8 flex-1">
+                  {/* Fixed height container for feature parity across cards */}
+                  <div className="space-y-4 mb-8 flex-1 min-h-[300px]">
                     {features.map((f, i) => {
                       const isIncluded = plan.id === SubscriptionTier.Studio ? f.studio : plan.id === SubscriptionTier.Creator ? f.creator : plan.id === SubscriptionTier.Starter ? f.starter : false;
                       
@@ -101,7 +102,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({ isOpen, onClose, onU
                             {isIncluded ? (
                                 <Check size={14} className={plan.premium && f.highlight ? "text-black" : "text-emerald-500"} strokeWidth={4} />
                             ) : (
-                                <div className="w-1.5 h-[1px] bg-zinc-700"></div>
+                                <Circle size={10} className="text-zinc-800" strokeWidth={2} />
                             )}
                           </div>
                           <span className="truncate">{f.text}</span>

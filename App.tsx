@@ -230,6 +230,7 @@ const App: React.FC = () => {
 
   const handleProInterceptor = () => {
     if (!hasProAccess) {
+        showToast("Upgrade to Creator Tier to unlock Premium models.", "info");
         setShowUpgradeModal(true);
         return true;
     }
@@ -238,6 +239,7 @@ const App: React.FC = () => {
 
   const handleStudioInterceptor = () => {
     if (!isStudio) {
+        showToast("Upgrade to Studio Tier to unlock 4K Production Upscaling.", "info");
         setShowUpgradeModal(true);
         return true;
     }
@@ -604,12 +606,16 @@ const App: React.FC = () => {
                           <div className={`p-2 rounded bg-zinc-800/50 border border-zinc-700`}>
                               <Monitor size={14} className="text-zinc-400" />
                           </div>
-                          <div>
+                          <div className="flex flex-col gap-0.5">
                               <div className="flex items-center gap-2">
-                                <span className={`text-[10px] font-bold uppercase tracking-widest block text-zinc-300`}>4K Production Upscale</span>
-                                {!isStudio && <span className="text-[7px] font-black text-amber-500 uppercase bg-amber-500/10 px-1 py-0.5 rounded border border-amber-500/20 leading-none">Studio Only</span>}
+                                <span className={`text-[10px] font-bold uppercase tracking-widest block text-zinc-300 whitespace-nowrap`}>4K Production Upscale</span>
+                                {!isStudio && (
+                                    <span className="text-[7px] font-black text-amber-500 uppercase bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 leading-none shrink-0">
+                                        Studio Only
+                                    </span>
+                                )}
                               </div>
-                              <span className="text-[8px] text-zinc-500 font-medium">High-fidelity 4K raw rendering</span>
+                              <span className="text-[8px] text-zinc-500 font-medium">Requires Studio Tier</span>
                           </div>
                       </div>
                       <button 
@@ -743,9 +749,16 @@ const App: React.FC = () => {
                   <ConfigSection title="Visual Style & Scene" icon={Palette}>
                       <div className="space-y-4">
                           <div className="space-y-1.5">
-                              <div className="flex items-center gap-2 mb-1.5">
-                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Lookbook Layout</label>
-                                {!isStudio && <span className="text-[7px] font-black text-amber-500 uppercase bg-amber-500/10 px-1 py-0.5 rounded border border-amber-500/20 leading-none">Studio Only</span>}
+                              <div className="flex flex-col gap-0.5 mb-1.5">
+                                <div className="flex items-center gap-2">
+                                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Lookbook Layout</label>
+                                  {!isStudio && (
+                                    <span className="text-[7px] font-black text-amber-500 uppercase bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 leading-none shrink-0">
+                                      Studio Only
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[8px] text-zinc-600 font-medium pl-1">Professional multi-panel display</span>
                               </div>
                               <FeatureLockWrapper isLocked={!isStudio} onClick={handleStudioInterceptor}>
                                   <div className={`bg-zinc-950 border border-zinc-800 rounded-lg p-1 flex gap-1 transition-opacity ${!isStudio ? 'opacity-60' : ''}`}>
