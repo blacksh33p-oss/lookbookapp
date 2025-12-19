@@ -250,9 +250,10 @@ const App: React.FC = () => {
   };
 
   /**
-   * PERFORMANCE FIX: Binary Offloading & Config Scrubbing
-   * Converts Base64 data strings to public CDN URLs.
-   * Strips all garment Base64 images from the 'config' field to keep the DB JSON under 10KB.
+   * PERFORMANCE ARCHITECTURE: URL-First Implementation
+   * 1. Converts Base64 result into binary Blob and uploads to Storage.
+   * 2. Sanitizes 'config' object to remove all multi-megabyte garment Base64 strings.
+   * 3. Ensures 'image_url' is a standard CDN URL (Starts with http/https).
    */
   const saveToLibrary = async (imageUrl: string) => {
     if (!session || !imageUrl || !isConfigured) return;
@@ -262,27 +263,22 @@ const App: React.FC = () => {
     setSaveError(false);
 
     try {
-      let finalImageUrl = imageUrl;
+      let publicCdnUrl = imageUrl;
 
-      // 1. Convert generation Base64 to binary Blob and upload to Storage
-      // This ensures we save a URL (50 bytes) instead of a Base64 string (5MB)
+      // 1. UPLOAD BINARY: Offload Base64 data string to cloud storage
       if (imageUrl.startsWith('data:image')) {
         const timestamp = Date.now();
         const filePath = `${session.user.id}/${timestamp}.png`;
         
         const base64Data = imageUrl.split(',')[1];
         const binaryStr = atob(base64Data);
-        const len = binaryStr.length;
-        const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) bytes[i] = binaryStr.charCodeAt(i);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
         const blob = new Blob([bytes], { type: 'image/png' });
 
         const { error: uploadError } = await supabase.storage
           .from('generations')
-          .upload(filePath, blob, { 
-            contentType: 'image/png', 
-            upsert: false 
-          });
+          .upload(filePath, blob, { contentType: 'image/png' });
 
         if (uploadError) throw uploadError;
 
@@ -290,48 +286,43 @@ const App: React.FC = () => {
           .from('generations')
           .getPublicUrl(filePath);
           
-        finalImageUrl = publicUrl;
+        publicCdnUrl = publicUrl;
       }
 
-      // 2. CRITICAL SCRUB: Strip massive garment Base64 references from the 'config' JSONB.
-      // Failing to scrub these causes the 28s "Stop-the-World" JSON payload.
-      const sanitizedOutfit = { ...options.outfit };
+      // 2. DEEP SANITIZATION: Scrub massive Base64 garment references from the JSONB payload
+      // This is crucial to prevent the 24s Archive hang.
+      const sanitizedOutfit = JSON.parse(JSON.stringify(options.outfit));
       (Object.keys(sanitizedOutfit) as Array<keyof typeof sanitizedOutfit>).forEach(key => {
-        sanitizedOutfit[key] = {
-            ...sanitizedOutfit[key],
-            images: [], // Explicitly clearing multi-megabyte Base64 garment arrays
-            sizeChart: null // Explicitly clearing multi-megabyte Base64 size chart strings
-        };
+        sanitizedOutfit[key].images = []; // Clear heavy garment Base64s
+        sanitizedOutfit[key].sizeChart = null; // Clear heavy size chart Base64s
       });
 
       const leanConfig = { 
         ...options, 
         outfit: sanitizedOutfit,
-        referenceModelImage: undefined // Explicitly clearing identity reference Base64
+        referenceModelImage: undefined // Clear identity reference Base64
       };
 
-      // 3. PERSISTENCE: Save lean metadata to database
-      const payload = {
-        image_url: finalImageUrl,
+      // 3. DATABASE COMMIT: Save lean metadata row
+      const { error } = await supabase.from('generations').insert([{
+        image_url: publicCdnUrl,
         user_id: session.user.id,
         project_id: activeProjectId || null,
         config: leanConfig
-      };
-      
-      const { error } = await supabase.from('generations').insert([payload]);
+      }]);
       
       if (error) {
         setSaveError(true);
-        showToast(`Save failure: ${error.message}`, "error");
+        showToast(`Archive error: ${error.message}`, "error");
       } else {
         setJustSaved(true);
-        showToast("Shoot synchronized with archive", "success");
+        showToast("Shoot saved to cloud archive", "success");
         setTimeout(() => setJustSaved(false), 3000);
       }
     } catch (e: any) {
-      console.error("Sync failure:", e);
+      console.error("Save failure:", e);
       setSaveError(true);
-      showToast("Critical: Database sync timed out.", "error");
+      showToast("Critical: Binary offload failed.", "error");
     } finally {
       setIsSaving(false);
     }
