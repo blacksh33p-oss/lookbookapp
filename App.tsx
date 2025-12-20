@@ -145,11 +145,8 @@ const App: React.FC = () => {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor');
   
-  const [guestCredits, setGuestCredits] = useState<number>(() => {
-    const saved = localStorage.getItem('fashion_guest_credits');
-    // Quota reduced from 5 to 3 for unauthenticated users
-    return saved !== null ? parseInt(saved, 10) : 3;
-  });
+  // Guest Credits State - Initialize to null (loading) to wait for server sync
+  const [guestCredits, setGuestCredits] = useState<number | null>(null);
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
@@ -207,6 +204,31 @@ const App: React.FC = () => {
       enable4K: shouldEnable4K
     }));
   }, [selectedModel, session]);
+
+  // Sync Guest Credits with Server
+  useEffect(() => {
+    if (isAuthLoading) return; // Wait until we know if user is logged in
+    
+    if (!session) {
+      fetch('/api/guest-status')
+        .then(res => res.json())
+        .then(data => {
+            const credits = typeof data.remaining === 'number' ? data.remaining : 0;
+            setGuestCredits(credits);
+            localStorage.setItem('fashion_guest_credits', credits.toString());
+            
+            if (credits <= 0) {
+                setLoginModalView('signup');
+                setShowLoginModal(true);
+            }
+        })
+        .catch(err => {
+            console.error("Failed to sync guest status", err);
+            // Default to 0 on error to be safe/prevent abuse
+            setGuestCredits(0);
+        });
+    }
+  }, [session, isAuthLoading]);
 
   const [generatedResult, setGeneratedResult] = useState<{image: string, width: number, height: number} | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -477,7 +499,9 @@ const App: React.FC = () => {
             throw new Error("Guest mode is limited to Flash 2.5. Please login to use Pro models.");
           }
 
-          if (!session && guestCredits < cost) {
+          // Safe check: If guestCredits is still loading (null), block interaction silently or treat as 0
+          const safeCredits = guestCredits ?? 0;
+          if (!session && safeCredits < cost) {
               setLoginModalView('signup');
               setShowLoginModal(true);
               setIsLoading(false);
@@ -519,7 +543,7 @@ const App: React.FC = () => {
           setGeneratedResult(result);
 
           if (!session) {
-              const newGuestBalance = Math.max(0, guestCredits - cost);
+              const newGuestBalance = Math.max(0, safeCredits - cost);
               setGuestCredits(newGuestBalance);
               localStorage.setItem('fashion_guest_credits', newGuestBalance.toString());
           } else {
@@ -590,7 +614,9 @@ const App: React.FC = () => {
                  ) : !session && (
                     <div className="hidden sm:flex items-center gap-3 px-4 py-1.5 bg-zinc-900/50 border border-zinc-800 rounded-full">
                         <Coins size={12} className="text-amber-400" />
-                        <span className="text-[10px] font-black text-white uppercase tracking-widest">{guestCredits} Credits Remaining</span>
+                        <span className="text-[10px] font-black text-white uppercase tracking-widest">
+                            {guestCredits === null ? '...' : guestCredits} Credits Remaining
+                        </span>
                     </div>
                  )}
 
