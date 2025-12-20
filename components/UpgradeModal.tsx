@@ -34,7 +34,7 @@ const TIER_FEATURES: Record<SubscriptionTier, string[]> = {
     "Premium Styles",
     "Model & Identity",
     "Manual Pose Selection",
-    "Layout Selection"
+    "Lookbook Composition"
   ]
 };
 

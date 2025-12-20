@@ -54,7 +54,7 @@ export const SpotlightGate: React.FC<{
   children: React.ReactNode; 
   isLocked: boolean; 
   tier: 'CREATOR' | 'STUDIO'; 
-  className?: string;
+  className?: string; 
   containerClassName?: string;
   onClick?: () => void;
   interactive?: boolean;
@@ -822,7 +822,7 @@ const App: React.FC = () => {
                               </div>
 
                               <div className="space-y-3 pt-2">
-                                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider px-1">Professional Styles</label>
+                                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider px-1">Premium Styles</label>
                                   <SpotlightGate isLocked={!hasProAccess} tier="CREATOR" interactive={true} onClick={handleProInterceptor}>
                                     <div className={`grid grid-cols-2 gap-3 transition-all`}>
                                         {PRO_STYLES.map(s => (

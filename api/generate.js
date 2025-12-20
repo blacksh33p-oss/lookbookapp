@@ -82,6 +82,7 @@ export default async function handler(req, res) {
     const richStylePrompt = STYLE_PROMPTS[options.style] || options.style;
     const richExpressionPrompt = EXPRESSION_PROMPTS[options.facialExpression] || options.facialExpression;
     const sceneryContext = options.sceneDetails ? `SCENERY & ENVIRONMENT: ${options.sceneDetails}` : '';
+    const customFeaturesContext = options.modelFeatures ? `UNIQUE FEATURES: ${options.modelFeatures}` : '';
 
     const layoutInstruction = options.layout.includes('Diptych') 
       ? `CRITICAL LAYOUT: Produce a professional diptych editorial split. Left: full-body action. Right: material fabric close-up.`
@@ -93,7 +94,7 @@ export default async function handler(req, res) {
       ${layoutInstruction}
       
       ART DIRECTION: ${richStylePrompt}. ${sceneryContext}
-      MODEL IDENTITY: ${options.sex}, ${options.age}, ${options.ethnicity}. Hair: ${options.hairColor}, ${options.hairStyle}. Expression: ${richExpressionPrompt}. Stats: ${heightStr}, ${bodyTypeStr}.
+      MODEL IDENTITY: ${options.sex}, ${options.age}, ${options.ethnicity}. Hair: ${options.hairColor}, ${options.hairStyle}. ${customFeaturesContext} Expression: ${richExpressionPrompt}. Stats: ${heightStr}, ${bodyTypeStr}.
       WARDROBE:
       ${outfitParts.join('\n')}
       POSE & STAGING: ${options.pose || 'Standing naturally'}
