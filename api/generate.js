@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 
 const STYLE_PROMPTS = {
@@ -29,6 +30,17 @@ const extractBase64 = (dataUrl) => dataUrl.split(',')[1] || dataUrl;
 const getMimeType = (dataUrl) => {
   const match = dataUrl.match(/^data:(.*);base64,/);
   return match ? match[1] : 'image/jpeg';
+};
+
+const getInferredDimensions = (aspectRatio, isPro, is4K) => {
+  const base = is4K ? 4096 : (isPro ? 2048 : 1024);
+  switch (aspectRatio) {
+    case '3:4': return { width: Math.round(base * 0.75), height: base };
+    case '4:3': return { width: base, height: Math.round(base * 0.75) };
+    case '9:16': return { width: Math.round(base * 0.5625), height: base };
+    case '16:9': return { width: base, height: Math.round(base * 0.5625) };
+    default: return { width: base, height: base }; // 1:1
+  }
 };
 
 export default async function handler(req, res) {
@@ -100,7 +112,8 @@ export default async function handler(req, res) {
       POSE & STAGING: ${options.pose || 'Standing naturally'}
     `;
 
-    const modelName = options.modelVersion.includes('Pro') ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
+    const isPro = options.modelVersion.includes('Pro');
+    const modelName = isPro ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
     
     const config = {
       imageConfig: {
@@ -125,7 +138,12 @@ export default async function handler(req, res) {
     if (result.candidates?.[0]?.content?.parts) {
       for (const part of result.candidates[0].content.parts) {
         if (part.inlineData?.data) {
-          return res.status(200).json({ image: `data:image/png;base64,${part.inlineData.data}` });
+          const dims = getInferredDimensions(options.aspectRatio, isPro, options.enable4K);
+          return res.status(200).json({ 
+            image: `data:image/png;base64,${part.inlineData.data}`,
+            width: dims.width,
+            height: dims.height
+          });
         }
       }
     }

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { UserCircle, ChevronDown, Shirt, Ruler, Zap, Hexagon, Sparkles, Move, LogOut, Star, CheckCircle, XCircle, Info, Crown, X, Loader2, Palette, Folder, Library, Plus, Save, Check, AlertCircle, Monitor, Columns, Square, Coins } from 'lucide-react';
@@ -148,7 +149,7 @@ const App: React.FC = () => {
   
   const [guestCredits, setGuestCredits] = useState<number>(() => {
     const saved = localStorage.getItem('fashion_guest_credits');
-    return saved !== null ? parseInt(saved, 10) : 5;
+    return saved !== null ? parseInt(saved, 10) : 50;
   });
 
   const [projects, setProjects] = useState<Project[]>([]);
@@ -203,7 +204,7 @@ const App: React.FC = () => {
     }));
   }, [selectedModel]);
 
-  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [generatedResult, setGeneratedResult] = useState<{image: string, width: number, height: number} | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -311,25 +312,26 @@ const App: React.FC = () => {
     }
   };
 
-  const saveToLibrary = async (imageUrl: string) => {
-    if (!session || !imageUrl || !isConfigured) return;
+  const saveToLibrary = async () => {
+    if (!session || !generatedResult || !isConfigured) return;
+    const { image, width, height } = generatedResult;
     
     setIsSaving(true);
     setJustSaved(false);
     setSaveError(false);
 
     try {
-      let publicCdnUrl = imageUrl;
+      let publicCdnUrl = image;
 
-      if (imageUrl.startsWith('data:image')) {
+      if (image.startsWith('data:image')) {
         const timestamp = Date.now();
         const filePath = `${session.user.id}/${timestamp}.png`;
         
-        const parts = imageUrl.split(',');
+        const parts = image.split(',');
         const base64Data = parts.length > 1 ? parts[1] : parts[0];
         
         let mimeType = 'image/png';
-        const mimeMatch = imageUrl.match(/^data:(image\/[a-z]+);base64,/);
+        const mimeMatch = image.match(/^data:(image\/[a-z]+);base64,/);
         if (mimeMatch) mimeType = mimeMatch[1];
 
         const binaryStr = atob(base64Data);
@@ -366,7 +368,9 @@ const App: React.FC = () => {
         image_url: publicCdnUrl,
         user_id: session.user.id,
         project_id: activeProjectId || null,
-        config: leanConfig
+        config: leanConfig,
+        width: width,
+        height: height
       }]);
       
       if (dbError) {
@@ -388,12 +392,12 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (isConfigured) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
+      (supabase.auth as any).getSession().then(({ data: { session } }: any) => {
         setSession(session);
         if (session) fetchProfile(session.user.id, session.user.email);
         else setIsAuthLoading(false);
       });
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const { data: { subscription } } = (supabase.auth as any).onAuthStateChange(async (event: any, session: any) => {
         setSession(session);
         if (event === 'SIGNED_IN' && session) {
            setShowLoginModal(false);
@@ -413,13 +417,13 @@ const App: React.FC = () => {
     try {
         let { data, error } = await supabase.from('profiles').select('tier, credits').eq('id', userId).single();
         if (error && error.code === 'PGRST116') {
-             const { data: newProfile } = await supabase.from('profiles').insert([{ id: userId, email: email || 'unknown', tier: SubscriptionTier.Free, credits: 5 }]).select().single();
+             const { data: newProfile } = await supabase.from('profiles').insert([{ id: userId, email: email || 'unknown', tier: SubscriptionTier.Free, credits: 50 }]).select().single();
              if (newProfile) data = newProfile;
         }
         if (data) {
             setUserProfile({
                 tier: data.tier as SubscriptionTier || SubscriptionTier.Free,
-                credits: data.credits ?? 5, 
+                credits: data.credits ?? 50, 
                 username: email ? email.split('@')[0] : 'Studio User'
             });
         }
@@ -429,16 +433,16 @@ const App: React.FC = () => {
   const handleAuth = async (email: string, password?: string, isSignUp?: boolean, username?: string) => {
       if (!isConfigured) throw new Error("Authentication is currently disabled.");
       if (isSignUp) {
-          const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: username } } });
+          const { error } = await (supabase.auth as any).signUp({ email, password, options: { data: { full_name: username } } });
           if (error) throw error;
       } else {
-          const { error } = await supabase.auth.signInWithPassword({ email, password });
+          const { error } = await (supabase.auth as any).signInWithPassword({ email, password });
           if (error) throw error;
       }
   };
 
   const handleLogout = async () => {
-      if (isConfigured) await supabase.auth.signOut(); 
+      if (isConfigured) await (supabase.auth as any).signOut(); 
       setShowAccountMenu(false);
       showToast('Signed out successfully', 'info');
   };
@@ -447,8 +451,6 @@ const App: React.FC = () => {
       if (window.innerWidth < 1024) setActiveTab('preview');
 
       const newSeed = getRandomSeed();
-      // FIX: Stop generating random identity features if not provided. 
-      // Only use modelFeatures if the user has explicitly typed them in the textarea.
       const newOptions = { 
         ...options, 
         seed: newSeed, 
@@ -463,23 +465,36 @@ const App: React.FC = () => {
       const cost = getGenerationCost(currentOptions);
       setIsLoading(true); 
       setError(null); 
-      setGeneratedImage(null);
+      setGeneratedResult(null);
 
       try {
+          const response = await fetch('/api/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(currentOptions),
+          });
+        
+          if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error || `Generation Failed: ${response.status}`);
+          }
+        
+          const data = await response.json();
+          if (!data.image) throw new Error("The studio backend returned an empty frame.");
+
+          const result = { image: data.image, width: data.width || 1024, height: data.height || 1024 };
+          setGeneratedResult(result);
+
           if (!session) {
-              if (guestCredits < cost) { setLoginModalView('signup'); setShowLoginModal(true); setIsLoading(false); return; }
-              const result = await generatePhotoshootImage(currentOptions);
-              setGeneratedImage(result);
               setGuestCredits(prev => prev - cost);
               localStorage.setItem('fashion_guest_credits', (guestCredits - cost).toString());
           } else {
-              if (!userProfile || userProfile.credits < cost) { setShowUpgradeModal(true); setIsLoading(false); return; }
-              const result = await generatePhotoshootImage(currentOptions);
-              setGeneratedImage(result);
-              const newBalance = userProfile.credits - cost;
-              setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
-              if (isConfigured) {
-                await supabase.from('profiles').update({ credits: newBalance }).eq('id', session.user.id);
+              if (userProfile) {
+                const newBalance = userProfile.credits - cost;
+                setUserProfile(prev => prev ? ({ ...prev, credits: newBalance }) : null);
+                if (isConfigured) {
+                  await supabase.from('profiles').update({ credits: newBalance }).eq('id', session.user.id);
+                }
               }
           }
       } catch (err: any) { 
@@ -505,9 +520,9 @@ const App: React.FC = () => {
   };
 
   const handleDownload = () => {
-    if (generatedImage) {
+    if (generatedResult) {
       const link = document.createElement('a');
-      link.href = generatedImage;
+      link.href = generatedResult.image;
       link.download = `shoot-${Date.now()}.png`;
       link.click();
     }
@@ -895,7 +910,11 @@ const App: React.FC = () => {
         <section className={`flex-1 h-full bg-black border border-zinc-800 rounded-lg overflow-y-auto custom-scrollbar shadow-2xl relative min-h-0 ${activeTab === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
            <div className="min-h-full max-h-full flex flex-col relative overflow-hidden flex-1">
              <ResultDisplay 
-                isLoading={isLoading} image={generatedImage} onDownload={handleDownload} 
+                isLoading={isLoading} 
+                image={generatedResult?.image || null}
+                width={generatedResult?.width}
+                height={generatedResult?.height}
+                onDownload={handleDownload} 
                 onRegenerate={(keepModel) => { 
                     if (keepModel && !session) { setLoginModalView('signup'); setShowLoginModal(true); return; }
                     if (keepModel && !isPremium) { setShowUpgradeModal(true); return; }
@@ -906,8 +925,8 @@ const App: React.FC = () => {
                 isPremium={isPremium} error={error} 
                 SpotlightGate={SpotlightGate}
              />
-             {generatedImage && session && (
-                <button onClick={() => saveToLibrary(generatedImage)} disabled={isSaving || justSaved} className={`absolute top-6 right-6 px-4 py-2 sm:px-6 sm:py-3 rounded-md transition-all duration-300 flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-2xl backdrop-blur-md border z-20 ${justSaved ? 'bg-emerald-500 text-white border-emerald-400 scale-105' : isSaving ? 'bg-zinc-800 text-zinc-400 border-zinc-700 cursor-not-allowed' : 'bg-black/90 text-white border-zinc-700 hover:border-white hover:bg-black'}`}>
+             {generatedResult && session && (
+                <button onClick={saveToLibrary} disabled={isSaving || justSaved} className={`absolute top-6 right-6 px-4 py-2 sm:px-6 sm:py-3 rounded-md transition-all duration-300 flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-2xl backdrop-blur-md border z-20 ${justSaved ? 'bg-emerald-500 text-white border-emerald-400 scale-105' : isSaving ? 'bg-zinc-800 text-zinc-400 border-zinc-700 cursor-not-allowed' : 'bg-black/90 text-white border-zinc-700 hover:border-white hover:bg-black'}`}>
                   {isSaving ? <Loader2 size={14} className="animate-spin" /> : justSaved ? <Check size={14} strokeWidth={3} /> : saveError ? <AlertCircle size={14} className="text-red-400" /> : <Save size={14} />}
                   <span className="hidden xs:inline">{isSaving ? "Saving..." : justSaved ? "Saved!" : saveError ? "Retry" : "Archive"}</span>
                 </button>

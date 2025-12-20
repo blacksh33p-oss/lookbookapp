@@ -28,6 +28,31 @@ const getThumbnailUrl = (url: string | undefined): string => {
   return url;
 };
 
+const ResolutionBadge: React.FC<{ width?: number; height?: number }> = ({ width = 0, height = 0 }) => {
+  if (!width || !height) return null;
+  
+  const maxSide = Math.max(width, height);
+  let label = "SD";
+  let colorClass = "bg-zinc-800 text-zinc-400";
+  
+  if (maxSide > 3000) {
+    label = "4K";
+    colorClass = "bg-amber-500/20 text-amber-500 border border-amber-500/30";
+  } else if (maxSide > 1500) {
+    label = "HD";
+    colorClass = "bg-blue-500/20 text-blue-400 border border-blue-500/30";
+  } else {
+    label = "SD";
+    colorClass = "bg-zinc-800/80 text-zinc-500 border border-zinc-700/50";
+  }
+
+  return (
+    <div className={`absolute top-2 left-2 px-1.5 py-0.5 rounded-md text-[8px] font-black tracking-tighter uppercase z-20 backdrop-blur-md ${colorClass}`}>
+      {label}
+    </div>
+  );
+};
+
 const ArchiveSkeleton = () => (
   <div className="grid grid-cols-2 gap-3 sm:gap-4 animate-pulse">
     {[...Array(6)].map((_, i) => (
@@ -63,7 +88,8 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
     setMigratingIds(prev => new Set(prev).add(gen.id));
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Fix: Cast supabase.auth to any to bypass missing method definitions in types
+      const { data: { session } } = await (supabase.auth as any).getSession();
       if (!session) return;
 
       const timestamp = Date.now();
@@ -147,7 +173,8 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
 
     setIsLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Fix: Cast supabase.auth to any to bypass missing method definitions in types
+      const { data: { session } } = await (supabase.auth as any).getSession();
       if (!session) return;
 
       const from = pageNum * PAGE_SIZE;
@@ -156,7 +183,7 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
       // Projection-filtered query for high performance
       let query = supabase
         .from('generations')
-        .select('id, image_url, created_at, project_id', { count: 'exact' })
+        .select('id, image_url, created_at, project_id, width, height', { count: 'exact' })
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
         .range(from, to);
@@ -287,6 +314,7 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
 
                   return (
                     <div key={gen.id} className="group relative aspect-[3/4] bg-zinc-950 rounded-lg overflow-hidden border border-zinc-800 hover:border-zinc-500 transition-all shadow-xl">
+                      <ResolutionBadge width={gen.width} height={gen.height} />
                       {isMigrating ? (
                         <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900/50 p-4 text-center">
                             <Loader2 size={24} className="text-amber-500 animate-spin mb-3" />

@@ -1,9 +1,12 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Download, RefreshCw, Loader2, User, Users, Camera, Lock, Sparkles, Shirt, Wand2, ChevronUp } from 'lucide-react';
+import { Download, RefreshCw, Loader2, User, Users, Camera, Lock, Sparkles, Shirt, Wand2, ChevronUp, Monitor } from 'lucide-react';
 
 interface ResultDisplayProps {
   isLoading: boolean;
   image: string | null;
+  width?: number;
+  height?: number;
   onDownload: () => void;
   onRegenerate: (keepModel: boolean) => void;
   isPremium: boolean;
@@ -29,6 +32,8 @@ const LOADING_LOGS = [
 export const ResultDisplay: React.FC<ResultDisplayProps> = ({ 
     isLoading, 
     image, 
+    width,
+    height,
     onDownload, 
     onRegenerate, 
     isPremium,
@@ -58,6 +63,14 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
         return () => clearInterval(interval);
     }
   }, [isLoading]);
+
+  const getResolutionLabel = () => {
+    if (!width || !height) return "";
+    const maxSide = Math.max(width, height);
+    if (maxSide > 3000) return "4K";
+    if (maxSide > 1500) return "HD";
+    return "SD";
+  };
 
   // Loading - System Log Style
   if (isLoading) {
@@ -143,6 +156,19 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
   // Success
   return (
     <div className="h-full w-full bg-black relative flex flex-col group">
+      {width && height && (
+        <div className="absolute top-6 left-6 z-20 bg-black/60 backdrop-blur-md border border-zinc-800 px-3 py-1.5 rounded-full flex items-center gap-2.5 shadow-2xl">
+          <Monitor size={10} className="text-zinc-500" />
+          <span className="text-[10px] font-mono text-zinc-400 font-bold uppercase tracking-widest">
+            {width} <span className="text-zinc-700">×</span> {height} px
+          </span>
+          <div className="w-px h-2.5 bg-zinc-800 mx-0.5"></div>
+          <span className={`text-[9px] font-black uppercase ${getResolutionLabel() === '4K' ? 'text-amber-500' : getResolutionLabel() === 'HD' ? 'text-blue-400' : 'text-zinc-600'}`}>
+            {getResolutionLabel()} Quality
+          </span>
+        </div>
+      )}
+
       <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-zinc-950/30">
         <img 
             src={image} 
@@ -211,7 +237,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
                 className="h-10 pl-4 pr-5 hover:bg-zinc-800/50 text-white rounded-r-full font-bold text-[10px] uppercase tracking-widest transition-all flex items-center gap-3 group"
             >
                 <Download size={14} className="group-hover:-translate-y-0.5 transition-transform" />
-                <span>Save</span>
+                <span>Save ({getResolutionLabel() || "PNG"})</span>
             </button>
         </div>
       </div>

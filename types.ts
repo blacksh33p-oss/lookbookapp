@@ -168,4 +168,6 @@ export interface Generation {
   project_id: string | null;
   config: Partial<PhotoshootOptions>;
   created_at: string;
+  width?: number;
+  height?: number;
 }
