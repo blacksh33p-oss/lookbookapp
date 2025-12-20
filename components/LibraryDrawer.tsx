@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Loader2, Download, Trash2, RotateCw, Inbox, AlertTriangle, RefreshCcw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -63,7 +62,8 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
     setMigratingIds(prev => new Set(prev).add(gen.id));
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Fix: Cast supabase.auth to any to bypass missing method definitions in types
+      const { data: { session } } = await (supabase.auth as any).getSession();
       if (!session) return;
 
       const timestamp = Date.now();
@@ -147,7 +147,8 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
 
     setIsLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Fix: Cast supabase.auth to any to bypass missing method definitions in types
+      const { data: { session } } = await (supabase.auth as any).getSession();
       if (!session) return;
 
       const from = pageNum * PAGE_SIZE;
