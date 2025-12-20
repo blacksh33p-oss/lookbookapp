@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { UserCircle, ChevronDown, Shirt, Ruler, Zap, Hexagon, Sparkles, Move, LogOut, Star, CheckCircle, XCircle, Info, Crown, X, Loader2, Palette, Folder, Library, Plus, Save, Check, AlertCircle, Monitor, Columns, Square, Coins } from 'lucide-react';
@@ -30,7 +29,6 @@ const getGenerationCost = (options: PhotoshootOptions): number => {
     let cost = 1;
     if (options.modelVersion === ModelVersion.Pro) cost = 10;
     if (options.enable4K) cost += 5;
-    if (options.layout === LayoutMode.Diptych) cost += 5;
     return cost;
 };
 
@@ -55,7 +53,7 @@ export const SpotlightGate: React.FC<{
     <div 
       className={`relative ${containerClassName} ${isLocked ? 'cursor-pointer' : ''}`}
       onClick={(e) => {
-        if (onClick) {
+        if (isLocked && onClick) {
           onClick();
         }
       }}
@@ -149,7 +147,8 @@ const App: React.FC = () => {
   
   const [guestCredits, setGuestCredits] = useState<number>(() => {
     const saved = localStorage.getItem('fashion_guest_credits');
-    return saved !== null ? parseInt(saved, 10) : 50;
+    // Quota reduced from 5 to 3 for unauthenticated users
+    return saved !== null ? parseInt(saved, 10) : 3;
   });
 
   const [projects, setProjects] = useState<Project[]>([]);
@@ -194,6 +193,11 @@ const App: React.FC = () => {
   const isStudio = session ? userProfile?.tier === SubscriptionTier.Studio : false;
 
   useEffect(() => {
+    // Guests are restricted to Flash 2.5. Reset if unauthenticated.
+    if (!session && selectedModel === 'pro-3') {
+        setSelectedModel('flash-2.5');
+    }
+
     // 4K is only available in Pro Engine. Force it off when switching to Flash.
     const shouldEnable4K = selectedModel === 'flash-2.5' ? false : options.enable4K;
     
@@ -202,7 +206,7 @@ const App: React.FC = () => {
       modelVersion: selectedModel === 'pro-3' ? ModelVersion.Pro : ModelVersion.Flash,
       enable4K: shouldEnable4K
     }));
-  }, [selectedModel]);
+  }, [selectedModel, session]);
 
   const [generatedResult, setGeneratedResult] = useState<{image: string, width: number, height: number} | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -468,6 +472,18 @@ const App: React.FC = () => {
       setGeneratedResult(null);
 
       try {
+          // Guest restriction check
+          if (!session && currentOptions.modelVersion.includes('Pro')) {
+            throw new Error("Guest mode is limited to Flash 2.5. Please login to use Pro models.");
+          }
+
+          if (!session && guestCredits < cost) {
+              setLoginModalView('signup');
+              setShowLoginModal(true);
+              setIsLoading(false);
+              return;
+          }
+
           const response = await fetch('/api/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -486,8 +502,9 @@ const App: React.FC = () => {
           setGeneratedResult(result);
 
           if (!session) {
-              setGuestCredits(prev => prev - cost);
-              localStorage.setItem('fashion_guest_credits', (guestCredits - cost).toString());
+              const newGuestBalance = Math.max(0, guestCredits - cost);
+              setGuestCredits(newGuestBalance);
+              localStorage.setItem('fashion_guest_credits', newGuestBalance.toString());
           } else {
               if (userProfile) {
                 const newBalance = userProfile.credits - cost;
@@ -542,7 +559,7 @@ const App: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-4 sm:gap-6">
-                 {session && userProfile && (
+                 {session && userProfile ? (
                     <div className="hidden sm:flex items-center gap-3 px-3 py-1 bg-zinc-900/50 border border-zinc-800 rounded-full group cursor-pointer hover:border-zinc-700 transition-colors" onClick={() => setShowUpgradeModal(true)}>
                         <div className="flex items-center gap-1.5 px-2 border-r border-zinc-800">
                            <Zap size={10} className="text-amber-400 fill-amber-400" />
@@ -552,6 +569,11 @@ const App: React.FC = () => {
                            <Crown size={10} className={`${userProfile.tier !== SubscriptionTier.Free ? 'text-amber-400' : 'text-zinc-600'}`} />
                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{userProfile.tier}</span>
                         </div>
+                    </div>
+                 ) : !session && (
+                    <div className="hidden sm:flex items-center gap-3 px-4 py-1.5 bg-zinc-900/50 border border-zinc-800 rounded-full">
+                        <Coins size={12} className="text-amber-400" />
+                        <span className="text-[10px] font-black text-white uppercase tracking-widest">{guestCredits} Credits Remaining</span>
                     </div>
                  )}
 
@@ -820,6 +842,7 @@ const App: React.FC = () => {
 
                                   <SpotlightGate isLocked={!isStudio} tier="STUDIO" interactive={true} onClick={handleStudioInterceptor}>
                                     <button
+                                        onClick={() => setOptions({ ...options, layout: LayoutMode.Diptych })}
                                         className={`w-full px-4 py-3 rounded-lg border transition-all flex flex-col gap-3 group relative overflow-hidden pr-4
                                         ${options.layout === LayoutMode.Diptych ? 'bg-white border-white' : 'bg-black border-zinc-800 hover:border-zinc-600'}`}
                                     >
@@ -828,7 +851,6 @@ const App: React.FC = () => {
                                         </div>
                                         <div className="flex flex-col gap-0.5 text-left w-full">
                                             <span className={`text-[10px] font-black uppercase tracking-wider ${options.layout === LayoutMode.Diptych ? 'text-black' : 'text-white'}`}>Diptych Split</span>
-                                            <span className={`text-[8px] font-black uppercase transition-colors ${options.layout === LayoutMode.Diptych ? 'text-zinc-500' : 'text-zinc-500'}`}>+5 CREDITS</span>
                                         </div>
                                     </button>
                                   </SpotlightGate>
