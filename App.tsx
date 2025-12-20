@@ -148,8 +148,7 @@ const App: React.FC = () => {
   
   const [guestCredits, setGuestCredits] = useState<number>(() => {
     const saved = localStorage.getItem('fashion_guest_credits');
-    // RISK FIX: Increased one-time trial credits to 50 instead of 5 daily.
-    return saved !== null ? parseInt(saved, 10) : 50;
+    return saved !== null ? parseInt(saved, 10) : 5;
   });
 
   const [projects, setProjects] = useState<Project[]>([]);
@@ -389,14 +388,12 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (isConfigured) {
-      // Fix: Cast supabase.auth to any to bypass missing method definitions in types
-      (supabase.auth as any).getSession().then(({ data: { session } }: any) => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
         setSession(session);
         if (session) fetchProfile(session.user.id, session.user.email);
         else setIsAuthLoading(false);
       });
-      // Fix: Cast supabase.auth to any to bypass missing method definitions in types
-      const { data: { subscription } } = (supabase.auth as any).onAuthStateChange(async (event: any, session: any) => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         setSession(session);
         if (event === 'SIGNED_IN' && session) {
            setShowLoginModal(false);
@@ -416,14 +413,13 @@ const App: React.FC = () => {
     try {
         let { data, error } = await supabase.from('profiles').select('tier, credits').eq('id', userId).single();
         if (error && error.code === 'PGRST116') {
-             // RISK FIX: Setting 50 credits for new free profiles instead of 5.
-             const { data: newProfile } = await supabase.from('profiles').insert([{ id: userId, email: email || 'unknown', tier: SubscriptionTier.Free, credits: 50 }]).select().single();
+             const { data: newProfile } = await supabase.from('profiles').insert([{ id: userId, email: email || 'unknown', tier: SubscriptionTier.Free, credits: 5 }]).select().single();
              if (newProfile) data = newProfile;
         }
         if (data) {
             setUserProfile({
                 tier: data.tier as SubscriptionTier || SubscriptionTier.Free,
-                credits: data.credits ?? 50, 
+                credits: data.credits ?? 5, 
                 username: email ? email.split('@')[0] : 'Studio User'
             });
         }
@@ -433,19 +429,16 @@ const App: React.FC = () => {
   const handleAuth = async (email: string, password?: string, isSignUp?: boolean, username?: string) => {
       if (!isConfigured) throw new Error("Authentication is currently disabled.");
       if (isSignUp) {
-          // Fix: Cast supabase.auth to any to bypass missing method definitions in types
-          const { error } = await (supabase.auth as any).signUp({ email, password, options: { data: { full_name: username } } });
+          const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: username } } });
           if (error) throw error;
       } else {
-          // Fix: Cast supabase.auth to any to bypass missing method definitions in types
-          const { error } = await (supabase.auth as any).signInWithPassword({ email, password });
+          const { error } = await supabase.auth.signInWithPassword({ email, password });
           if (error) throw error;
       }
   };
 
   const handleLogout = async () => {
-      // Fix: Cast supabase.auth to any to bypass missing method definitions in types
-      if (isConfigured) await (supabase.auth as any).signOut(); 
+      if (isConfigured) await supabase.auth.signOut(); 
       setShowAccountMenu(false);
       showToast('Signed out successfully', 'info');
   };
