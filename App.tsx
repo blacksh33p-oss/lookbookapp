@@ -193,9 +193,13 @@ const App: React.FC = () => {
   const isStudio = session ? userProfile?.tier === SubscriptionTier.Studio : false;
 
   useEffect(() => {
+    // 4K is only available in Pro Engine. Force it off when switching to Flash.
+    const shouldEnable4K = selectedModel === 'flash-2.5' ? false : options.enable4K;
+    
     setOptions(prev => ({
       ...prev,
-      modelVersion: selectedModel === 'pro-3' ? ModelVersion.Pro : ModelVersion.Flash
+      modelVersion: selectedModel === 'pro-3' ? ModelVersion.Pro : ModelVersion.Flash,
+      enable4K: shouldEnable4K
     }));
   }, [selectedModel]);
 
@@ -620,29 +624,36 @@ const App: React.FC = () => {
               </div>
 
               <SpotlightGate 
-                isLocked={!isStudio} 
+                isLocked={!isStudio || selectedModel === 'flash-2.5'} 
                 tier="STUDIO" 
                 interactive={true}
                 onClick={() => {
+                  if (selectedModel === 'flash-2.5') {
+                    showToast('4K requires Pro 3 engine', 'info');
+                    return;
+                  }
                   if (!session) { setLoginModalView('signup'); setShowLoginModal(true); return; }
                   if (!isStudio) { setShowUpgradeModal(true); return; }
                   setOptions({...options, enable4K: !options.enable4K});
                 }}
               >
-                <div className={`flex items-center justify-between p-3 bg-zinc-900/30 border border-zinc-800 rounded-md transition-opacity pr-4`}>
+                <div className={`flex items-center justify-between p-3 bg-zinc-900/30 border border-zinc-800 rounded-md transition-opacity pr-4 ${selectedModel === 'flash-2.5' ? 'opacity-40' : ''}`}>
                     <div className="flex items-center gap-3 overflow-hidden flex-1">
                         <div className={`p-2 rounded bg-zinc-800/50 border border-zinc-700 shrink-0`}>
                             <Monitor size={14} className="text-zinc-400" />
                         </div>
                         <div className="flex flex-col gap-0.5 min-w-0">
                             <span className={`text-[10px] font-bold uppercase tracking-wider text-zinc-300 truncate`}>4K Production Upscale</span>
-                            <span className="text-[8px] font-black text-zinc-500 uppercase">+5 CREDITS</span>
+                            <span className="text-[8px] font-black text-zinc-500 uppercase">
+                                {selectedModel === 'flash-2.5' ? 'PRO ENGINE REQUIRED' : '+5 CREDITS'}
+                            </span>
                         </div>
                     </div>
                     <button 
-                        className={`w-10 h-5 rounded-full relative transition-all duration-300 shrink-0 ${options.enable4K ? 'bg-white' : 'bg-zinc-800'}`}
+                        disabled={selectedModel === 'flash-2.5'}
+                        className={`w-10 h-5 rounded-full relative transition-all duration-300 shrink-0 ${options.enable4K && selectedModel !== 'flash-2.5' ? 'bg-white' : 'bg-zinc-800'}`}
                     >
-                        <div className={`absolute top-1 w-3 h-3 rounded-full transition-all duration-300 ${options.enable4K ? 'right-1 bg-black' : 'left-1 bg-zinc-600'}`}></div>
+                        <div className={`absolute top-1 w-3 h-3 rounded-full transition-all duration-300 ${options.enable4K && selectedModel !== 'flash-2.5' ? 'right-1 bg-black' : 'left-1 bg-zinc-600'}`}></div>
                     </button>
                 </div>
               </SpotlightGate>
