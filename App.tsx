@@ -484,12 +484,29 @@ const App: React.FC = () => {
               return;
           }
 
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+          };
+
+          // Pass User ID to backend to bypass IP rate limiting for authenticated users
+          if (session?.user?.id) {
+            headers['x-user-id'] = session.user.id;
+          }
+
           const response = await fetch('/api/generate', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify(currentOptions),
           });
         
+          if (response.status === 429) {
+             setGuestCredits(0);
+             localStorage.setItem('fashion_guest_credits', '0');
+             setLoginModalView('signup');
+             setShowLoginModal(true);
+             throw new Error("Daily guest limit reached. Please create an account to continue.");
+          }
+
           if (!response.ok) {
             const errData = await response.json();
             throw new Error(errData.error || `Generation Failed: ${response.status}`);

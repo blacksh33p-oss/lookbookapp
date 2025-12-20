@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { createClient } from '@supabase/supabase-js';
 
 const STYLE_PROMPTS = {
   'Studio': 'High Key Studio Lighting, Clean White Cyclorama, Commercial Look',
@@ -25,6 +26,12 @@ const EXPRESSION_PROMPTS = {
   'Ethereal': 'Ethereal, Soft Gaze, Dreamy, Serene'
 };
 
+// Initialize Supabase Admin Client for tracking
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+// Note: Service Role Key is preferred for server-side operations to bypass RLS, fallback to Anon if not set.
+const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+
 const extractBase64 = (dataUrl) => dataUrl.split(',')[1] || dataUrl;
 const getMimeType = (dataUrl) => {
   const match = dataUrl.match(/^data:(.*);base64,/);
@@ -50,14 +57,68 @@ export default async function handler(req, res) {
   try {
     const options = req.body;
     
-    // Security check for guest mode Pro usage
+    // --- AUTH & RATE LIMITING ---
     const isPro = options.modelVersion.includes('Pro');
-    // Note: In a real production app, we would verify a session token here.
-    // For now, we simulate the restriction by checking for model type.
-    if (isPro && !req.headers['x-user-id'] && !process.env.DEV_MODE) {
-        // Since we don't have robust header-based ID yet, we assume App.tsx handles auth state.
-        // But we add the check logic for the objective requirements.
+    const authUserId = req.headers['x-user-id'];
+    
+    // 1. Pro Access Check
+    // Pro models strictly require a User ID (Logged in)
+    if (isPro && !authUserId && !process.env.DEV_MODE) {
+       return res.status(403).json({ error: "Guest mode is limited to Flash 2.5. Please login to use Pro models." });
     }
+
+    // 2. Guest Rate Limiting (IP Based)
+    if (!authUserId && supabase) {
+        let ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+        if (Array.isArray(ip)) ip = ip[0];
+        if (ip.includes(',')) ip = ip.split(',')[0];
+        ip = ip.trim();
+
+        // Allow localhost for testing without limits
+        const isLocalhost = ip === '127.0.0.1' || ip === '::1';
+
+        if (!isLocalhost) {
+            // Check tracking table
+            const { data: usageRecord, error: fetchError } = await supabase
+                .from('guest_usage')
+                .select('*')
+                .eq('ip_address', ip)
+                .single();
+
+            const now = new Date();
+            const RESET_HOURS = 24;
+            let currentCount = 0;
+            let shouldBlock = false;
+
+            if (usageRecord) {
+                const lastUpdate = new Date(usageRecord.last_updated);
+                const hoursSinceUpdate = (now - lastUpdate) / (1000 * 60 * 60);
+
+                if (hoursSinceUpdate > RESET_HOURS) {
+                    // Reset period passed
+                    currentCount = 1;
+                    await supabase.from('guest_usage').update({ usage_count: 1, last_updated: now.toISOString() }).eq('ip_address', ip);
+                } else {
+                    // Within period
+                    if (usageRecord.usage_count >= 3) {
+                        shouldBlock = true;
+                    } else {
+                        currentCount = usageRecord.usage_count + 1;
+                        await supabase.from('guest_usage').update({ usage_count: currentCount, last_updated: now.toISOString() }).eq('ip_address', ip);
+                    }
+                }
+            } else {
+                // New record
+                currentCount = 1;
+                await supabase.from('guest_usage').insert([{ ip_address: ip, usage_count: 1, last_updated: now.toISOString() }]);
+            }
+
+            if (shouldBlock) {
+                return res.status(429).json({ error: "Daily guest limit reached. Please sign up for more credits." });
+            }
+        }
+    }
+    // -----------------------------
 
     if (!process.env.API_KEY) {
       throw new Error("Server configuration error: Missing API Key.");
