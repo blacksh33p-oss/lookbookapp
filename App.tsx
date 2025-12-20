@@ -748,7 +748,7 @@ const App: React.FC = () => {
                               <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1">Custom Features</label>
                               <SpotlightGate isLocked={!hasProAccess} tier="CREATOR" interactive={true} onClick={handleLockedClick}>
                                 <textarea 
-                                  placeholder="" 
+                                  placeholder="e.g. Amber eyes, soft features, high cheekbones, natural skin texture..." 
                                   value={options.modelFeatures} 
                                   onChange={(e) => setOptions({...options, modelFeatures: e.target.value})} 
                                   className={`w-full h-20 bg-black border border-zinc-800 rounded-md py-2 px-3 text-white resize-none focus:border-zinc-500 font-mono text-xs transition-all`} 
