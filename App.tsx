@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, Hexagon, Sparkles, Move, LogOut, Star, CheckCircle, XCircle, Info, Crown, X, Loader2, Palette, Folder, Library, Plus, Save, Check, AlertCircle, Monitor, Columns, Square } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, Hexagon, Sparkles, Move, LogOut, Star, CheckCircle, XCircle, Info, Crown, X, Loader2, Palette, Folder, Library, Plus, Save, Check, AlertCircle, Monitor, Columns, Square, Coins } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -19,23 +19,11 @@ const POSES = [
     "Dynamic motion, fabric flowing", "Three-quarter view, hand on hip", "Arms crossed, powerful stance", 
     "Walking away, turning head back", "Seated on floor, legs crossed", "Leaning forward", "Back to camera"
 ];
-const EYE_COLORS = ["Amber", "Deep Brown", "Steel Blue", "Emerald Green", "Hazel", "Dark Grey"];
-const FACE_SHAPES = ["Oval face", "Square jawline", "Heart-shaped face", "High cheekbones", "Soft features", "Defined jawline"];
-const SKIN_DETAILS = ["Freckles", "Clear complexion", "Sun-kissed skin", "Dewy skin", "Mole on cheek"];
-
-const STANDARD_STYLES = [ PhotoStyle.Studio, PhotoStyle.Urban, PhotoStyle.Nature, PhotoStyle.Coastal ];
-const PRO_STYLES = [ PhotoStyle.Luxury, PhotoStyle.Chromatic, PhotoStyle.Minimalist, PhotoStyle.Film, PhotoStyle.Newton, PhotoStyle.Lindbergh, PhotoStyle.Leibovitz, PhotoStyle.Avedon, PhotoStyle.LaChapelle, PhotoStyle.Testino ];
 
 const ACCOUNT_PORTAL_URL = (import.meta as any).env?.VITE_ACCOUNT_PORTAL_URL || 'https://lookbook.test.onfastspring.com/account';
 
 const getRandomPose = () => POSES[Math.floor(Math.random() * POSES.length)];
 const getRandomSeed = () => Math.floor(Math.random() * 1000000000);
-const getRandomFeatures = (): string => {
-    const eyeColor = EYE_COLORS[Math.floor(Math.random() * EYE_COLORS.length)];
-    const faceShape = FACE_SHAPES[Math.floor(Math.random() * FACE_SHAPES.length)];
-    const skinDetail = SKIN_DETAILS[Math.floor(Math.random() * SKIN_DETAILS.length)];
-    return `${eyeColor} eyes, ${faceShape}, ${skinDetail}`;
-}
 
 const getGenerationCost = (options: PhotoshootOptions): number => {
     let cost = 1;
@@ -44,6 +32,9 @@ const getGenerationCost = (options: PhotoshootOptions): number => {
     if (options.layout === LayoutMode.Diptych) cost += 5;
     return cost;
 };
+
+const STANDARD_STYLES = [ PhotoStyle.Studio, PhotoStyle.Urban, PhotoStyle.Nature, PhotoStyle.Coastal ];
+const PRO_STYLES = [ PhotoStyle.Luxury, PhotoStyle.Chromatic, PhotoStyle.Minimalist, PhotoStyle.Film, PhotoStyle.Newton, PhotoStyle.Lindbergh, PhotoStyle.Leibovitz, PhotoStyle.Avedon, PhotoStyle.LaChapelle, PhotoStyle.Testino ];
 
 /**
  * SpotlightGate Component
@@ -188,7 +179,7 @@ const App: React.FC = () => {
     layout: LayoutMode.Single,
     aspectRatio: AspectRatio.Square, 
     enable4K: false, height: '', measurementUnit: MeasurementUnit.CM,
-    bodyType: BodyType.Standard, isModelLocked: false,
+    bodyType: BodyType.Standard, isModelLocked: false, modelFeatures: '',
     outfit: { 
         top: { garmentType: '', description: '', images: [], sizeChart: null, sizeChartDetails: '' },
         bottom: { garmentType: '', description: '', images: [], sizeChart: null, sizeChartDetails: '' },
@@ -232,6 +223,8 @@ const App: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const currentCost = getGenerationCost(options);
 
   const isRestrictedActive = (
     (options.layout === LayoutMode.Diptych && !isStudio) ||
@@ -450,12 +443,13 @@ const App: React.FC = () => {
       if (window.innerWidth < 1024) setActiveTab('preview');
 
       const newSeed = getRandomSeed();
-      const newFeatures = options.referenceModelImage ? (options.modelFeatures || getRandomFeatures()) : getRandomFeatures();
+      // FIX: Stop generating random identity features if not provided. 
+      // Only use modelFeatures if the user has explicitly typed them in the textarea.
       const newOptions = { 
         ...options, 
         seed: newSeed, 
-        pose: autoPose ? getRandomPose() : (options.pose || getRandomPose()), 
-        modelFeatures: newFeatures
+        pose: autoPose ? getRandomPose() : (options.pose || getRandomPose()),
+        modelFeatures: options.modelFeatures?.trim() || ''
       };
       setOptions(newOptions);
       executeGeneration(newOptions);
@@ -600,7 +594,7 @@ const App: React.FC = () => {
                           className={`flex-1 py-2 px-2 rounded-md transition-all duration-200 flex flex-col items-center justify-center gap-0.5 ${selectedModel === 'flash-2.5' ? 'bg-zinc-100 text-black shadow-md' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'}`}
                       >
                           <span className="text-[10px] font-black uppercase tracking-wider">Flash 2.5</span>
-                          <span className={`text-[8px] font-bold uppercase ${selectedModel === 'flash-2.5' ? 'text-zinc-500' : 'text-zinc-700'}`}>Standard</span>
+                          <span className={`text-[8px] font-bold uppercase ${selectedModel === 'flash-2.5' ? 'text-zinc-500' : 'text-zinc-700'}`}>1 CREDIT</span>
                       </button>
                       <SpotlightGate
                           isLocked={!hasProAccess}
@@ -619,7 +613,7 @@ const App: React.FC = () => {
                               ${selectedModel === 'pro-3' ? 'bg-zinc-100 text-black shadow-md' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'}`}
                         >
                             <span className={`text-[10px] font-black uppercase tracking-wider`}>Pro 3</span>
-                            <span className={`text-[8px] font-bold uppercase ${selectedModel === 'pro-3' ? 'text-zinc-500' : 'text-zinc-400'}`}>High Detail</span>
+                            <span className={`text-[8px] font-bold uppercase ${selectedModel === 'pro-3' ? 'text-zinc-500' : 'text-zinc-400'}`}>10 CREDITS</span>
                         </button>
                       </SpotlightGate>
                   </div>
@@ -642,6 +636,7 @@ const App: React.FC = () => {
                         </div>
                         <div className="flex flex-col gap-0.5 min-w-0">
                             <span className={`text-[10px] font-bold uppercase tracking-wider text-zinc-300 truncate`}>4K Production Upscale</span>
+                            <span className="text-[8px] font-black text-zinc-500 uppercase">+5 CREDITS</span>
                         </div>
                     </div>
                     <button 
@@ -807,6 +802,7 @@ const App: React.FC = () => {
                                         </div>
                                         <div className="flex flex-col gap-0.5 text-left w-full">
                                             <span className={`text-[10px] font-black uppercase tracking-wider ${options.layout === LayoutMode.Diptych ? 'text-black' : 'text-white'}`}>Diptych Split</span>
+                                            <span className={`text-[8px] font-black uppercase transition-colors ${options.layout === LayoutMode.Diptych ? 'text-zinc-500' : 'text-zinc-500'}`}>+5 CREDITS</span>
                                         </div>
                                     </button>
                                   </SpotlightGate>
@@ -859,7 +855,23 @@ const App: React.FC = () => {
                   className={`w-full py-5 rounded-md text-[11px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 transform active:scale-[0.98] shadow-2xl
                   ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed opacity-50' : 'bg-white text-black hover:bg-zinc-200'}`}
               >
-                  {isLoading ? <div className="flex items-center gap-3"><Loader2 size={16} className="animate-spin" /><span>Rendering...</span></div> : <><Sparkles size={16} /> Generate Shoot</>}
+                  {isLoading ? (
+                      <div className="flex items-center gap-3">
+                          <Loader2 size={16} className="animate-spin" />
+                          <span>Rendering...</span>
+                      </div>
+                  ) : (
+                      <div className="flex flex-col items-center">
+                          <div className="flex items-center gap-2">
+                              <Sparkles size={16} /> 
+                              <span>Generate Shoot</span>
+                          </div>
+                          <div className="flex items-center gap-1 mt-1 opacity-60 text-[8px]">
+                              <Coins size={10} />
+                              <span>{currentCost} {currentCost === 1 ? 'CREDIT' : 'CREDITS'}</span>
+                          </div>
+                      </div>
+                  )}
               </button>
               {!isFormValid && !isLoading && isRestrictedActive && (
                 <div className="mt-2 text-center">
