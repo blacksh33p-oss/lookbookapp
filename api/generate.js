@@ -80,7 +80,7 @@ export default async function handler(req, res) {
         if (supabaseUrl && supabaseServiceKey) {
             const adminClient = createClient(supabaseUrl, supabaseServiceKey);
             
-            // Exact IP logic match with guest-status.js
+            // --- IP LOGIC MUST MATCH guest-status.js EXACTLY ---
             let ip = 'unknown';
             if (req.headers && req.headers['x-forwarded-for']) {
                 ip = req.headers['x-forwarded-for'];
@@ -94,50 +94,78 @@ export default async function handler(req, res) {
             
             // Normalize IP for local testing consistency
             if (ip === '::1') ip = '127.0.0.1';
+            // ---------------------------------------------------
 
             debugIp = ip;
-            console.log("Generating for Guest IP:", ip);
+            console.log("VERCEL_DEBUG: IP:", ip, " | Action: Incrementing Usage");
 
             // Check tracking table
-            const { data: usageRecord, error: fetchError } = await adminClient
-                .from('guest_usage')
-                .select('*')
-                .eq('ip_address', ip)
-                .maybeSingle();
+            try {
+                const { data: usageRecord, error: fetchError } = await adminClient
+                    .from('guest_usage')
+                    .select('*')
+                    .eq('ip_address', ip)
+                    .maybeSingle();
 
-            const now = new Date();
-            const RESET_HOURS = 24;
-            let shouldBlock = false;
-
-            if (usageRecord) {
-                const lastUpdate = new Date(usageRecord.last_updated);
-                const hoursSinceUpdate = (now - lastUpdate) / (1000 * 60 * 60);
-
-                if (hoursSinceUpdate > RESET_HOURS) {
-                    // Reset period passed
-                    debugUsageCount = 1;
-                    const { error: resetError } = await adminClient.from('guest_usage').update({ usage_count: 1, last_updated: now.toISOString() }).eq('ip_address', ip);
-                    if (resetError) console.error("Guest DB Reset Error:", resetError);
-                } else {
-                    // Within period
-                    if (usageRecord.usage_count >= 3) {
-                        shouldBlock = true;
-                    } else {
-                        debugUsageCount = usageRecord.usage_count + 1;
-                        const { error: updateError } = await adminClient.from('guest_usage').update({ usage_count: debugUsageCount, last_updated: now.toISOString() }).eq('ip_address', ip);
-                         if (updateError) console.error("Guest DB Increment Error:", updateError);
-                    }
+                if (fetchError) {
+                    console.error("Guest DB Fetch Error:", fetchError);
                 }
-            } else {
-                // New record
-                debugUsageCount = 1;
-                const { error: insertError } = await adminClient.from('guest_usage').insert([{ ip_address: ip, usage_count: 1, last_updated: now.toISOString() }]);
-                if (insertError) console.error("Guest DB Insert Error:", insertError);
-            }
 
-            if (shouldBlock) {
-                console.log("Guest blocked due to rate limit:", ip);
-                return res.status(429).json({ error: "Daily guest limit reached. Please sign up for more credits.", debug_ip: ip });
+                const now = new Date();
+                const RESET_HOURS = 24;
+                let shouldBlock = false;
+                let newCount = 0;
+
+                if (usageRecord) {
+                    const lastUpdate = new Date(usageRecord.last_updated);
+                    const hoursSinceUpdate = (now - lastUpdate) / (1000 * 60 * 60);
+
+                    if (hoursSinceUpdate > RESET_HOURS) {
+                        // Reset period passed
+                        newCount = 1;
+                        console.log("VERCEL_DEBUG: Resetting guest usage for IP:", ip);
+                        const { error: resetError } = await adminClient
+                            .from('guest_usage')
+                            .update({ usage_count: 1, last_updated: now.toISOString() })
+                            .eq('ip_address', ip);
+                            
+                        if (resetError) console.error("Guest DB Reset Error:", resetError);
+                    } else {
+                        // Within period
+                        if (usageRecord.usage_count >= 3) {
+                            shouldBlock = true;
+                        } else {
+                            newCount = usageRecord.usage_count + 1;
+                            console.log("VERCEL_DEBUG: Incrementing guest usage to", newCount, "for IP:", ip);
+                            const { error: updateError } = await adminClient
+                                .from('guest_usage')
+                                .update({ usage_count: newCount, last_updated: now.toISOString() })
+                                .eq('ip_address', ip);
+
+                            if (updateError) console.error("Guest DB Increment Error:", updateError);
+                        }
+                    }
+                } else {
+                    // New record
+                    newCount = 1;
+                    console.log("VERCEL_DEBUG: Creating new guest record for IP:", ip);
+                    const { error: insertError } = await adminClient
+                        .from('guest_usage')
+                        .insert([{ ip_address: ip, usage_count: 1, last_updated: now.toISOString() }]);
+                    
+                    if (insertError) console.error("Guest DB Insert Error:", insertError);
+                }
+
+                debugUsageCount = shouldBlock ? 3 : newCount;
+
+                if (shouldBlock) {
+                    console.log("VERCEL_DEBUG: Guest blocked due to rate limit:", ip);
+                    return res.status(429).json({ error: "Daily guest limit reached. Please sign up for more credits.", debug_ip: ip });
+                }
+            } catch (dbEx) {
+                console.error("Guest DB Operation Exception:", dbEx);
+                // We do not fail the request here to allow generation to proceed if DB is down, 
+                // but usually we want to know.
             }
         }
     }
