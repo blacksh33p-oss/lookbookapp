@@ -145,11 +145,8 @@ const App: React.FC = () => {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor');
   
-  const [guestCredits, setGuestCredits] = useState<number>(() => {
-    const saved = localStorage.getItem('fashion_guest_credits');
-    // Quota reduced from 5 to 3 for unauthenticated users
-    return saved !== null ? parseInt(saved, 10) : 3;
-  });
+  // Guest Credits State - Initialize to null (loading) to wait for server sync
+  const [guestCredits, setGuestCredits] = useState<number | null>(null);
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
@@ -189,6 +186,7 @@ const App: React.FC = () => {
   });
 
   const isPremium = session ? userProfile?.tier !== SubscriptionTier.Free : false;
+  // Tier Check for STYLES (not Models)
   const hasProAccess = session ? (userProfile?.tier === SubscriptionTier.Creator || userProfile?.tier === SubscriptionTier.Studio) : false;
   const isStudio = session ? userProfile?.tier === SubscriptionTier.Studio : false;
 
@@ -207,6 +205,46 @@ const App: React.FC = () => {
       enable4K: shouldEnable4K
     }));
   }, [selectedModel, session]);
+
+  // Sync Guest Credits with Server
+  useEffect(() => {
+    if (isAuthLoading) return; // Wait until we know if user is logged in
+    
+    if (!session) {
+      fetch('/api/guest-status')
+        .then(async (res) => {
+           // Graceful handling for non-existent API (local dev) or errors
+           if (res.status === 404 || res.status === 500) {
+               return { remaining: 3 }; 
+           }
+           
+           // Ensure it's actually JSON before parsing (avoids HTML error pages)
+           const contentType = res.headers.get("content-type");
+           if (!contentType || !contentType.includes("application/json")) {
+               return { remaining: 3 };
+           }
+
+           if (!res.ok) throw new Error(`API Error: ${res.status}`);
+           
+           const text = await res.text();
+           try {
+             return JSON.parse(text);
+           } catch (e) {
+             console.warn("Invalid JSON response from guest-status, defaulting to 3 credits.");
+             return { remaining: 3 };
+           }
+        })
+        .then(data => {
+            const credits = typeof data?.remaining === 'number' ? data.remaining : 3;
+            setGuestCredits(credits);
+            localStorage.setItem('fashion_guest_credits', credits.toString());
+        })
+        .catch(err => {
+            // Silent fail to default
+            setGuestCredits(3);
+        });
+    }
+  }, [session, isAuthLoading]);
 
   const [generatedResult, setGeneratedResult] = useState<{image: string, width: number, height: number} | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -235,12 +273,13 @@ const App: React.FC = () => {
 
   const currentCost = getGenerationCost(options);
 
+  // Updated Restriction Logic: Pro Model is allowed for anyone logged in (Guest excluded)
   const isRestrictedActive = (
     (options.layout === LayoutMode.Diptych && !isStudio) ||
     (options.enable4K && !isStudio) ||
     (PRO_STYLES.includes(options.style) && !hasProAccess) ||
     (!autoPose && !isPremium) ||
-    (selectedModel === 'pro-3' && !hasProAccess)
+    (selectedModel === 'pro-3' && !session) // Only strictly restrict Pro Model for GUESTS. Users can select it if they have credits.
   );
 
   const isFormValid = !isRestrictedActive && Object.values(options.outfit).some((item: OutfitItem) => 
@@ -477,9 +516,18 @@ const App: React.FC = () => {
             throw new Error("Guest mode is limited to Flash 2.5. Please login to use Pro models.");
           }
 
-          if (!session && guestCredits < cost) {
+          // Safe check: If guestCredits is still loading (null), block interaction silently or treat as 0
+          const safeCredits = guestCredits ?? 0;
+          if (!session && safeCredits < cost) {
               setLoginModalView('signup');
               setShowLoginModal(true);
+              setIsLoading(false);
+              return;
+          }
+          
+          // User check: ensure they have enough credits for Pro
+          if (session && userProfile && userProfile.credits < cost) {
+              setShowUpgradeModal(true);
               setIsLoading(false);
               return;
           }
@@ -519,7 +567,7 @@ const App: React.FC = () => {
           setGeneratedResult(result);
 
           if (!session) {
-              const newGuestBalance = Math.max(0, guestCredits - cost);
+              const newGuestBalance = Math.max(0, safeCredits - cost);
               setGuestCredits(newGuestBalance);
               localStorage.setItem('fashion_guest_credits', newGuestBalance.toString());
           } else {
@@ -590,7 +638,9 @@ const App: React.FC = () => {
                  ) : !session && (
                     <div className="hidden sm:flex items-center gap-3 px-4 py-1.5 bg-zinc-900/50 border border-zinc-800 rounded-full">
                         <Coins size={12} className="text-amber-400" />
-                        <span className="text-[10px] font-black text-white uppercase tracking-widest">{guestCredits} Credits Remaining</span>
+                        <span className="text-[10px] font-black text-white uppercase tracking-widest">
+                            {guestCredits === null ? '...' : guestCredits} Credits Remaining
+                        </span>
                     </div>
                  )}
 
@@ -655,14 +705,15 @@ const App: React.FC = () => {
                           <span className={`text-[8px] font-bold uppercase ${selectedModel === 'flash-2.5' ? 'text-zinc-500' : 'text-zinc-700'}`}>1 CREDIT</span>
                       </button>
                       <SpotlightGate
-                          isLocked={!hasProAccess}
+                          isLocked={!session || (session && (userProfile?.credits || 0) < 10)}
                           tier="CREATOR"
                           containerClassName="flex-1"
                           className="h-full"
                           interactive={true}
                           onClick={() => {
                             if (!session) { setLoginModalView('signup'); setShowLoginModal(true); return; }
-                            if (!hasProAccess) { setShowUpgradeModal(true); return; }
+                            // If logged in but not enough credits, show upgrade
+                            if (session && (userProfile?.credits || 0) < 10) { setShowUpgradeModal(true); return; }
                             setSelectedModel('pro-3');
                           }}
                       >
