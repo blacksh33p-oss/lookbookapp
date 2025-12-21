@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Download, RefreshCw, Loader2, User, Users, Camera, Lock, Sparkles, Shirt, Wand2, ChevronUp, Monitor } from 'lucide-react';
 
@@ -26,7 +25,9 @@ const LOADING_LOGS = [
     { id: 3, text: "CALCULATING_LIGHT_PATHS" },
     { id: 4, text: "SYNTHESIZING_TEXTURES" },
     { id: 5, text: "REFINING_DETAILS" },
-    { id: 6, text: "FINALIZING_OUTPUT" }
+    { id: 6, text: "FINALIZING_OUTPUT" },
+    { id: 7, text: "STILL_WORKING_ALMOST_DONE" },
+    { id: 8, text: "STILL_WORKING_HOLD_ON" }
 ];
 
 export const ResultDisplay: React.FC<ResultDisplayProps> = ({ 
@@ -58,8 +59,14 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
     if (isLoading) {
         setCurrentStep(0);
         const interval = setInterval(() => {
-            setCurrentStep((prev) => Math.min(prev + 1, LOADING_LOGS.length - 1));
-        }, 1500);
+            setCurrentStep((prev) => {
+                // Once we reach the last "Still working" step, loop between the last two steps to show activity
+                if (prev >= LOADING_LOGS.length - 1) {
+                    return LOADING_LOGS.length - 2;
+                }
+                return prev + 1;
+            });
+        }, 2000);
         return () => clearInterval(interval);
     }
   }, [isLoading]);
@@ -75,17 +82,17 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
   // Loading - System Log Style
   if (isLoading) {
     return (
-      <div className="h-full w-full bg-black flex flex-col items-center justify-center relative font-mono">
-        <div className="w-64">
+      <div className="h-full w-full bg-black flex flex-col items-center justify-center relative font-mono p-4">
+        <div className="w-full max-w-xs">
              <div className="flex items-center gap-3 mb-6">
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 <span className="text-xs font-bold text-white uppercase tracking-widest">Processing</span>
              </div>
              
              <div className="space-y-2 border-l border-zinc-800 pl-4 relative">
-                 {LOADING_LOGS.map((log, idx) => (
-                     <div key={log.id} className={`flex items-center gap-2 text-[10px] transition-all duration-300 ${idx === currentStep ? 'text-white translate-x-1' : idx < currentStep ? 'text-zinc-600' : 'text-zinc-800'}`}>
-                         <span className={`w-1.5 h-1.5 rounded-full ${idx === currentStep ? 'bg-white' : idx < currentStep ? 'bg-zinc-800' : 'bg-transparent'}`}></span>
+                 {LOADING_LOGS.slice(0, currentStep + 1).map((log, idx) => (
+                     <div key={log.id} className={`flex items-center gap-2 text-[10px] transition-all duration-300 ${idx === currentStep ? 'text-white translate-x-1' : 'text-zinc-600'}`}>
+                         <span className={`w-1.5 h-1.5 rounded-full ${idx === currentStep ? 'bg-white' : 'bg-zinc-800'}`}></span>
                          {log.text}... {idx < currentStep && <span className="text-zinc-700 ml-auto">[OK]</span>}
                      </div>
                  ))}
@@ -112,40 +119,40 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
     return (
       <div className="h-full w-full bg-black flex flex-col items-center justify-center relative overflow-hidden">
         {/* Background ambient glow */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-white/5 rounded-full blur-[100px] pointer-events-none"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] sm:w-[500px] h-[300px] sm:h-[500px] bg-white/5 rounded-full blur-[100px] pointer-events-none"></div>
 
         <div className="relative z-10 max-w-md text-center px-6">
             <div className="mb-8 flex justify-center">
-                <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center shadow-2xl shadow-black">
-                    <Sparkles className="w-8 h-8 text-white" strokeWidth={1.5} />
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center shadow-2xl shadow-black">
+                    <Sparkles className="w-7 h-7 sm:w-8 sm:h-8 text-white" strokeWidth={1.5} />
                 </div>
             </div>
             
-            <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-4">
-                Virtual Fashion Studio
+            <h2 className="text-2xl sm:text-4xl font-bold text-white tracking-tight mb-4">
+                Virtual Studio
             </h2>
-            <p className="text-zinc-500 text-sm leading-relaxed mb-10 max-w-xs mx-auto">
+            <p className="text-zinc-500 text-xs sm:text-sm leading-relaxed mb-10 max-w-xs mx-auto">
                 Turn garment photos into professional high-fashion editorials using Generative AI.
             </p>
 
-            <div className="grid grid-cols-3 gap-4 border-t border-zinc-800 pt-8">
+            <div className="grid grid-cols-3 gap-2 sm:gap-4 border-t border-zinc-800 pt-8">
                 <div className="flex flex-col items-center gap-2 group">
-                    <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:border-zinc-600 transition-colors">
-                        <Shirt size={16} className="text-zinc-400 group-hover:text-white" />
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:border-zinc-600 transition-colors">
+                        <Shirt size={14} className="text-zinc-400 group-hover:text-white" />
                     </div>
-                    <span className="text-[10px] uppercase font-bold text-zinc-600 tracking-wider">1. Upload</span>
+                    <span className="text-[9px] sm:text-[10px] uppercase font-bold text-zinc-600 tracking-wider">1. Upload</span>
                 </div>
                 <div className="flex flex-col items-center gap-2 group">
-                    <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:border-zinc-600 transition-colors">
-                        <User size={16} className="text-zinc-400 group-hover:text-white" />
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:border-zinc-600 transition-colors">
+                        <User size={14} className="text-zinc-400 group-hover:text-white" />
                     </div>
-                    <span className="text-[10px] uppercase font-bold text-zinc-600 tracking-wider">2. Model</span>
+                    <span className="text-[9px] sm:text-[10px] uppercase font-bold text-zinc-600 tracking-wider">2. Model</span>
                 </div>
                 <div className="flex flex-col items-center gap-2 group">
-                    <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:border-zinc-600 transition-colors">
-                        <Wand2 size={16} className="text-zinc-400 group-hover:text-white" />
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:border-zinc-600 transition-colors">
+                        <Wand2 size={14} className="text-zinc-400 group-hover:text-white" />
                     </div>
-                    <span className="text-[10px] uppercase font-bold text-zinc-600 tracking-wider">3. Create</span>
+                    <span className="text-[9px] sm:text-[10px] uppercase font-bold text-zinc-600 tracking-wider">3. Create</span>
                 </div>
             </div>
         </div>
@@ -157,13 +164,13 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
   return (
     <div className="h-full w-full bg-black relative flex flex-col group">
       {width && height && (
-        <div className="absolute top-6 left-6 z-20 bg-black/60 backdrop-blur-md border border-zinc-800 px-3 py-1.5 rounded-full flex items-center gap-2.5 shadow-2xl">
+        <div className="absolute top-4 sm:top-6 left-4 sm:left-6 z-20 bg-black/60 backdrop-blur-md border border-zinc-800 px-3 py-1.5 rounded-full flex items-center gap-2.5 shadow-2xl">
           <Monitor size={10} className="text-zinc-500" />
           <span className="text-[10px] font-mono text-zinc-400 font-bold uppercase tracking-widest">
             {width} <span className="text-zinc-700">×</span> {height} px
           </span>
-          <div className="w-px h-2.5 bg-zinc-800 mx-0.5"></div>
-          <span className={`text-[9px] font-black uppercase ${getResolutionLabel() === '4K' ? 'text-amber-500' : getResolutionLabel() === 'HD' ? 'text-blue-400' : 'text-zinc-600'}`}>
+          <div className="hidden xs:block w-px h-2.5 bg-zinc-800 mx-0.5"></div>
+          <span className={`hidden xs:inline text-[9px] font-black uppercase ${getResolutionLabel() === '4K' ? 'text-amber-500' : getResolutionLabel() === 'HD' ? 'text-blue-400' : 'text-zinc-600'}`}>
             {getResolutionLabel()} Quality
           </span>
         </div>
@@ -178,17 +185,18 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
       </div>
       
       {/* Floating Action Dock */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex items-center">
-        <div className="flex items-center bg-zinc-950/80 backdrop-blur-2xl border border-zinc-800 p-1 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.8)]" ref={menuRef}>
+      <div className="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-30 flex items-center w-[calc(100%-2rem)] max-w-xs sm:max-w-none justify-center">
+        <div className="flex items-center w-full sm:w-auto bg-zinc-950/80 backdrop-blur-2xl border border-zinc-800 p-1 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.8)]" ref={menuRef}>
             
             {/* Regenerate Trigger */}
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-none">
                 <button
                     onClick={() => setShowMenu(!showMenu)}
-                    className="h-10 pl-5 pr-4 hover:bg-zinc-800/50 text-white rounded-l-full font-bold text-[10px] uppercase tracking-widest transition-all flex items-center gap-3 group"
+                    className="w-full h-10 pl-5 pr-4 hover:bg-zinc-800/50 text-white rounded-l-full font-bold text-[10px] uppercase tracking-widest transition-all flex items-center justify-center sm:justify-start gap-3 group"
                 >
                     <RefreshCw size={14} className={`transition-transform duration-500 ${showMenu ? 'rotate-180' : 'group-hover:rotate-45'}`} />
-                    <span>Regenerate</span>
+                    <span className="hidden xs:inline">Regen</span>
+                    <span className="xs:hidden">Retry</span>
                     <ChevronUp size={12} className={`text-zinc-600 transition-transform ${showMenu ? 'rotate-180' : ''}`} />
                 </button>
 
@@ -234,10 +242,10 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
             {/* Save Button */}
             <button
                 onClick={onDownload}
-                className="h-10 pl-4 pr-5 hover:bg-zinc-800/50 text-white rounded-r-full font-bold text-[10px] uppercase tracking-widest transition-all flex items-center gap-3 group"
+                className="flex-1 sm:flex-none h-10 pl-4 pr-5 hover:bg-zinc-800/50 text-white rounded-r-full font-bold text-[10px] uppercase tracking-widest transition-all flex items-center justify-center sm:justify-start gap-3 group"
             >
                 <Download size={14} className="group-hover:-translate-y-0.5 transition-transform" />
-                <span>Save ({getResolutionLabel() || "PNG"})</span>
+                <span>Save</span>
             </button>
         </div>
       </div>

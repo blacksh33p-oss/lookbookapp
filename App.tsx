@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { UserCircle, ChevronDown, Shirt, Ruler, Zap, Hexagon, Sparkles, Move, LogOut, Star, CheckCircle, XCircle, Info, Crown, X, Loader2, Palette, Folder, Library, Plus, Save, Check, AlertCircle, Monitor, Columns, Square, Coins } from 'lucide-react';
+import { UserCircle, ChevronDown, Shirt, Ruler, Zap, Hexagon, Sparkles, Move, LogOut, Star, CheckCircle, XCircle, Info, Crown, X, Loader2, Palette, Folder, Library, Plus, Save, Check, AlertCircle, Monitor, Columns, Square, Coins, Settings2, Image as ImageIcon } from 'lucide-react';
 import { Dropdown } from './components/Dropdown';
 import { ResultDisplay } from './components/ResultDisplay';
 import { SizeControl } from './components/SizeControl';
@@ -616,42 +616,42 @@ const App: React.FC = () => {
     <div className="h-screen w-full flex flex-col text-zinc-300 font-sans bg-black overflow-hidden relative">
       <header className="flex-shrink-0 z-[60] bg-black/80 backdrop-blur-xl border-b border-zinc-800/50 h-14">
           <div className="max-w-[1920px] mx-auto h-full flex justify-between items-center px-4 sm:px-6">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                   <div className="w-6 h-6 bg-white text-black rounded-sm flex items-center justify-center shadow-lg shadow-white/10 shrink-0">
-                     <Hexagon size={14} fill="currentColor" />
+                     <Hexagon size={12} fill="currentColor" />
                   </div>
-                  <h1 className="text-sm font-bold tracking-tight text-white font-mono uppercase">FashionStudio<span className="text-zinc-500">.ai</span></h1>
+                  <h1 className="text-[10px] sm:text-sm font-bold tracking-tight text-white font-mono uppercase">Studio<span className="text-zinc-500">.ai</span></h1>
               </div>
 
-              <div className="flex items-center gap-4 sm:gap-6">
+              <div className="flex items-center gap-2 sm:gap-6">
                  {session && userProfile ? (
-                    <div className="hidden sm:flex items-center gap-3 px-3 py-1 bg-zinc-900/50 border border-zinc-800 rounded-full group cursor-pointer hover:border-zinc-700 transition-colors" onClick={() => setShowUpgradeModal(true)}>
-                        <div className="flex items-center gap-1.5 px-2 border-r border-zinc-800">
+                    <div className="flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1 bg-zinc-900/50 border border-zinc-800 rounded-full group cursor-pointer hover:border-zinc-700 transition-colors" onClick={() => setShowUpgradeModal(true)}>
+                        <div className="flex items-center gap-1.5 px-1.5 border-r border-zinc-800">
                            <Zap size={10} className="text-amber-400 fill-amber-400" />
                            <span className="text-[10px] font-black text-white">{userProfile.credits}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 px-1">
+                        <div className="hidden xs:flex items-center gap-1.5 px-1">
                            <Crown size={10} className={`${userProfile.tier !== SubscriptionTier.Free ? 'text-amber-400' : 'text-zinc-600'}`} />
                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{userProfile.tier}</span>
                         </div>
                     </div>
                  ) : !session && (
-                    <div className="hidden sm:flex items-center gap-3 px-4 py-1.5 bg-zinc-900/50 border border-zinc-800 rounded-full">
-                        <Coins size={12} className="text-amber-400" />
-                        <span className="text-[10px] font-black text-white uppercase tracking-widest">
-                            {guestCredits === null ? '...' : guestCredits} Credits Remaining
+                    <div className="flex items-center gap-2 sm:gap-3 px-2.5 sm:px-4 py-1.5 bg-zinc-900/50 border border-zinc-800 rounded-full">
+                        <Coins size={10} className="text-amber-400 shrink-0" />
+                        <span className="text-[9px] sm:text-[10px] font-black text-white uppercase tracking-widest whitespace-nowrap">
+                            {guestCredits === null ? '...' : guestCredits} <span className="hidden xs:inline">CR.</span>
                         </span>
                     </div>
                  )}
 
-                 <div className="flex items-center gap-3 sm:gap-4">
+                 <div className="flex items-center gap-2 sm:gap-4">
                     {session && (
                         <button 
                             onClick={() => setShowLibrary(true)} 
                             onMouseEnter={() => setPrefetchLibrary(true)}
                             className="flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-white transition-colors"
                         >
-                            <Library size={16} /> <span className="hidden sm:inline">Archive</span>
+                            <Library size={16} /> <span className="hidden lg:inline">Archive</span>
                         </button>
                     )}
                     {session ? (
@@ -679,8 +679,8 @@ const App: React.FC = () => {
                         </div>
                     ) : (
                         <div className="flex items-center gap-3 sm:gap-6">
-                            <button onClick={() => { setLoginModalView('login'); setShowLoginModal(true); }} className="text-xs font-bold text-zinc-400 hover:text-white transition-colors">Log in</button>
-                            <button onClick={() => { setLoginModalView('signup'); setShowLoginModal(true); }} className="bg-white text-black px-4 py-1.5 rounded-md text-xs font-bold hover:bg-zinc-200 transition-colors">Sign up</button>
+                            <button onClick={() => { setLoginModalView('login'); setShowLoginModal(true); }} className="text-[10px] font-bold text-zinc-400 hover:text-white transition-colors uppercase tracking-widest">Log in</button>
+                            <button onClick={() => { setLoginModalView('signup'); setShowLoginModal(true); }} className="bg-white text-black px-3 py-1.5 rounded text-[10px] font-black hover:bg-zinc-200 transition-colors uppercase tracking-widest">Sign up</button>
                         </div>
                     )}
                  </div>
@@ -688,13 +688,29 @@ const App: React.FC = () => {
           </div>
       </header>
 
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden max-w-[1920px] mx-auto w-full px-4 lg:px-6 py-4 lg:py-6 gap-6 min-h-0 relative">
-        <aside className={`w-full lg:w-[400px] flex-shrink-0 flex flex-col h-full bg-black border border-zinc-800 rounded-lg overflow-hidden shadow-xl min-h-0 ${activeTab === 'editor' ? 'flex' : 'hidden lg:flex'}`}>
+      {/* Mobile Tab Navigation */}
+      <div className="lg:hidden flex-shrink-0 bg-black border-b border-zinc-800 flex h-14">
+          <button 
+            onClick={() => setActiveTab('editor')}
+            className={`flex-1 text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${activeTab === 'editor' ? 'text-white border-b-2 border-white bg-zinc-900/50' : 'text-zinc-500 hover:text-zinc-300'}`}
+          >
+            <Settings2 size={16} /> Editor
+          </button>
+          <button 
+            onClick={() => setActiveTab('preview')}
+            className={`flex-1 text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${activeTab === 'preview' ? 'text-white border-b-2 border-white bg-zinc-900/50' : 'text-zinc-500 hover:text-zinc-300'}`}
+          >
+            <ImageIcon size={16} /> Preview
+          </button>
+      </div>
+
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden max-w-[1920px] mx-auto w-full px-0 sm:px-4 lg:px-6 py-0 lg:py-6 gap-0 lg:gap-6 min-h-0 relative">
+        <aside className={`w-full lg:w-[400px] flex-shrink-0 flex flex-col h-full bg-black border-x lg:border border-zinc-800 rounded-none lg:rounded-lg overflow-hidden shadow-xl min-h-0 ${activeTab === 'editor' ? 'flex' : 'hidden lg:flex'}`}>
           <div className="p-4 border-b border-zinc-800 bg-zinc-950/50 space-y-4 flex-shrink-0">
               <div className="space-y-1.5">
                   <div className="flex justify-between items-center pl-1">
-                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Generation Engine</label>
-                      <span className="text-[9px] font-mono text-zinc-600 uppercase">Latency Priority</span>
+                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Engine</label>
+                      <span className="text-[9px] font-mono text-zinc-600 uppercase">Flash Priority</span>
                   </div>
                   <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-1 flex gap-1 shadow-sm">
                       <button
@@ -712,7 +728,6 @@ const App: React.FC = () => {
                           interactive={true}
                           onClick={() => {
                             if (!session) { setLoginModalView('signup'); setShowLoginModal(true); return; }
-                            // If logged in but not enough credits, show upgrade
                             if (session && (userProfile?.credits || 0) < 10) { setShowUpgradeModal(true); return; }
                             setSelectedModel('pro-3');
                           }}
@@ -997,7 +1012,7 @@ const App: React.FC = () => {
           </div>
         </aside>
 
-        <section className={`flex-1 h-full bg-black border border-zinc-800 rounded-lg overflow-y-auto custom-scrollbar shadow-2xl relative min-h-0 ${activeTab === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
+        <section className={`flex-1 h-full bg-black border-x lg:border border-zinc-800 rounded-none lg:rounded-lg overflow-y-auto custom-scrollbar shadow-2xl relative min-h-0 ${activeTab === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
            <div className="min-h-full max-h-full flex flex-col relative overflow-hidden flex-1">
              <ResultDisplay 
                 isLoading={isLoading} 
