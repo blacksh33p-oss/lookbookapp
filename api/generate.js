@@ -74,48 +74,43 @@ export default async function handler(req, res) {
         if (ip.includes(',')) ip = ip.split(',')[0];
         ip = ip.trim();
 
-        // Allow localhost for testing without limits
-        const isLocalhost = ip === '127.0.0.1' || ip === '::1';
+        // Check tracking table
+        const { data: usageRecord, error: fetchError } = await supabase
+            .from('guest_usage')
+            .select('*')
+            .eq('ip_address', ip)
+            .single();
 
-        if (!isLocalhost) {
-            // Check tracking table
-            const { data: usageRecord, error: fetchError } = await supabase
-                .from('guest_usage')
-                .select('*')
-                .eq('ip_address', ip)
-                .single();
+        const now = new Date();
+        const RESET_HOURS = 24;
+        let currentCount = 0;
+        let shouldBlock = false;
 
-            const now = new Date();
-            const RESET_HOURS = 24;
-            let currentCount = 0;
-            let shouldBlock = false;
+        if (usageRecord) {
+            const lastUpdate = new Date(usageRecord.last_updated);
+            const hoursSinceUpdate = (now - lastUpdate) / (1000 * 60 * 60);
 
-            if (usageRecord) {
-                const lastUpdate = new Date(usageRecord.last_updated);
-                const hoursSinceUpdate = (now - lastUpdate) / (1000 * 60 * 60);
-
-                if (hoursSinceUpdate > RESET_HOURS) {
-                    // Reset period passed
-                    currentCount = 1;
-                    await supabase.from('guest_usage').update({ usage_count: 1, last_updated: now.toISOString() }).eq('ip_address', ip);
-                } else {
-                    // Within period
-                    if (usageRecord.usage_count >= 3) {
-                        shouldBlock = true;
-                    } else {
-                        currentCount = usageRecord.usage_count + 1;
-                        await supabase.from('guest_usage').update({ usage_count: currentCount, last_updated: now.toISOString() }).eq('ip_address', ip);
-                    }
-                }
-            } else {
-                // New record
+            if (hoursSinceUpdate > RESET_HOURS) {
+                // Reset period passed
                 currentCount = 1;
-                await supabase.from('guest_usage').insert([{ ip_address: ip, usage_count: 1, last_updated: now.toISOString() }]);
+                await supabase.from('guest_usage').update({ usage_count: 1, last_updated: now.toISOString() }).eq('ip_address', ip);
+            } else {
+                // Within period
+                if (usageRecord.usage_count >= 3) {
+                    shouldBlock = true;
+                } else {
+                    currentCount = usageRecord.usage_count + 1;
+                    await supabase.from('guest_usage').update({ usage_count: currentCount, last_updated: now.toISOString() }).eq('ip_address', ip);
+                }
             }
+        } else {
+            // New record
+            currentCount = 1;
+            await supabase.from('guest_usage').insert([{ ip_address: ip, usage_count: 1, last_updated: now.toISOString() }]);
+        }
 
-            if (shouldBlock) {
-                return res.status(429).json({ error: "Daily guest limit reached. Please sign up for more credits." });
-            }
+        if (shouldBlock) {
+            return res.status(429).json({ error: "Daily guest limit reached. Please sign up for more credits." });
         }
     }
     // -----------------------------
