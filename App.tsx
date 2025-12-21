@@ -53,7 +53,9 @@ export const SpotlightGate: React.FC<{
     <div 
       className={`relative ${containerClassName} ${isLocked ? 'cursor-pointer' : ''}`}
       onClick={(e) => {
-        if (isLocked && onClick) {
+        // ALWAYS trigger onClick if provided, regardless of lock state.
+        // The parent handler in App.tsx will decide whether to show a modal or perform the action.
+        if (onClick) {
           onClick();
         }
       }}
@@ -613,7 +615,7 @@ const App: React.FC = () => {
   const activeProjectName = activeProjectId === null ? "Main Archive" : projects.find(p => p.id === activeProjectId)?.name || "Main Archive";
 
   return (
-    <div className="h-screen w-full flex flex-col text-zinc-300 font-sans bg-black overflow-hidden relative">
+    <div className="h-[100dvh] w-full flex flex-col text-zinc-300 font-sans bg-black overflow-hidden relative">
       <header className="flex-shrink-0 z-[60] bg-black/80 backdrop-blur-xl border-b border-zinc-800/50 h-14">
           <div className="max-w-[1920px] mx-auto h-full flex justify-between items-center px-4 sm:px-6">
               <div className="flex items-center gap-2 sm:gap-3">
@@ -623,9 +625,9 @@ const App: React.FC = () => {
                   <h1 className="text-[10px] sm:text-sm font-bold tracking-tight text-white font-mono uppercase">Studio<span className="text-zinc-500">.ai</span></h1>
               </div>
 
-              <div className="flex items-center gap-2 sm:gap-6">
+              <div className="flex items-center gap-1.5 sm:gap-6">
                  {session && userProfile ? (
-                    <div className="flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1 bg-zinc-900/50 border border-zinc-800 rounded-full group cursor-pointer hover:border-zinc-700 transition-colors" onClick={() => setShowUpgradeModal(true)}>
+                    <div className="flex items-center gap-1.5 sm:gap-3 px-2 sm:px-3 py-1 bg-zinc-900/50 border border-zinc-800 rounded-full group cursor-pointer hover:border-zinc-700 transition-colors" onClick={() => setShowUpgradeModal(true)}>
                         <div className="flex items-center gap-1.5 px-1.5 border-r border-zinc-800">
                            <Zap size={10} className="text-amber-400 fill-amber-400" />
                            <span className="text-[10px] font-black text-white">{userProfile.credits}</span>
@@ -979,11 +981,11 @@ const App: React.FC = () => {
               </div>
           </div>
           
-          <div className="p-4 bg-zinc-950/80 backdrop-blur-md border-t border-zinc-800 flex-shrink-0 relative">
+          <div className="p-3 sm:p-4 bg-zinc-950/80 backdrop-blur-md border-t border-zinc-800 flex-shrink-0 relative">
               <button 
                   onClick={handleGenerate} 
                   disabled={!isFormValid || isLoading} 
-                  className={`w-full py-5 rounded-md text-[11px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 transform active:scale-[0.98] shadow-2xl
+                  className={`w-full py-4 sm:py-5 rounded-md text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 transform active:scale-[0.98] shadow-2xl
                   ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed opacity-50' : 'bg-white text-black hover:bg-zinc-200'}`}
               >
                   {isLoading ? (
@@ -1005,8 +1007,8 @@ const App: React.FC = () => {
                   )}
               </button>
               {!isFormValid && !isLoading && isRestrictedActive && (
-                <div className="mt-2 text-center">
-                  <span className="text-[9px] font-black uppercase text-red-500 tracking-tighter">Selection includes locked features</span>
+                <div className="mt-1.5 text-center">
+                  <span className="text-[8px] font-black uppercase text-red-500 tracking-tighter">Selection includes locked features</span>
                 </div>
               )}
           </div>
