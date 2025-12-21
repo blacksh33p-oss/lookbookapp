@@ -67,35 +67,21 @@ export default async function handler(req, res) {
         const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY; 
 
-        if (!supabaseServiceKey) {
-            console.error("CRITICAL: SUPABASE_SERVICE_ROLE_KEY is missing.");
-            throw new Error("Server Misconfiguration: Missing Service Key");
-        }
-
         if (supabaseUrl && supabaseServiceKey) {
             const adminClient = createClient(supabaseUrl, supabaseServiceKey);
             
-            // --- IP LOGIC MATCHING guest-status.js ---
-            // Priority: x-real-ip -> x-forwarded-for -> remoteAddress
             let ip = req.headers['x-real-ip'];
-            
             if (!ip && req.headers['x-forwarded-for']) {
                 ip = req.headers['x-forwarded-for'];
             } else if (!ip && req.socket && req.socket.remoteAddress) {
                 ip = req.socket.remoteAddress;
             }
-            
             if (Array.isArray(ip)) ip = ip[0];
             if (typeof ip === 'string' && ip.includes(',')) ip = ip.split(',')[0];
             ip = (ip || 'unknown').trim();
-            
             if (ip === '::1') ip = '127.0.0.1';
-            // -----------------------------------------
 
             debugIp = ip;
-            console.log("VERCEL_DEBUG: IP:", ip);
-
-            let dbOperational = true;
 
             // Fetch Record
             const { data: usageRecord, error: fetchError } = await adminClient
@@ -105,18 +91,14 @@ export default async function handler(req, res) {
                 .maybeSingle();
 
             if (fetchError) {
-                // FAIL OPEN: If table is missing (42P01), disable DB checks and allow generation
-                if (fetchError.code === '42P01' || fetchError.message?.includes('does not exist')) {
-                    console.warn("Guest Usage table missing. Bypassing rate limit checks.");
-                    dbOperational = false;
+                const errorMsg = fetchError.message || '';
+                if (fetchError.code === '42P01' || errorMsg.includes('does not exist') || errorMsg.includes('Could not find the table')) {
+                    console.warn("Guest Usage table missing. Bypassing rate limit check (Fail Open).");
                 } else {
                     console.error("Guest DB Fetch Error:", fetchError);
-                    throw new Error(`Guest DB Access Failed: ${fetchError.message}`);
+                    // Still continue even on other DB errors to maintain availability
                 }
-            }
-
-            // Only proceed with logic if DB is operational
-            if (dbOperational) {
+            } else {
                 const now = new Date();
                 const RESET_HOURS = 24;
                 let shouldBlock = false;
@@ -128,55 +110,36 @@ export default async function handler(req, res) {
 
                     if (hoursSinceUpdate > RESET_HOURS) {
                         newCount = 1;
-                        console.log("VERCEL_DEBUG: Resetting usage for IP:", ip);
-                        const { error: resetError } = await adminClient
+                        await adminClient
                             .from('guest_usage')
                             .update({ usage_count: 1, last_updated: now.toISOString() })
                             .eq('ip_address', ip);
-                            
-                        if (resetError) throw new Error("DB Reset Failed");
                     } else {
                         if (usageRecord.usage_count >= 3) {
                             shouldBlock = true;
                             newCount = usageRecord.usage_count;
                         } else {
                             newCount = usageRecord.usage_count + 1;
-                            console.log("VERCEL_DEBUG: Incrementing usage to", newCount, "for IP:", ip);
-                            const { error: updateError } = await adminClient
+                            await adminClient
                                 .from('guest_usage')
                                 .update({ usage_count: newCount, last_updated: now.toISOString() })
                                 .eq('ip_address', ip);
-
-                            if (updateError) throw new Error("DB Increment Failed");
                         }
                     }
                 } else {
                     newCount = 1;
-                    console.log("VERCEL_DEBUG: Creating new record for IP:", ip);
-                    const { error: insertError } = await adminClient
+                    await adminClient
                         .from('guest_usage')
                         .insert([{ ip_address: ip, usage_count: 1, last_updated: now.toISOString() }]);
-                    
-                    if (insertError) {
-                         // Double check for missing table on insert as well
-                         if (insertError.code === '42P01') {
-                             console.warn("Guest Usage table missing during insert. Bypassing.");
-                         } else {
-                             throw new Error(`DB Insert Failed: ${insertError.message}`);
-                         }
-                    }
                 }
 
                 debugUsageCount = newCount;
-
                 if (shouldBlock) {
-                    console.log("VERCEL_DEBUG: Guest blocked:", ip);
-                    return res.status(429).json({ error: "Daily guest limit reached. Please sign up for more credits.", debug_ip: ip });
+                    return res.status(429).json({ error: "Daily guest limit reached. Please sign up for more credits." });
                 }
             }
         }
     }
-    // -----------------------------
 
     if (!process.env.API_KEY) {
       throw new Error("Server configuration error: Missing API Key.");
@@ -281,6 +244,6 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error("API Error:", err);
-    res.status(500).json({ error: err.message || "Internal server error during generation" });
+    res.status(500).json({ error: err.message || "Internal server error" });
   }
 }
