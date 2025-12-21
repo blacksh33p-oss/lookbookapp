@@ -21,10 +21,8 @@ export default async function handler(req, res) {
     if (typeof ip === 'string' && ip.includes(',')) ip = ip.split(',')[0];
     ip = (ip || 'unknown').trim();
 
-    // 2. Localhost Bypass (Removed for testing persistence)
-    // if (ip === '127.0.0.1' || ip === '::1') {
-    //     return res.status(200).json({ remaining: 3 });
-    // }
+    // Normalization for local testing to match IPv4
+    if (ip === '::1') ip = '127.0.0.1';
 
     // 3. Initialize Supabase
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -32,7 +30,7 @@ export default async function handler(req, res) {
     
     // Fail Open if DB not configured (allow 3 credits)
     if (!supabaseUrl || !supabaseKey) {
-        return res.status(200).json({ remaining: 3 });
+        return res.status(200).json({ remaining: 3, debug_ip: ip });
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -47,12 +45,12 @@ export default async function handler(req, res) {
     if (error) {
         console.error("Supabase Error:", error);
         // Fail Open
-        return res.status(200).json({ remaining: 3 });
+        return res.status(200).json({ remaining: 3, debug_ip: ip });
     }
 
     // 5. Default State (New Guest - No Record Found)
     if (!usageRecord) {
-        return res.status(200).json({ remaining: 3 });
+        return res.status(200).json({ remaining: 3, debug_ip: ip });
     }
 
     // 6. Check Expiry/Reset
@@ -62,16 +60,16 @@ export default async function handler(req, res) {
 
     // If > 24 hours, logic effectively resets to 3
     if (hoursSinceUpdate > 24) {
-        return res.status(200).json({ remaining: 3 });
+        return res.status(200).json({ remaining: 3, debug_ip: ip });
     }
 
     // 7. Calculate Remaining
     const remaining = Math.max(0, 3 - usageRecord.usage_count);
-    return res.status(200).json({ remaining });
+    return res.status(200).json({ remaining, debug_ip: ip });
 
   } catch (err) {
     console.error("Guest Status API Error:", err);
     // Absolute Fail Safe
-    return res.status(200).json({ remaining: 3 });
+    return res.status(200).json({ remaining: 3, debug_ip: 'error' });
   }
 }

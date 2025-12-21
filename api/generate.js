@@ -55,6 +55,10 @@ export default async function handler(req, res) {
     const isPro = options.modelVersion.includes('Pro');
     const authUserId = req.headers['x-user-id'];
     
+    // Debug variables to return in response
+    let debugIp = null;
+    let debugUsageCount = null;
+
     // 1. Pro Access Check
     // Pro models strictly require a User ID (Logged in)
     if (isPro && !authUserId && !process.env.DEV_MODE) {
@@ -66,6 +70,12 @@ export default async function handler(req, res) {
     if (!authUserId) {
         const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY; // Explicitly use Service Role
+
+        // Strict Check for Service Key
+        if (!supabaseServiceKey) {
+            console.error("CRITICAL: SUPABASE_SERVICE_ROLE_KEY is missing. Database writes will fail.");
+            throw new Error("Server Misconfiguration: Missing Service Key");
+        }
 
         if (supabaseUrl && supabaseServiceKey) {
             const adminClient = createClient(supabaseUrl, supabaseServiceKey);
@@ -81,7 +91,11 @@ export default async function handler(req, res) {
             if (Array.isArray(ip)) ip = ip[0];
             if (typeof ip === 'string' && ip.includes(',')) ip = ip.split(',')[0];
             ip = (ip || 'unknown').trim();
+            
+            // Normalize IP for local testing consistency
+            if (ip === '::1') ip = '127.0.0.1';
 
+            debugIp = ip;
             console.log("Generating for Guest IP:", ip);
 
             // Check tracking table
@@ -101,6 +115,7 @@ export default async function handler(req, res) {
 
                 if (hoursSinceUpdate > RESET_HOURS) {
                     // Reset period passed
+                    debugUsageCount = 1;
                     const { error: resetError } = await adminClient.from('guest_usage').update({ usage_count: 1, last_updated: now.toISOString() }).eq('ip_address', ip);
                     if (resetError) console.error("Guest DB Reset Error:", resetError);
                 } else {
@@ -108,22 +123,22 @@ export default async function handler(req, res) {
                     if (usageRecord.usage_count >= 3) {
                         shouldBlock = true;
                     } else {
-                        const { error: updateError } = await adminClient.from('guest_usage').update({ usage_count: usageRecord.usage_count + 1, last_updated: now.toISOString() }).eq('ip_address', ip);
+                        debugUsageCount = usageRecord.usage_count + 1;
+                        const { error: updateError } = await adminClient.from('guest_usage').update({ usage_count: debugUsageCount, last_updated: now.toISOString() }).eq('ip_address', ip);
                          if (updateError) console.error("Guest DB Increment Error:", updateError);
                     }
                 }
             } else {
                 // New record
+                debugUsageCount = 1;
                 const { error: insertError } = await adminClient.from('guest_usage').insert([{ ip_address: ip, usage_count: 1, last_updated: now.toISOString() }]);
                 if (insertError) console.error("Guest DB Insert Error:", insertError);
             }
 
             if (shouldBlock) {
                 console.log("Guest blocked due to rate limit:", ip);
-                return res.status(429).json({ error: "Daily guest limit reached. Please sign up for more credits." });
+                return res.status(429).json({ error: "Daily guest limit reached. Please sign up for more credits.", debug_ip: ip });
             }
-        } else {
-            console.warn("Skipping Guest Rate Limit: Missing SUPABASE_SERVICE_ROLE_KEY");
         }
     }
     // -----------------------------
@@ -219,7 +234,9 @@ export default async function handler(req, res) {
           return res.status(200).json({ 
             image: `data:image/png;base64,${part.inlineData.data}`,
             width: dims.width,
-            height: dims.height
+            height: dims.height,
+            debug_ip: debugIp,
+            debug_usage_count: debugUsageCount
           });
         }
       }
