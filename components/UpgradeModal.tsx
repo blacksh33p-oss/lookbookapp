@@ -11,7 +11,7 @@ interface UpgradeModalProps {
 
 const TIER_FEATURES: Record<SubscriptionTier, string[]> = {
   [SubscriptionTier.Free]: [
-    "5 Daily Drafts",
+    "50 One-Time Credits",
     "Flash 2.5 Access"
   ],
   [SubscriptionTier.Starter]: [
@@ -39,7 +39,7 @@ const TIER_FEATURES: Record<SubscriptionTier, string[]> = {
 };
 
 const PLAN_DETAILS = [
-  { id: SubscriptionTier.Free, name: "Guest", price: "0", subtext: "Free trial access" },
+  { id: SubscriptionTier.Free, name: "Guest", price: "0", subtext: "Trial grant" },
   { id: SubscriptionTier.Starter, name: "Starter", price: "9", subtext: "For hobbyists" },
   { id: SubscriptionTier.Creator, name: "Creator", price: "29", subtext: "Professional use", featured: true },
   { id: SubscriptionTier.Studio, name: "Studio", price: "99", subtext: "Agency power" }

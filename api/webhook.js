@@ -1,5 +1,3 @@
-
-
 import { createClient } from '@supabase/supabase-js';
 
 // Helper to safely read stream if Vercel didn't parse body
@@ -44,7 +42,7 @@ export default async function handler(req, res) {
   const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '').trim();
   
   if (req.method === 'GET') {
-      return res.status(200).json({ status: 'Active', version: 'v1.7.4-Downgrade-Protection' });
+      return res.status(200).json({ status: 'Active', version: 'v1.7.5-Grant-Logic' });
   }
   
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -78,7 +76,6 @@ export default async function handler(req, res) {
       for (const event of payload.events) {
           log(`Event: ${event.type} (ID: ${event.id})`);
           
-          // Filter relevant events
           if (!['order.completed', 'subscription.activated', 'subscription.charge.completed', 'subscription.updated', 'subscription.deactivated', 'subscription.canceled'].includes(event.type)) {
              continue;
           }
@@ -87,7 +84,6 @@ export default async function handler(req, res) {
           let targetUserId = null;
           let emailFound = data.email || data.customer?.email || data.account?.contact?.email;
 
-          // 1. Identify User ID
           const tags = data.tags || (data.order && data.order.tags) || (data.subscription && data.subscription.tags);
           if (tags) {
               let decodedTags = tags;
@@ -116,7 +112,6 @@ export default async function handler(req, res) {
               continue;
           }
 
-          // 2. Determine Incoming Plan (From Webhook Data)
           let productInfo = '';
           if (data.items && Array.isArray(data.items)) productInfo += JSON.stringify(data.items);
           if (data.subscription) productInfo += JSON.stringify(data.subscription);
@@ -124,9 +119,8 @@ export default async function handler(req, res) {
           
           productInfo = productInfo.toLowerCase();
 
-          // STRICT DETECTION: Do not default to 'Creator' to avoid free upgrades.
           let newTier = null;
-          let monthlyCredits = 5;
+          let monthlyCredits = 0;
 
           if (productInfo.includes('studio') || productInfo.includes('agency')) {
               newTier = 'Studio';
@@ -139,10 +133,9 @@ export default async function handler(req, res) {
               monthlyCredits = 100;
           }
 
-          // Special Case: Deactivation always leads to Free
           if (event.type === 'subscription.deactivated') {
               newTier = 'Free';
-              monthlyCredits = 5;
+              monthlyCredits = 0; // Trial finished state
               log(`Subscription Deactivated/Expired. Downgrading to Free.`);
           }
 
@@ -151,15 +144,11 @@ export default async function handler(req, res) {
               continue;
           }
 
-          // 3. Handle Cancellations
           if (event.type === 'subscription.canceled') {
-              // Standard SaaS: Cancellation means "Do not renew". 
-              // We do nothing. User stays on current plan until 'subscription.deactivated' fires later.
               log(`Subscription canceled. User retains access until period ends. No DB Update.`);
               continue; 
           }
 
-          // 4. Fetch CURRENT Database State
           const { data: currentProfile } = await supabase
             .from('profiles')
             .select('tier, credits')
@@ -169,39 +158,25 @@ export default async function handler(req, res) {
           const currentTier = currentProfile?.tier || 'Free';
           const existingCredits = (currentProfile && typeof currentProfile.credits === 'number') ? currentProfile.credits : 0;
           
-          // 5. SAAS DOWNGRADE PROTECTION LOGIC
-          // Use safe access to TIER_LEVELS to handle potential casing mismatch in DB
           const currentLevel = TIER_LEVELS[currentTier] !== undefined ? TIER_LEVELS[currentTier] : 0;
           const newLevel = TIER_LEVELS[newTier] !== undefined ? TIER_LEVELS[newTier] : 0;
 
-          // LOGIC:
-          // If the new tier is LOWER than the current tier...
-          // AND the event is NOT 'subscription.deactivated' (which means the paid period is over)...
-          // THEN we ignore the event. This allows the user to finish their paid term.
           if (newLevel < currentLevel && event.type !== 'subscription.deactivated') {
-              log(`Downgrade detected (from ${currentTier} to ${newTier}). Deferring update until 'subscription.deactivated' event at end of period.`);
-              continue; // EXIT LOOP. Do not update DB.
+              log(`Downgrade detected (from ${currentTier} to ${newTier}). Deferring update until 'subscription.deactivated' event.`);
+              continue;
           }
 
-          // 6. Calculate Final Credits
           let finalCredits = existingCredits;
 
-          // Payment Events: Always add credits (Top-up logic)
           if (['order.completed', 'subscription.activated', 'subscription.charge.completed'].includes(event.type)) {
-              // If previously Free, we set to monthly allowance. 
-              // If upgrading/renewing, we add to existing (rollover) or reset? 
-              // For simplicity and generosity: We Add.
               finalCredits = existingCredits + monthlyCredits;
               log(`Payment/Activation event. Adding ${monthlyCredits} credits.`);
           } else if (event.type === 'subscription.deactivated') {
-              finalCredits = 5; // Reset to guest limit
+              finalCredits = 0; // Exhaust trial
           } else if (newLevel > currentLevel) {
-              // Pure tier upgrade without explicit charge event (rare, but possible in some flows)
-              // Ensure they have at least the base credits for the new tier
               if (finalCredits < monthlyCredits) finalCredits = monthlyCredits;
           }
 
-          // 7. Perform Update
           log(`Applying Update -> Tier: ${newTier}, Credits: ${finalCredits}`);
 
           const { data: updateData, error: updateError } = await supabase
@@ -217,7 +192,6 @@ export default async function handler(req, res) {
           if (!updateError && updateData && updateData.length > 0) {
               success = true;
           } else {
-              // Insert fallback for new users
               const { error: insertError } = await supabase
                   .from('profiles')
                   .insert({

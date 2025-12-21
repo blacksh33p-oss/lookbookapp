@@ -53,8 +53,6 @@ export const SpotlightGate: React.FC<{
     <div 
       className={`relative ${containerClassName} ${isLocked ? 'cursor-pointer' : ''}`}
       onClick={(e) => {
-        // ALWAYS trigger onClick if provided, regardless of lock state.
-        // The parent handler in App.tsx will decide whether to show a modal or perform the action.
         if (onClick) {
           onClick();
         }
@@ -147,7 +145,6 @@ const App: React.FC = () => {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor');
   
-  // Guest Credits State - Initialize to null (loading) to wait for server sync
   const [guestCredits, setGuestCredits] = useState<number | null>(null);
 
   const [projects, setProjects] = useState<Project[]>([]);
@@ -188,17 +185,14 @@ const App: React.FC = () => {
   });
 
   const isPremium = session ? userProfile?.tier !== SubscriptionTier.Free : false;
-  // Tier Check for STYLES (not Models)
   const hasProAccess = session ? (userProfile?.tier === SubscriptionTier.Creator || userProfile?.tier === SubscriptionTier.Studio) : false;
   const isStudio = session ? userProfile?.tier === SubscriptionTier.Studio : false;
 
   useEffect(() => {
-    // Guests are restricted to Flash 2.5. Reset if unauthenticated.
     if (!session && selectedModel === 'pro-3') {
         setSelectedModel('flash-2.5');
     }
 
-    // 4K is only available in Pro Engine. Force it off when switching to Flash.
     const shouldEnable4K = selectedModel === 'flash-2.5' ? false : options.enable4K;
     
     setOptions(prev => ({
@@ -208,19 +202,16 @@ const App: React.FC = () => {
     }));
   }, [selectedModel, session]);
 
-  // Sync Guest Credits with Server
   useEffect(() => {
-    if (isAuthLoading) return; // Wait until we know if user is logged in
+    if (isAuthLoading) return;
     
     if (!session) {
       fetch('/api/guest-status')
         .then(async (res) => {
-           // Graceful handling for non-existent API (local dev) or errors
            if (res.status === 404 || res.status === 500) {
                return { remaining: 3 }; 
            }
            
-           // Ensure it's actually JSON before parsing (avoids HTML error pages)
            const contentType = res.headers.get("content-type");
            if (!contentType || !contentType.includes("application/json")) {
                return { remaining: 3 };
@@ -232,7 +223,6 @@ const App: React.FC = () => {
            try {
              return JSON.parse(text);
            } catch (e) {
-             console.warn("Invalid JSON response from guest-status, defaulting to 3 credits.");
              return { remaining: 3 };
            }
         })
@@ -242,7 +232,6 @@ const App: React.FC = () => {
             localStorage.setItem('fashion_guest_credits', credits.toString());
         })
         .catch(err => {
-            // Silent fail to default
             setGuestCredits(3);
         });
     }
@@ -275,13 +264,12 @@ const App: React.FC = () => {
 
   const currentCost = getGenerationCost(options);
 
-  // Updated Restriction Logic: Pro Model is allowed for anyone logged in (Guest excluded)
   const isRestrictedActive = (
     (options.layout === LayoutMode.Diptych && !isStudio) ||
     (options.enable4K && !isStudio) ||
     (PRO_STYLES.includes(options.style) && !hasProAccess) ||
     (!autoPose && !isPremium) ||
-    (selectedModel === 'pro-3' && !session) // Only strictly restrict Pro Model for GUESTS. Users can select it if they have credits.
+    (selectedModel === 'pro-3' && !session)
   );
 
   const isFormValid = !isRestrictedActive && Object.values(options.outfit).some((item: OutfitItem) => 
@@ -427,7 +415,6 @@ const App: React.FC = () => {
         setTimeout(() => setJustSaved(false), 3000);
       }
     } catch (e: any) {
-      console.error("Archive Sync Failure:", e);
       setSaveError(true);
       showToast("Critical: Storage Offload Failed", "error");
     } finally {
@@ -468,7 +455,7 @@ const App: React.FC = () => {
         if (data) {
             setUserProfile({
                 tier: data.tier as SubscriptionTier || SubscriptionTier.Free,
-                credits: data.credits ?? 50, 
+                credits: data.credits ?? 0, 
                 username: email ? email.split('@')[0] : 'Studio User'
             });
         }
@@ -493,6 +480,17 @@ const App: React.FC = () => {
   };
 
   const handleGenerate = async () => {
+      const userCredits = session ? (userProfile?.credits || 0) : (guestCredits || 0);
+      if (userCredits < currentCost) {
+          if (!session) {
+            setLoginModalView('signup');
+            setShowLoginModal(true);
+          } else {
+            setShowUpgradeModal(true);
+          }
+          return;
+      }
+
       if (window.innerWidth < 1024) setActiveTab('preview');
 
       const newSeed = getRandomSeed();
@@ -513,23 +511,18 @@ const App: React.FC = () => {
       setGeneratedResult(null);
 
       try {
-          // Guest restriction check
           if (!session && currentOptions.modelVersion.includes('Pro')) {
             throw new Error("Guest mode is limited to Flash 2.5. Please login to use Pro models.");
           }
 
-          // Safe check: If guestCredits is still loading (null), block interaction silently or treat as 0
-          const safeCredits = guestCredits ?? 0;
-          if (!session && safeCredits < cost) {
-              setLoginModalView('signup');
-              setShowLoginModal(true);
-              setIsLoading(false);
-              return;
-          }
-          
-          // User check: ensure they have enough credits for Pro
-          if (session && userProfile && userProfile.credits < cost) {
-              setShowUpgradeModal(true);
+          const safeCredits = session ? (userProfile?.credits || 0) : (guestCredits || 0);
+          if (safeCredits < cost) {
+              if (!session) {
+                setLoginModalView('signup');
+                setShowLoginModal(true);
+              } else {
+                setShowUpgradeModal(true);
+              }
               setIsLoading(false);
               return;
           }
@@ -538,7 +531,6 @@ const App: React.FC = () => {
             'Content-Type': 'application/json',
           };
 
-          // Pass User ID to backend to bypass IP rate limiting for authenticated users
           if (session?.user?.id) {
             headers['x-user-id'] = session.user.id;
           }
@@ -569,7 +561,7 @@ const App: React.FC = () => {
           setGeneratedResult(result);
 
           if (!session) {
-              const newGuestBalance = Math.max(0, safeCredits - cost);
+              const newGuestBalance = Math.max(0, (guestCredits || 0) - cost);
               setGuestCredits(newGuestBalance);
               localStorage.setItem('fashion_guest_credits', newGuestBalance.toString());
           } else {
@@ -613,6 +605,9 @@ const App: React.FC = () => {
   };
 
   const activeProjectName = activeProjectId === null ? "Main Archive" : projects.find(p => p.id === activeProjectId)?.name || "Main Archive";
+
+  const userCredits = session ? (userProfile?.credits || 0) : (guestCredits || 0);
+  const isOutOfCredits = userCredits < currentCost;
 
   return (
     <div className="h-[100dvh] w-full flex flex-col text-zinc-300 font-sans bg-black overflow-hidden relative">
@@ -984,14 +979,24 @@ const App: React.FC = () => {
           <div className="p-3 sm:p-4 bg-zinc-950/80 backdrop-blur-md border-t border-zinc-800 flex-shrink-0 relative">
               <button 
                   onClick={handleGenerate} 
-                  disabled={!isFormValid || isLoading} 
+                  disabled={isLoading || (!isFormValid && !isOutOfCredits)} 
                   className={`w-full py-4 sm:py-5 rounded-md text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 transform active:scale-[0.98] shadow-2xl
-                  ${!isFormValid || isLoading ? 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed opacity-50' : 'bg-white text-black hover:bg-zinc-200'}`}
+                  ${isLoading ? 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed opacity-50' : 
+                    isOutOfCredits ? 'bg-amber-500 text-black hover:bg-amber-400' :
+                    !isFormValid ? 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed opacity-50' :
+                    'bg-white text-black hover:bg-zinc-200'}`}
               >
                   {isLoading ? (
                       <div className="flex items-center gap-3">
                           <Loader2 size={16} className="animate-spin" />
                           <span>Rendering...</span>
+                      </div>
+                  ) : isOutOfCredits ? (
+                      <div className="flex flex-col items-center">
+                          <div className="flex items-center gap-2">
+                              <Star size={16} /> 
+                              <span>Trial Ended • Upgrade</span>
+                          </div>
                       </div>
                   ) : (
                       <div className="flex flex-col items-center">
@@ -1006,7 +1011,7 @@ const App: React.FC = () => {
                       </div>
                   )}
               </button>
-              {!isFormValid && !isLoading && isRestrictedActive && (
+              {!isFormValid && !isLoading && !isOutOfCredits && isRestrictedActive && (
                 <div className="mt-1.5 text-center">
                   <span className="text-[8px] font-black uppercase text-red-500 tracking-tighter">Selection includes locked features</span>
                 </div>
