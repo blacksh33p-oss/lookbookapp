@@ -95,6 +95,8 @@ export default async function handler(req, res) {
             debugIp = ip;
             console.log("VERCEL_DEBUG: IP:", ip);
 
+            let dbOperational = true;
+
             // Fetch Record
             const { data: usageRecord, error: fetchError } = await adminClient
                 .from('guest_usage')
@@ -103,60 +105,74 @@ export default async function handler(req, res) {
                 .maybeSingle();
 
             if (fetchError) {
-                console.error("Guest DB Fetch Error:", fetchError);
-                // Throwing to ensure we don't give free credits if DB is acting up, 
-                // or at least logging visibly.
-                throw new Error(`Guest DB Access Failed: ${fetchError.message}`);
+                // FAIL OPEN: If table is missing (42P01), disable DB checks and allow generation
+                if (fetchError.code === '42P01' || fetchError.message?.includes('does not exist')) {
+                    console.warn("Guest Usage table missing. Bypassing rate limit checks.");
+                    dbOperational = false;
+                } else {
+                    console.error("Guest DB Fetch Error:", fetchError);
+                    throw new Error(`Guest DB Access Failed: ${fetchError.message}`);
+                }
             }
 
-            const now = new Date();
-            const RESET_HOURS = 24;
-            let shouldBlock = false;
-            let newCount = 0;
+            // Only proceed with logic if DB is operational
+            if (dbOperational) {
+                const now = new Date();
+                const RESET_HOURS = 24;
+                let shouldBlock = false;
+                let newCount = 0;
 
-            if (usageRecord) {
-                const lastUpdate = new Date(usageRecord.last_updated);
-                const hoursSinceUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
+                if (usageRecord) {
+                    const lastUpdate = new Date(usageRecord.last_updated);
+                    const hoursSinceUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
 
-                if (hoursSinceUpdate > RESET_HOURS) {
-                    newCount = 1;
-                    console.log("VERCEL_DEBUG: Resetting usage for IP:", ip);
-                    const { error: resetError } = await adminClient
-                        .from('guest_usage')
-                        .update({ usage_count: 1, last_updated: now.toISOString() })
-                        .eq('ip_address', ip);
-                        
-                    if (resetError) throw new Error("DB Reset Failed");
-                } else {
-                    if (usageRecord.usage_count >= 3) {
-                        shouldBlock = true;
-                        newCount = usageRecord.usage_count;
-                    } else {
-                        newCount = usageRecord.usage_count + 1;
-                        console.log("VERCEL_DEBUG: Incrementing usage to", newCount, "for IP:", ip);
-                        const { error: updateError } = await adminClient
+                    if (hoursSinceUpdate > RESET_HOURS) {
+                        newCount = 1;
+                        console.log("VERCEL_DEBUG: Resetting usage for IP:", ip);
+                        const { error: resetError } = await adminClient
                             .from('guest_usage')
-                            .update({ usage_count: newCount, last_updated: now.toISOString() })
+                            .update({ usage_count: 1, last_updated: now.toISOString() })
                             .eq('ip_address', ip);
+                            
+                        if (resetError) throw new Error("DB Reset Failed");
+                    } else {
+                        if (usageRecord.usage_count >= 3) {
+                            shouldBlock = true;
+                            newCount = usageRecord.usage_count;
+                        } else {
+                            newCount = usageRecord.usage_count + 1;
+                            console.log("VERCEL_DEBUG: Incrementing usage to", newCount, "for IP:", ip);
+                            const { error: updateError } = await adminClient
+                                .from('guest_usage')
+                                .update({ usage_count: newCount, last_updated: now.toISOString() })
+                                .eq('ip_address', ip);
 
-                        if (updateError) throw new Error("DB Increment Failed");
+                            if (updateError) throw new Error("DB Increment Failed");
+                        }
+                    }
+                } else {
+                    newCount = 1;
+                    console.log("VERCEL_DEBUG: Creating new record for IP:", ip);
+                    const { error: insertError } = await adminClient
+                        .from('guest_usage')
+                        .insert([{ ip_address: ip, usage_count: 1, last_updated: now.toISOString() }]);
+                    
+                    if (insertError) {
+                         // Double check for missing table on insert as well
+                         if (insertError.code === '42P01') {
+                             console.warn("Guest Usage table missing during insert. Bypassing.");
+                         } else {
+                             throw new Error(`DB Insert Failed: ${insertError.message}`);
+                         }
                     }
                 }
-            } else {
-                newCount = 1;
-                console.log("VERCEL_DEBUG: Creating new record for IP:", ip);
-                const { error: insertError } = await adminClient
-                    .from('guest_usage')
-                    .insert([{ ip_address: ip, usage_count: 1, last_updated: now.toISOString() }]);
-                
-                if (insertError) throw new Error(`DB Insert Failed: ${insertError.message}`);
-            }
 
-            debugUsageCount = newCount;
+                debugUsageCount = newCount;
 
-            if (shouldBlock) {
-                console.log("VERCEL_DEBUG: Guest blocked:", ip);
-                return res.status(429).json({ error: "Daily guest limit reached. Please sign up for more credits.", debug_ip: ip });
+                if (shouldBlock) {
+                    console.log("VERCEL_DEBUG: Guest blocked:", ip);
+                    return res.status(429).json({ error: "Daily guest limit reached. Please sign up for more credits.", debug_ip: ip });
+                }
             }
         }
     }
