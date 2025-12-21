@@ -26,12 +26,6 @@ const EXPRESSION_PROMPTS = {
   'Ethereal': 'Ethereal, Soft Gaze, Dreamy, Serene'
 };
 
-// Initialize Supabase Admin Client for tracking
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-// Note: Service Role Key is preferred for server-side operations to bypass RLS, fallback to Anon if not set.
-const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
-
 const extractBase64 = (dataUrl) => dataUrl.split(',')[1] || dataUrl;
 const getMimeType = (dataUrl) => {
   const match = dataUrl.match(/^data:(.*);base64,/);
@@ -68,49 +62,68 @@ export default async function handler(req, res) {
     }
 
     // 2. Guest Rate Limiting (IP Based)
-    if (!authUserId && supabase) {
-        let ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
-        if (Array.isArray(ip)) ip = ip[0];
-        if (ip.includes(',')) ip = ip.split(',')[0];
-        ip = ip.trim();
+    // We instantiate a specific admin client here to ensure we have write access to guest_usage
+    if (!authUserId) {
+        const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY; // Explicitly use Service Role
 
-        // Check tracking table
-        const { data: usageRecord, error: fetchError } = await supabase
-            .from('guest_usage')
-            .select('*')
-            .eq('ip_address', ip)
-            .single();
+        if (supabaseUrl && supabaseServiceKey) {
+            const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+            
+            // Exact IP logic match with guest-status.js
+            let ip = 'unknown';
+            if (req.headers && req.headers['x-forwarded-for']) {
+                ip = req.headers['x-forwarded-for'];
+            } else if (req.socket && req.socket.remoteAddress) {
+                ip = req.socket.remoteAddress;
+            }
+            
+            if (Array.isArray(ip)) ip = ip[0];
+            if (typeof ip === 'string' && ip.includes(',')) ip = ip.split(',')[0];
+            ip = (ip || 'unknown').trim();
 
-        const now = new Date();
-        const RESET_HOURS = 24;
-        let currentCount = 0;
-        let shouldBlock = false;
+            console.log("Generating for Guest IP:", ip);
 
-        if (usageRecord) {
-            const lastUpdate = new Date(usageRecord.last_updated);
-            const hoursSinceUpdate = (now - lastUpdate) / (1000 * 60 * 60);
+            // Check tracking table
+            const { data: usageRecord, error: fetchError } = await adminClient
+                .from('guest_usage')
+                .select('*')
+                .eq('ip_address', ip)
+                .maybeSingle();
 
-            if (hoursSinceUpdate > RESET_HOURS) {
-                // Reset period passed
-                currentCount = 1;
-                await supabase.from('guest_usage').update({ usage_count: 1, last_updated: now.toISOString() }).eq('ip_address', ip);
-            } else {
-                // Within period
-                if (usageRecord.usage_count >= 3) {
-                    shouldBlock = true;
+            const now = new Date();
+            const RESET_HOURS = 24;
+            let shouldBlock = false;
+
+            if (usageRecord) {
+                const lastUpdate = new Date(usageRecord.last_updated);
+                const hoursSinceUpdate = (now - lastUpdate) / (1000 * 60 * 60);
+
+                if (hoursSinceUpdate > RESET_HOURS) {
+                    // Reset period passed
+                    const { error: resetError } = await adminClient.from('guest_usage').update({ usage_count: 1, last_updated: now.toISOString() }).eq('ip_address', ip);
+                    if (resetError) console.error("Guest DB Reset Error:", resetError);
                 } else {
-                    currentCount = usageRecord.usage_count + 1;
-                    await supabase.from('guest_usage').update({ usage_count: currentCount, last_updated: now.toISOString() }).eq('ip_address', ip);
+                    // Within period
+                    if (usageRecord.usage_count >= 3) {
+                        shouldBlock = true;
+                    } else {
+                        const { error: updateError } = await adminClient.from('guest_usage').update({ usage_count: usageRecord.usage_count + 1, last_updated: now.toISOString() }).eq('ip_address', ip);
+                         if (updateError) console.error("Guest DB Increment Error:", updateError);
+                    }
                 }
+            } else {
+                // New record
+                const { error: insertError } = await adminClient.from('guest_usage').insert([{ ip_address: ip, usage_count: 1, last_updated: now.toISOString() }]);
+                if (insertError) console.error("Guest DB Insert Error:", insertError);
+            }
+
+            if (shouldBlock) {
+                console.log("Guest blocked due to rate limit:", ip);
+                return res.status(429).json({ error: "Daily guest limit reached. Please sign up for more credits." });
             }
         } else {
-            // New record
-            currentCount = 1;
-            await supabase.from('guest_usage').insert([{ ip_address: ip, usage_count: 1, last_updated: now.toISOString() }]);
-        }
-
-        if (shouldBlock) {
-            return res.status(429).json({ error: "Daily guest limit reached. Please sign up for more credits." });
+            console.warn("Skipping Guest Rate Limit: Missing SUPABASE_SERVICE_ROLE_KEY");
         }
     }
     // -----------------------------
