@@ -21,10 +21,10 @@ export default async function handler(req, res) {
     if (typeof ip === 'string' && ip.includes(',')) ip = ip.split(',')[0];
     ip = (ip || 'unknown').trim();
 
-    // 2. Localhost Bypass
-    if (ip === '127.0.0.1' || ip === '::1') {
-        return res.status(200).json({ remaining: 3 });
-    }
+    // 2. Localhost Bypass (Removed for testing persistence)
+    // if (ip === '127.0.0.1' || ip === '::1') {
+    //     return res.status(200).json({ remaining: 3 });
+    // }
 
     // 3. Initialize Supabase
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
