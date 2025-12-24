@@ -648,7 +648,19 @@ const App: React.FC = () => {
                     <div className="flex items-center gap-1.5 sm:gap-3 px-2 sm:px-3 py-1 rounded-full group cursor-pointer transition-all bg-gradient-to-r from-amber-500/25 via-amber-400/10 to-zinc-900/70 border border-amber-400/30 shadow-[0_0_18px_rgba(251,191,36,0.18)] ring-1 ring-amber-400/20 hover:shadow-[0_0_26px_rgba(251,191,36,0.3)] hover:border-amber-300/50" onClick={() => setShowUpgradeModal(true)}>
                         <div className="flex items-center gap-1.5 px-1.5 border-r border-amber-400/20">
                            <Zap size={10} className="text-amber-400 fill-amber-400" />
+                           <span className="text-[9px] font-bold text-amber-200 uppercase tracking-widest">Credits left</span>
                            <span className="text-[10px] font-black text-white">{userProfile.credits}</span>
+                           <button
+                             type="button"
+                             title="Trial credits are included. Recharge by upgrading or visiting Billing."
+                             onClick={(event) => {
+                               event.stopPropagation();
+                               setShowUpgradeModal(true);
+                             }}
+                             className="text-amber-200/70 hover:text-amber-100 transition-colors"
+                           >
+                             <Info size={11} />
+                           </button>
                         </div>
                         <div className="hidden xs:flex items-center gap-1.5 px-1">
                            <Crown size={10} className={`${userProfile.tier !== SubscriptionTier.Free ? 'text-amber-400' : 'text-zinc-600'}`} />
@@ -659,7 +671,11 @@ const App: React.FC = () => {
                     <div className="flex items-center gap-2 sm:gap-3 px-2.5 sm:px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 via-amber-400/10 to-zinc-900/70 border border-amber-400/30 shadow-[0_0_16px_rgba(251,191,36,0.16)] ring-1 ring-amber-400/10">
                         <Coins size={10} className="text-amber-400 shrink-0" />
                         <span className="text-[9px] sm:text-[10px] font-black text-white uppercase tracking-widest whitespace-nowrap">
+                            <span className="text-amber-200/80 font-bold">Credits left</span>{' '}
                             {guestCredits === null ? '...' : guestCredits} <span className="hidden xs:inline">CR.</span>
+                        </span>
+                        <span title="Trial credits are included. Recharge by upgrading after your trial.">
+                          <Info size={11} className="text-amber-200/70" />
                         </span>
                     </div>
                  )}
@@ -761,6 +777,9 @@ const App: React.FC = () => {
                         </button>
                       </SpotlightGate>
                   </div>
+                  <p className="text-[9px] font-medium text-zinc-500 uppercase tracking-widest pl-1">
+                    Estimated cost: {currentCost} {currentCost === 1 ? 'credit' : 'credits'}
+                  </p>
               </div>
 
               <SpotlightGate 
