@@ -791,7 +791,10 @@ const App: React.FC = () => {
                     </div>
                     <button 
                         disabled={selectedModel === 'flash-2.5'}
-                        className={`w-10 h-5 rounded-full relative transition-all duration-300 shrink-0 ${options.enable4K && selectedModel !== 'flash-2.5' ? 'bg-white' : 'bg-zinc-800'}`}
+                        role="switch"
+                        aria-checked={options.enable4K}
+                        aria-label="Enable 4K upscale"
+                        className={`w-10 h-5 rounded-full relative transition-all duration-300 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 ${options.enable4K && selectedModel !== 'flash-2.5' ? 'bg-white' : 'bg-zinc-800'}`}
                     >
                         <div className={`absolute top-1 w-3 h-3 rounded-full transition-all duration-300 ${options.enable4K && selectedModel !== 'flash-2.5' ? 'right-1 bg-black' : 'left-1 bg-zinc-600'}`}></div>
                     </button>
