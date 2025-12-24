@@ -10,6 +10,7 @@ interface ResultDisplayProps {
   onRegenerate: (keepModel: boolean) => void;
   isPremium: boolean;
   error: string | null;
+  onStart: () => void;
   SpotlightGate: React.FC<{ 
     children: React.ReactNode; 
     isLocked: boolean; 
@@ -39,6 +40,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
     onRegenerate, 
     isPremium,
     error,
+    onStart,
     SpotlightGate
 }) => {
   const [showMenu, setShowMenu] = useState(false);
@@ -134,6 +136,12 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({
             <p className="text-zinc-500 text-xs sm:text-sm leading-relaxed mb-10 max-w-xs mx-auto">
                 Turn garment photos into professional high-fashion editorials using Generative AI.
             </p>
+            <button
+                onClick={onStart}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-white text-black text-[11px] font-black uppercase tracking-widest transition-all hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black shadow-[0_12px_30px_rgba(255,255,255,0.12)] mb-10"
+            >
+                Upload garment photos
+            </button>
 
             <div className="grid grid-cols-3 gap-2 sm:gap-4 border-t border-zinc-800 pt-8">
                 <div className="flex flex-col items-center gap-2 group">
