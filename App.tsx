@@ -645,8 +645,8 @@ const App: React.FC = () => {
 
               <div className="flex items-center gap-1.5 sm:gap-6">
                  {session && userProfile ? (
-                    <div className="flex items-center gap-1.5 sm:gap-3 px-2 sm:px-3 py-1 bg-zinc-900/50 border border-zinc-800 rounded-full group cursor-pointer hover:border-zinc-700 transition-colors" onClick={() => setShowUpgradeModal(true)}>
-                        <div className="flex items-center gap-1.5 px-1.5 border-r border-zinc-800">
+                    <div className="flex items-center gap-1.5 sm:gap-3 px-2 sm:px-3 py-1 rounded-full group cursor-pointer transition-all bg-gradient-to-r from-amber-500/25 via-amber-400/10 to-zinc-900/70 border border-amber-400/30 shadow-[0_0_18px_rgba(251,191,36,0.18)] ring-1 ring-amber-400/20 hover:shadow-[0_0_26px_rgba(251,191,36,0.3)] hover:border-amber-300/50" onClick={() => setShowUpgradeModal(true)}>
+                        <div className="flex items-center gap-1.5 px-1.5">
                            <Zap size={10} className="text-amber-400 fill-amber-400" />
                            <span className="text-[10px] font-black text-white">{userProfile.credits}</span>
                         </div>
@@ -656,7 +656,7 @@ const App: React.FC = () => {
                         </div>
                     </div>
                  ) : !session && (
-                    <div className="flex items-center gap-2 sm:gap-3 px-2.5 sm:px-4 py-1.5 bg-zinc-900/50 border border-zinc-800 rounded-full">
+                    <div className="flex items-center gap-2 sm:gap-3 px-2.5 sm:px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 via-amber-400/10 to-zinc-900/70 border border-amber-400/30 shadow-[0_0_16px_rgba(251,191,36,0.16)] ring-1 ring-amber-400/10">
                         <Coins size={10} className="text-amber-400 shrink-0" />
                         <span className="text-[9px] sm:text-[10px] font-black text-white uppercase tracking-widest whitespace-nowrap">
                             {guestCredits === null ? '...' : guestCredits} <span className="hidden xs:inline">CR.</span>
