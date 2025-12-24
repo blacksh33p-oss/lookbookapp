@@ -135,7 +135,7 @@ const StyleButton: React.FC<StyleButtonProps> = ({ label, isSelected, onClick })
         className={`px-3 py-3 rounded-md border text-left transition-all group overflow-hidden min-h-[3rem] flex items-center justify-between 
         ${isSelected ? 'bg-white border-white text-black shadow-lg shadow-white/5' : 'bg-black border-zinc-800 hover:border-zinc-600 text-zinc-400'}`}
     >
-        <span className={`text-[10px] font-bold uppercase tracking-wider z-10 relative ${isSelected ? 'text-black' : 'text-zinc-400 group-hover:text-zinc-200'}`}>{label}</span>
+        <span className={`text-[11px] font-bold uppercase tracking-wider z-10 relative ${isSelected ? 'text-black' : 'text-zinc-400 group-hover:text-zinc-200'}`}>{label}</span>
     </button>
 );
 
@@ -640,7 +640,7 @@ const App: React.FC = () => {
                   <div className="w-6 h-6 bg-white text-black rounded-sm flex items-center justify-center shadow-lg shadow-white/10 shrink-0">
                      <Hexagon size={12} fill="currentColor" />
                   </div>
-                  <h1 className="text-[10px] sm:text-sm font-bold tracking-tight text-white font-mono uppercase">Studio<span className="text-zinc-500">.ai</span></h1>
+                  <h1 className="text-[11px] sm:text-sm font-bold tracking-tight text-white font-mono uppercase">Studio<span className="text-zinc-500">.ai</span></h1>
               </div>
 
               <div className="flex items-center gap-1.5 sm:gap-6">
@@ -648,17 +648,17 @@ const App: React.FC = () => {
                     <div className="flex items-center gap-1.5 sm:gap-3 px-2 sm:px-3 py-1 rounded-full group cursor-pointer transition-all bg-gradient-to-r from-amber-500/25 via-amber-400/10 to-zinc-900/70 border border-amber-400/30 shadow-[0_0_18px_rgba(251,191,36,0.18)] ring-1 ring-amber-400/20 hover:shadow-[0_0_26px_rgba(251,191,36,0.3)] hover:border-amber-300/50" onClick={() => setShowUpgradeModal(true)}>
                         <div className="flex items-center gap-1.5 px-1.5 border-r border-amber-400/20">
                            <Zap size={10} className="text-amber-400 fill-amber-400" />
-                           <span className="text-[10px] font-black text-white">{userProfile.credits}</span>
+                           <span className="text-[11px] font-black text-white">{userProfile.credits}</span>
                         </div>
                         <div className="hidden xs:flex items-center gap-1.5 px-1">
                            <Crown size={10} className={`${userProfile.tier !== SubscriptionTier.Free ? 'text-amber-400' : 'text-zinc-600'}`} />
-                           <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{userProfile.tier}</span>
+                           <span className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">{userProfile.tier}</span>
                         </div>
                     </div>
                  ) : !session && (
                     <div className="flex items-center gap-2 sm:gap-3 px-2.5 sm:px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 via-amber-400/10 to-zinc-900/70 border border-amber-400/30 shadow-[0_0_16px_rgba(251,191,36,0.16)] ring-1 ring-amber-400/10">
                         <Coins size={10} className="text-amber-400 shrink-0" />
-                        <span className="text-[9px] sm:text-[10px] font-black text-white uppercase tracking-widest whitespace-nowrap">
+                        <span className="text-[11px] sm:text-xs font-black text-white uppercase tracking-widest whitespace-nowrap">
                             {guestCredits === null ? '...' : guestCredits} <span className="hidden xs:inline">CR.</span>
                         </span>
                     </div>
@@ -685,7 +685,7 @@ const App: React.FC = () => {
                             {showAccountMenu && (
                               <div className="absolute top-full right-0 mt-2 w-48 bg-black border border-zinc-800 rounded-lg shadow-2xl py-1 transition-all z-[100] animate-fade-in">
                                   <div className="px-4 py-3 border-b border-zinc-900">
-                                      <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Signed in as</p>
+                                      <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Signed in as</p>
                                       <p className="text-xs text-white truncate font-medium">{session.user.email}</p>
                                   </div>
                                   <button onClick={() => { setShowUpgradeModal(true); setShowAccountMenu(false); }} className="w-full text-left px-4 py-2.5 text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white flex items-center gap-2">
@@ -699,8 +699,8 @@ const App: React.FC = () => {
                         </div>
                     ) : (
                         <div className="flex items-center gap-3 sm:gap-6">
-                            <button onClick={() => { setLoginModalView('login'); setShowLoginModal(true); }} className="text-[10px] font-bold text-zinc-400 hover:text-white transition-colors uppercase tracking-widest">Log in</button>
-                            <button onClick={() => { setLoginModalView('signup'); setShowLoginModal(true); }} className="bg-white text-black px-3 py-1.5 rounded text-[10px] font-black hover:bg-zinc-200 transition-colors uppercase tracking-widest">Sign up</button>
+                            <button onClick={() => { setLoginModalView('login'); setShowLoginModal(true); }} className="text-[11px] font-bold text-zinc-400 hover:text-white transition-colors uppercase tracking-widest">Log in</button>
+                            <button onClick={() => { setLoginModalView('signup'); setShowLoginModal(true); }} className="bg-white text-black px-3 py-1.5 rounded text-[11px] font-black hover:bg-zinc-200 transition-colors uppercase tracking-widest">Sign up</button>
                         </div>
                     )}
                  </div>
@@ -712,13 +712,13 @@ const App: React.FC = () => {
       <div className="lg:hidden flex-shrink-0 bg-black border-b border-zinc-800 flex h-14">
           <button 
             onClick={() => setActiveTab('editor')}
-            className={`flex-1 text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${activeTab === 'editor' ? 'text-white border-b-2 border-white bg-zinc-900/50' : 'text-zinc-500 hover:text-zinc-300'}`}
+            className={`flex-1 text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${activeTab === 'editor' ? 'text-white border-b-2 border-white bg-zinc-900/50' : 'text-zinc-400 hover:text-zinc-300'}`}
           >
             <Settings2 size={16} /> Editor
           </button>
           <button 
             onClick={() => setActiveTab('preview')}
-            className={`flex-1 text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${activeTab === 'preview' ? 'text-white border-b-2 border-white bg-zinc-900/50' : 'text-zinc-500 hover:text-zinc-300'}`}
+            className={`flex-1 text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${activeTab === 'preview' ? 'text-white border-b-2 border-white bg-zinc-900/50' : 'text-zinc-400 hover:text-zinc-300'}`}
           >
             <ImageIcon size={16} /> Preview
           </button>
@@ -729,16 +729,16 @@ const App: React.FC = () => {
           <div className="p-4 border-b border-zinc-800 bg-zinc-950/50 space-y-4 flex-shrink-0">
               <div className="space-y-1.5">
                   <div className="flex justify-between items-center pl-1">
-                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Engine</label>
-                      <span className="text-[9px] font-mono text-zinc-600 uppercase">Flash Priority</span>
+                      <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Engine</label>
+                      <span className="text-[11px] font-mono text-zinc-400 uppercase">Flash Priority</span>
                   </div>
                   <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-1 flex gap-1 shadow-sm">
                       <button
                           onClick={() => setSelectedModel('flash-2.5')}
-                          className={`flex-1 py-2 px-2 rounded-md transition-all duration-200 flex flex-col items-center justify-center gap-0.5 ${selectedModel === 'flash-2.5' ? 'bg-zinc-100 text-black shadow-md' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'}`}
+                          className={`flex-1 py-2 px-2 rounded-md transition-all duration-200 flex flex-col items-center justify-center gap-0.5 ${selectedModel === 'flash-2.5' ? 'bg-zinc-100 text-black shadow-md' : 'text-zinc-400 hover:text-zinc-300 hover:bg-zinc-900/50'}`}
                       >
-                          <span className="text-[10px] font-black uppercase tracking-wider">Flash 2.5</span>
-                          <span className={`text-[8px] font-bold uppercase ${selectedModel === 'flash-2.5' ? 'text-zinc-500' : 'text-zinc-700'}`}>1 CREDIT</span>
+                          <span className="text-[11px] font-black uppercase tracking-wider">Flash 2.5</span>
+                          <span className={`text-[11px] font-bold uppercase ${selectedModel === 'flash-2.5' ? 'text-zinc-400' : 'text-zinc-400'}`}>1 CREDIT</span>
                       </button>
                       <SpotlightGate
                           isLocked={!session || (session && (userProfile?.credits || 0) < 10)}
@@ -754,10 +754,10 @@ const App: React.FC = () => {
                       >
                         <button
                             className={`w-full h-full py-2 px-2 rounded-md transition-all duration-200 flex flex-col items-center justify-center gap-0.5
-                              ${selectedModel === 'pro-3' ? 'bg-zinc-100 text-black shadow-md' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'}`}
+                              ${selectedModel === 'pro-3' ? 'bg-zinc-100 text-black shadow-md' : 'text-zinc-400 hover:text-zinc-300 hover:bg-zinc-900/50'}`}
                         >
-                            <span className={`text-[10px] font-black uppercase tracking-wider`}>Pro 3</span>
-                            <span className={`text-[8px] font-bold uppercase ${selectedModel === 'pro-3' ? 'text-zinc-500' : 'text-zinc-400'}`}>10 CREDITS</span>
+                            <span className={`text-[11px] font-black uppercase tracking-wider`}>Pro 3</span>
+                            <span className={`text-[11px] font-bold uppercase ${selectedModel === 'pro-3' ? 'text-zinc-400' : 'text-zinc-300'}`}>10 CREDITS</span>
                         </button>
                       </SpotlightGate>
                   </div>
@@ -783,8 +783,8 @@ const App: React.FC = () => {
                             <Monitor size={14} className="text-zinc-400" />
                         </div>
                         <div className="flex flex-col gap-0.5 min-w-0">
-                            <span className={`text-[10px] font-bold uppercase tracking-wider text-zinc-300 truncate`}>4K Production Upscale</span>
-                            <span className="text-[8px] font-black text-zinc-500 uppercase">
+                            <span className={`text-[11px] font-bold uppercase tracking-wider text-zinc-300 truncate`}>4K Production Upscale</span>
+                            <span className="text-[11px] font-black text-zinc-400 uppercase">
                                 {selectedModel === 'flash-2.5' ? 'PRO ENGINE REQUIRED' : '+5 CREDITS'}
                             </span>
                         </div>
@@ -802,14 +802,14 @@ const App: React.FC = () => {
           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 min-h-0 max-h-full">
               {session && (
                 <div className="space-y-1.5 flex-shrink-0" ref={projectMenuRef}>
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1">Archive Location</label>
+                  <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider pl-1">Archive Location</label>
                   <div className="relative bg-zinc-950 border rounded-lg p-1 flex items-center border-zinc-800 hover:border-zinc-600">
                       <button 
                           onClick={() => setShowProjectDropdown(!showProjectDropdown)}
                           className="flex-1 flex items-center gap-3 px-3 py-2 text-left hover:bg-zinc-900 rounded-md transition-all outline-none"
                       >
                           <Folder size={14} className="text-zinc-500" />
-                          <span className="text-[10px] font-bold text-white uppercase tracking-wider truncate">{activeProjectName}</span>
+                          <span className="text-[11px] font-bold text-white uppercase tracking-wider truncate">{activeProjectName}</span>
                           <ChevronDown size={14} className={`ml-auto text-zinc-600 transition-transform ${showProjectDropdown ? 'rotate-180 text-white' : ''}`} />
                       </button>
                       <div className="w-px h-6 bg-zinc-800 mx-1"></div>
@@ -817,11 +817,11 @@ const App: React.FC = () => {
 
                       {showProjectDropdown && (
                         <div className="absolute top-full left-0 right-0 mt-2 bg-black border border-zinc-800 rounded-lg shadow-2xl z-[100] overflow-hidden py-1">
-                            <button onClick={() => { setActiveProjectId(null); setShowProjectDropdown(false); }} className={`w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider flex items-center gap-3 transition-colors ${activeProjectId === null ? 'bg-zinc-900 text-white border-l-2 border-white' : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-white'}`}>
+                            <button onClick={() => { setActiveProjectId(null); setShowProjectDropdown(false); }} className={`w-full text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider flex items-center gap-3 transition-colors ${activeProjectId === null ? 'bg-zinc-900 text-white border-l-2 border-white' : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-white'}`}>
                                 <Library size={12} /> Main Archive
                             </button>
                             {projects.map(p => (
-                                <button key={p.id} onClick={() => { setActiveProjectId(p.id); setShowProjectDropdown(false); }} className={`w-full text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider flex items-center gap-3 transition-colors ${activeProjectId === p.id ? 'bg-zinc-900 text-white border-l-2 border-white' : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-white'}`}>
+                                <button key={p.id} onClick={() => { setActiveProjectId(p.id); setShowProjectDropdown(false); }} className={`w-full text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider flex items-center gap-3 transition-colors ${activeProjectId === p.id ? 'bg-zinc-900 text-white border-l-2 border-white' : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-white'}`}>
                                     <Folder size={12} /> {p.name}
                                 </button>
                             ))}
@@ -891,7 +891,7 @@ const App: React.FC = () => {
                               />
                           </div>
                           <div className="space-y-1.5">
-                              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1">Custom Features</label>
+                              <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider pl-1">Custom Features</label>
                               <SpotlightGate isLocked={!hasProAccess} tier="CREATOR" interactive={true} onClick={handleLockedClick}>
                                 <textarea 
                                   placeholder="e.g. Amber eyes, soft features, high cheekbones, natural skin texture..." 
@@ -926,8 +926,8 @@ const App: React.FC = () => {
                       <div className="space-y-6">
                           <div className="space-y-3">
                               <div className="flex flex-col gap-0.5 px-1">
-                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Lookbook Composition</label>
-                                <span className="text-[8px] text-zinc-600 font-medium">Define structural rendering mode</span>
+                                <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Lookbook Composition</label>
+                                <span className="text-[11px] text-zinc-400 font-medium">Define structural rendering mode</span>
                               </div>
                               
                               <div className="grid grid-cols-2 gap-3">
@@ -939,7 +939,7 @@ const App: React.FC = () => {
                                           <Square size={16} className={options.layout === LayoutMode.Single ? 'text-black' : 'text-zinc-400'} />
                                       </div>
                                       <div className="flex flex-col gap-0.5 text-left">
-                                          <span className={`text-[10px] font-black uppercase tracking-wider ${options.layout === LayoutMode.Single ? 'text-black' : 'text-white'}`}>Single View</span>
+                                          <span className={`text-[11px] font-black uppercase tracking-wider ${options.layout === LayoutMode.Single ? 'text-black' : 'text-white'}`}>Single View</span>
                                       </div>
                                   </button>
 
@@ -953,7 +953,7 @@ const App: React.FC = () => {
                                             <Columns size={16} className={`${options.layout === LayoutMode.Diptych ? 'text-black' : 'text-zinc-400'}`} />
                                         </div>
                                         <div className="flex flex-col gap-0.5 text-left w-full">
-                                            <span className={`text-[10px] font-black uppercase tracking-wider ${options.layout === LayoutMode.Diptych ? 'text-black' : 'text-white'}`}>Diptych Split</span>
+                                            <span className={`text-[11px] font-black uppercase tracking-wider ${options.layout === LayoutMode.Diptych ? 'text-black' : 'text-white'}`}>Diptych Split</span>
                                         </div>
                                     </button>
                                   </SpotlightGate>
@@ -962,14 +962,14 @@ const App: React.FC = () => {
 
                           <div className="space-y-4 pt-4 border-t border-zinc-800/50">
                               <div className="space-y-3">
-                                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1">Standard Aesthetics</label>
+                                  <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider pl-1">Standard Aesthetics</label>
                                   <div className="grid grid-cols-2 gap-3">
                                       {STANDARD_STYLES.map(s => <StyleButton key={s} label={s} isSelected={options.style === s} onClick={() => setOptions({...options, style: s})} />)}
                                   </div>
                               </div>
 
                               <div className="space-y-3 pt-2">
-                                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider px-1">Premium Styles</label>
+                                  <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider px-1">Premium Styles</label>
                                   <SpotlightGate isLocked={!hasProAccess} tier="CREATOR" interactive={true} onClick={handleProInterceptor}>
                                     <div className={`grid grid-cols-2 gap-3 transition-all`}>
                                         {PRO_STYLES.map(s => (
@@ -987,7 +987,7 @@ const App: React.FC = () => {
 
                           <div className="space-y-3 pt-4 border-t border-zinc-800/50">
                               <div className="space-y-1.5">
-                                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1">Scenery Details</label>
+                                  <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider pl-1">Scenery Details</label>
                                   <textarea placeholder="e.g. Modern concrete loft, soft morning light, minimalist furniture..." value={options.sceneDetails} onChange={(e) => setOptions({...options, sceneDetails: e.target.value})} className="w-full h-24 bg-black border border-zinc-800 rounded-md py-2 px-3 text-xs text-white focus:border-zinc-500 font-mono resize-none" />
                               </div>
                               <div className="pt-2">
@@ -1003,7 +1003,7 @@ const App: React.FC = () => {
               <button 
                   onClick={handleGenerate} 
                   disabled={isLoading || (!isFormValid && !isOutOfCredits)} 
-                  className={`w-full py-4 sm:py-5 rounded-md text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 transform active:scale-[0.98] shadow-2xl
+                  className={`w-full py-4 sm:py-5 rounded-md text-[11px] sm:text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 transform active:scale-[0.98] shadow-2xl
                   ${isLoading ? 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed opacity-50' : 
                     isOutOfCredits ? 'bg-amber-500 text-black hover:bg-amber-400' :
                     !isFormValid ? 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed opacity-50' :
@@ -1027,7 +1027,7 @@ const App: React.FC = () => {
                               <Sparkles size={16} /> 
                               <span>Generate Shoot</span>
                           </div>
-                          <div className="flex items-center gap-1 mt-1 opacity-60 text-[8px]">
+                          <div className="flex items-center gap-1 mt-1 opacity-60 text-[11px]">
                               <Coins size={10} />
                               <span>{currentCost} {currentCost === 1 ? 'CREDIT' : 'CREDITS'}</span>
                           </div>
@@ -1036,7 +1036,7 @@ const App: React.FC = () => {
               </button>
               {!isFormValid && !isLoading && !isOutOfCredits && isRestrictedActive && (
                 <div className="mt-1.5 text-center">
-                  <span className="text-[8px] font-black uppercase text-red-500 tracking-tighter">Selection includes locked features</span>
+                  <span className="text-[11px] font-black uppercase text-red-500 tracking-tighter">Selection includes locked features</span>
                 </div>
               )}
           </div>
@@ -1061,7 +1061,7 @@ const App: React.FC = () => {
                 SpotlightGate={SpotlightGate}
              />
              {generatedResult && session && (
-                <button onClick={saveToLibrary} disabled={isSaving || justSaved} className={`absolute top-6 right-6 px-4 py-2 sm:px-6 sm:py-3 rounded-md transition-all duration-300 flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest shadow-2xl backdrop-blur-md border z-20 ${justSaved ? 'bg-emerald-500 text-white border-emerald-400 scale-105' : isSaving ? 'bg-zinc-800 text-zinc-400 border-zinc-700 cursor-not-allowed' : 'bg-black/90 text-white border-zinc-700 hover:border-white hover:bg-black'}`}>
+                <button onClick={saveToLibrary} disabled={isSaving || justSaved} className={`absolute top-6 right-6 px-4 py-2 sm:px-6 sm:py-3 rounded-md transition-all duration-300 flex items-center gap-2 sm:gap-3 text-[11px] sm:text-xs font-black uppercase tracking-widest shadow-2xl backdrop-blur-md border z-20 ${justSaved ? 'bg-emerald-500 text-white border-emerald-400 scale-105' : isSaving ? 'bg-zinc-800 text-zinc-400 border-zinc-700 cursor-not-allowed' : 'bg-black/90 text-white border-zinc-700 hover:border-white hover:bg-black'}`}>
                   {isSaving ? <Loader2 size={14} className="animate-spin" /> : justSaved ? <Check size={14} strokeWidth={3} /> : saveError ? <AlertCircle size={14} className="text-red-400" /> : <Save size={14} />}
                   <span className="hidden xs:inline">{isSaving ? "Saving..." : justSaved ? "Saved!" : saveError ? "Retry" : "Archive"}</span>
                 </button>
