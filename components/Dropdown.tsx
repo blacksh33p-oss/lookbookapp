@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Check } from 'lucide-react';
+import { ChevronDown, Check, Lock } from 'lucide-react';
 
 interface DropdownProps<T> {
   label: string;
@@ -66,9 +66,10 @@ export const Dropdown = <T extends string>({
                   key={opt}
                   type="button"
                   onClick={() => handleOptionClick(opt)}
+                  aria-disabled={isLocked ? 'true' : undefined}
                   className={`w-full relative flex items-center justify-between px-4 py-3 text-xs text-left transition-all group 
-                    ${opt === value ? 'bg-zinc-900 text-white font-bold' : 'text-zinc-400 hover:bg-zinc-900/80 hover:text-zinc-200'}
-                    ${isLocked ? 'grayscale opacity-40 hover:opacity-70 cursor-pointer' : ''}`}
+                    ${opt === value ? 'bg-zinc-900 text-white font-bold' : 'text-zinc-400'}
+                    ${isLocked ? 'grayscale opacity-40 cursor-not-allowed' : 'hover:bg-zinc-900/80 hover:text-zinc-200'}`}
                 >
                   <div className="flex-1 min-w-0 mr-2">
                     <span className="block truncate">{opt}</span>
@@ -76,6 +77,12 @@ export const Dropdown = <T extends string>({
                   
                   {opt === value && !isLocked && (
                     <Check size={12} className="text-white shrink-0" />
+                  )}
+                  {isLocked && (
+                    <span className="flex items-center gap-1 text-[10px] uppercase tracking-widest text-zinc-500 shrink-0">
+                      <Lock size={12} />
+                      {onLockedClick && <span>Upgrade</span>}
+                    </span>
                   )}
                 </button>
               );
