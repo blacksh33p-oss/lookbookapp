@@ -646,7 +646,7 @@ const App: React.FC = () => {
               <div className="flex items-center gap-1.5 sm:gap-6">
                  {session && userProfile ? (
                     <div className="flex items-center gap-1.5 sm:gap-3 px-2 sm:px-3 py-1 rounded-full group cursor-pointer transition-all bg-gradient-to-r from-amber-500/25 via-amber-400/10 to-zinc-900/70 border border-amber-400/30 shadow-[0_0_18px_rgba(251,191,36,0.18)] ring-1 ring-amber-400/20 hover:shadow-[0_0_26px_rgba(251,191,36,0.3)] hover:border-amber-300/50" onClick={() => setShowUpgradeModal(true)}>
-                        <div className="flex items-center gap-1.5 px-1.5 border-r border-amber-400/20">
+                        <div className="flex items-center gap-1.5 px-1.5">
                            <Zap size={10} className="text-amber-400 fill-amber-400" />
                            <span className="text-[11px] font-black text-white">{userProfile.credits}</span>
                         </div>
