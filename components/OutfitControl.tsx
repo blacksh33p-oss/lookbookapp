@@ -49,7 +49,7 @@ export const OutfitControl: React.FC<OutfitControlProps> = ({ outfit, onChange }
         {/* Helper Banner */}
         <div className="bg-zinc-900/50 border border-zinc-800 p-3 rounded-md flex items-start gap-3">
             <Sparkles size={14} className="text-zinc-400 mt-0.5 shrink-0" />
-            <div className="text-[10px] text-zinc-400 leading-relaxed">
+            <div className="text-[11px] text-zinc-400 leading-relaxed">
                 <strong className="text-zinc-200">Less is more.</strong> If you upload a garment photo, you don't need to add text details unless you want to change something (e.g. "Make it red").
             </div>
         </div>
@@ -72,7 +72,7 @@ export const OutfitControl: React.FC<OutfitControlProps> = ({ outfit, onChange }
                             className={`w-full flex items-center justify-between p-3 text-left focus:outline-none transition-colors ${isExpanded ? 'bg-zinc-900' : 'hover:bg-zinc-900/50'}`}
                         >
                             <div className="flex items-center gap-3">
-                                <span className="text-[10px] font-mono text-zinc-600">{id}</span>
+                                <span className="text-[11px] font-mono text-zinc-400">{id}</span>
                                 
                                 {/* Thumbnail Preview in Header (Heuristic: Visibility) */}
                                 {hasImage && !isExpanded ? (
@@ -86,8 +86,8 @@ export const OutfitControl: React.FC<OutfitControlProps> = ({ outfit, onChange }
                                 {/* Status Badges */}
                                 {!isExpanded && (
                                   <div className="flex gap-1">
-                                    {hasImage && <span className="text-[9px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-700 flex items-center gap-1"><ImageIcon size={8} /> Img</span>}
-                                    {hasText && <span className="text-[9px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-700 flex items-center gap-1"><Info size={8} /> Txt</span>}
+                                    {hasImage && <span className="text-[11px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-700 flex items-center gap-1"><ImageIcon size={8} /> Img</span>}
+                                    {hasText && <span className="text-[11px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-700 flex items-center gap-1"><Info size={8} /> Txt</span>}
                                   </div>
                                 )}
                             </div>
@@ -102,8 +102,8 @@ export const OutfitControl: React.FC<OutfitControlProps> = ({ outfit, onChange }
                                         {/* Left Col: Image (Primary) */}
                                         <div className="order-1">
                                             <div className="flex justify-between items-center mb-2 h-5">
-                                                <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wide flex items-center gap-2">
-                                                    Reference <span className="bg-zinc-900 text-zinc-400 px-1 rounded text-[8px] border border-zinc-800">Priority</span>
+                                                <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wide flex items-center gap-2">
+                                                    Reference <span className="bg-zinc-900 text-zinc-400 px-1 rounded text-[11px] border border-zinc-800">Priority</span>
                                                 </label>
                                             </div>
                                             <ImageUploader 
@@ -118,10 +118,10 @@ export const OutfitControl: React.FC<OutfitControlProps> = ({ outfit, onChange }
                                         {/* Right Col: Size Chart */}
                                         <div className="order-2">
                                             <div className="flex justify-between items-center mb-2 h-5">
-                                                <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wide">Size Chart</label>
+                                                <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wide">Size Chart</label>
                                                 <div className="flex bg-black rounded border border-zinc-800 p-[1px]">
-                                                    <button onClick={() => setMode(key, 'image')} className={`px-1.5 py-0.5 text-[8px] uppercase font-medium rounded-sm ${sizeChartMode[key] === 'image' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-white'}`}>Img</button>
-                                                    <button onClick={() => setMode(key, 'text')} className={`px-1.5 py-0.5 text-[8px] uppercase font-medium rounded-sm ${sizeChartMode[key] === 'text' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-white'}`}>Txt</button>
+                                                    <button onClick={() => setMode(key, 'image')} className={`px-1.5 py-0.5 text-[11px] uppercase font-medium rounded-sm ${sizeChartMode[key] === 'image' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-white'}`}>Img</button>
+                                                    <button onClick={() => setMode(key, 'text')} className={`px-1.5 py-0.5 text-[11px] uppercase font-medium rounded-sm ${sizeChartMode[key] === 'text' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-white'}`}>Txt</button>
                                                 </div>
                                             </div>
                                             
@@ -137,7 +137,7 @@ export const OutfitControl: React.FC<OutfitControlProps> = ({ outfit, onChange }
                                                         value={item.sizeChartDetails}
                                                         onChange={(e) => updateItem(key, 'sizeChartDetails', e.target.value)}
                                                         placeholder="Paste size specs..."
-                                                        className="w-full h-24 bg-black border border-zinc-800 rounded-md px-3 py-2 text-[10px] text-white focus:border-zinc-500 resize-none font-mono"
+                                                        className="w-full h-24 bg-black border border-zinc-800 rounded-md px-3 py-2 text-[11px] text-white focus:border-zinc-500 resize-none font-mono"
                                                     />
                                                 )}
                                             </div>
@@ -147,9 +147,9 @@ export const OutfitControl: React.FC<OutfitControlProps> = ({ outfit, onChange }
                                         <div className="col-span-2 order-3 pt-2 border-t border-zinc-900 mt-2">
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-1.5">
-                                                    <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wide flex justify-between">
+                                                    <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wide flex justify-between">
                                                         Type 
-                                                        {hasImage && <span className="text-zinc-600 font-normal normal-case">Optional</span>}
+                                                        {hasImage && <span className="text-zinc-400 font-normal normal-case">Optional</span>}
                                                     </label>
                                                     <input 
                                                         type="text" 
@@ -161,9 +161,9 @@ export const OutfitControl: React.FC<OutfitControlProps> = ({ outfit, onChange }
                                                     />
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wide flex justify-between">
+                                                    <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wide flex justify-between">
                                                         Details
-                                                        {hasImage && <span className="text-zinc-600 font-normal normal-case">Optional</span>}
+                                                        {hasImage && <span className="text-zinc-400 font-normal normal-case">Optional</span>}
                                                     </label>
                                                     <input 
                                                         type="text" 
