@@ -452,6 +452,26 @@ const App: React.FC = () => {
              const { data: newProfile } = await supabase.from('profiles').insert([{ id: userId, email: email || 'unknown', tier: SubscriptionTier.Free, credits: 50 }]).select().single();
              if (newProfile) data = newProfile;
         }
+        if (data && data.tier === SubscriptionTier.Free) {
+            const hasMissingCredits = data.credits == null;
+            const hasLowCredits = typeof data.credits === 'number' && data.credits < 50;
+            if (hasMissingCredits || hasLowCredits) {
+                const { count: generationCount } = await supabase
+                    .from('generations')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('user_id', userId);
+                if ((generationCount ?? 0) === 0) {
+                    const { data: updatedProfile } = await supabase
+                        .from('profiles')
+                        .update({ credits: 50 })
+                        .eq('id', userId)
+                        .select('tier, credits')
+                        .single();
+                    if (updatedProfile) data = updatedProfile;
+                    else data = { ...data, credits: 50 };
+                }
+            }
+        }
         if (data) {
             setUserProfile({
                 tier: data.tier as SubscriptionTier || SubscriptionTier.Free,
