@@ -397,15 +397,22 @@ const App: React.FC = () => {
         referenceModelImage: undefined 
       };
 
-      const { error: dbError } = await supabase.from('generations').insert([{
+      const generationPayload = {
         image_url: publicCdnUrl,
         user_id: session.user.id,
         project_id: activeProjectId || null,
         config: leanConfig,
         width: width,
         height: height
-      }]);
-      
+      };
+
+      let dbError = (await supabase.from('generations').insert([generationPayload])).error;
+
+      if (dbError && /(column .*height|column .*width)/i.test(dbError.message)) {
+        const { width, height, ...fallbackPayload } = generationPayload;
+        dbError = (await supabase.from('generations').insert([fallbackPayload])).error;
+      }
+
       if (dbError) {
         setSaveError(true);
         showToast(`Cloud Sync Error: ${dbError.message}`, "error");
