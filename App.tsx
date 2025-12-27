@@ -93,27 +93,48 @@ interface ConfigSectionProps {
   icon: React.ElementType;
   children: React.ReactNode;
   defaultOpen?: boolean;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  sectionRef?: React.Ref<HTMLDivElement>;
 }
 
-const ConfigSection: React.FC<ConfigSectionProps> = ({ title, icon: Icon, children, defaultOpen = false }) => {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+const ConfigSection: React.FC<ConfigSectionProps> = ({
+  title,
+  icon: Icon,
+  children,
+  defaultOpen = false,
+  isOpen,
+  onOpenChange,
+  sectionRef
+}) => {
+  const [isOpenInternal, setIsOpenInternal] = useState(defaultOpen);
+  const isControlled = typeof isOpen === 'boolean';
+  const isOpenState = isControlled ? isOpen : isOpenInternal;
+
+  const setOpenState = (nextOpen: boolean) => {
+    if (!isControlled) {
+      setIsOpenInternal(nextOpen);
+    }
+    onOpenChange?.(nextOpen);
+  };
+
   return (
-    <div className="border-b border-zinc-800 bg-black/50 last:border-b-0 flex-shrink-0">
+    <div className="border-b border-zinc-800 bg-black/50 last:border-b-0 flex-shrink-0" ref={sectionRef}>
       <button 
-        onClick={() => setIsOpen(!isOpen)} 
+        onClick={() => setOpenState(!isOpenState)} 
         className="w-full flex items-center justify-between py-3 px-4 text-left focus:outline-none group hover:bg-zinc-900/50 transition-colors"
       >
         <div className="flex items-center gap-3">
-          <Icon size={14} className={`text-zinc-500 group-hover:text-white transition-colors ${isOpen ? 'text-white' : ''}`} />
+          <Icon size={14} className={`text-zinc-500 group-hover:text-white transition-colors ${isOpenState ? 'text-white' : ''}`} />
           <span className="font-mono text-xs font-medium tracking-wider text-zinc-300 group-hover:text-white transition-colors uppercase">
             {title}
           </span>
         </div>
-        <div className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
+        <div className={`transition-transform duration-200 ${isOpenState ? 'rotate-180' : ''}`}>
            <ChevronDown size={14} className="text-zinc-600 group-hover:text-white" />
         </div>
       </button>
-      {isOpen && (
+      {isOpenState && (
         <div className="p-4 pt-0 animate-fade-in relative">
             <div className={`mt-2 space-y-5 relative`}>
                 {children}
@@ -164,9 +185,11 @@ const App: React.FC = () => {
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
   
   const [selectedModel, setSelectedModel] = useState<'flash-2.5' | 'pro-3'>('flash-2.5');
+  const [isWardrobeOpen, setIsWardrobeOpen] = useState(true);
 
   const projectMenuRef = useRef<HTMLDivElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+  const wardrobeSectionRef = useRef<HTMLDivElement>(null);
 
   const [options, setOptions] = useState<PhotoshootOptions>({
     sex: ModelSex.Female, ethnicity: ModelEthnicity.Mixed, age: ModelAge.YoungAdult,
@@ -250,6 +273,13 @@ const App: React.FC = () => {
     } else {
       setShowUpgradeModal(true);
     }
+  };
+
+  const handleWardrobeJump = () => {
+    setIsWardrobeOpen(true);
+    requestAnimationFrame(() => {
+      wardrobeSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   };
 
   useEffect(() => {
@@ -858,7 +888,14 @@ const App: React.FC = () => {
               )}
 
               <div className="bg-black border border-zinc-800 rounded-lg overflow-hidden shadow-sm flex flex-col">
-                  <ConfigSection title="Wardrobe & Garments" icon={Shirt} defaultOpen={true}>
+                  <ConfigSection
+                    title="Wardrobe & Garments"
+                    icon={Shirt}
+                    defaultOpen={true}
+                    isOpen={isWardrobeOpen}
+                    onOpenChange={setIsWardrobeOpen}
+                    sectionRef={wardrobeSectionRef}
+                  >
                       <OutfitControl outfit={options.outfit} onChange={(newOutfit) => setOptions({ ...options, outfit: newOutfit })} />
                   </ConfigSection>
 
@@ -1060,6 +1097,18 @@ const App: React.FC = () => {
                       </div>
                   )}
               </button>
+              {!isFormValid && !isOutOfCredits && !isRestrictedActive && (
+                <div className="mt-2 text-center">
+                  <p className="text-[9px] text-zinc-400">Add at least one garment image or description.</p>
+                  <button
+                    type="button"
+                    onClick={handleWardrobeJump}
+                    className="mt-1 text-[8px] font-black uppercase tracking-widest text-white/70 hover:text-white transition-colors"
+                  >
+                    Open Wardrobe &amp; Garments
+                  </button>
+                </div>
+              )}
               {!isFormValid && !isLoading && !isOutOfCredits && isRestrictedActive && (
                 <div className="mt-1.5 text-center">
                   <span className="text-[11px] font-black uppercase text-red-500 tracking-tighter">Selection includes locked features</span>
