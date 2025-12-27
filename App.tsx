@@ -503,6 +503,10 @@ const App: React.FC = () => {
   };
 
   const handleGenerate = async () => {
+      if (isCreditsLoading) {
+          showToast('Loading credits...', 'info');
+          return;
+      }
       const userCredits = session ? (userProfile?.credits || 0) : (guestCredits || 0);
       if (userCredits < currentCost) {
           if (!session) {
@@ -629,8 +633,9 @@ const App: React.FC = () => {
 
   const activeProjectName = activeProjectId === null ? "Main Archive" : projects.find(p => p.id === activeProjectId)?.name || "Main Archive";
 
-  const userCredits = session ? (userProfile?.credits || 0) : (guestCredits || 0);
-  const isOutOfCredits = userCredits < currentCost;
+  const isCreditsLoading = isAuthLoading || (session ? userProfile === null : guestCredits === null);
+  const userCredits = session ? (userProfile?.credits ?? 0) : (guestCredits ?? 0);
+  const isOutOfCredits = !isCreditsLoading && userCredits < currentCost;
 
   return (
     <div className="h-[100dvh] w-full flex flex-col text-zinc-300 font-sans bg-black overflow-hidden relative">
@@ -1005,9 +1010,9 @@ const App: React.FC = () => {
           <div className="p-3 sm:p-4 bg-zinc-950/80 backdrop-blur-md border-t border-zinc-800 flex-shrink-0 relative">
               <button 
                   onClick={handleGenerate} 
-                  disabled={isLoading || (!isFormValid && !isOutOfCredits)} 
+                  disabled={isLoading || isCreditsLoading || (!isFormValid && !isOutOfCredits)} 
                   className={`w-full py-4 sm:py-5 rounded-md text-[11px] sm:text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 transform active:scale-[0.98] shadow-2xl
-                  ${isLoading ? 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed opacity-50' : 
+                  ${isLoading || isCreditsLoading ? 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed opacity-50' : 
                     isOutOfCredits ? 'bg-amber-500 text-black hover:bg-amber-400' :
                     !isFormValid ? 'bg-zinc-900 text-zinc-600 border border-zinc-800 cursor-not-allowed opacity-50' :
                     'bg-white text-black hover:bg-zinc-200'}`}
