@@ -192,8 +192,26 @@ export const LibraryDrawer: React.FC<LibraryDrawerProps> = ({ isOpen, onClose, a
         query = query.eq('project_id', activeProjectId);
       }
 
-      const { data, error, count } = await query;
-      
+      let { data, error, count } = await query;
+
+      if (error && /(column .*height|column .*width)/i.test(error.message)) {
+        let fallbackQuery = supabase
+          .from('generations')
+          .select('id, image_url, created_at, project_id', { count: 'exact' })
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false })
+          .range(from, to);
+
+        if (activeProjectId) {
+          fallbackQuery = fallbackQuery.eq('project_id', activeProjectId);
+        }
+
+        const fallbackResult = await fallbackQuery;
+        data = fallbackResult.data;
+        error = fallbackResult.error;
+        count = fallbackResult.count;
+      }
+
       if (error) throw error;
 
       if (data) {
