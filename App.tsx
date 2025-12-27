@@ -93,10 +93,17 @@ interface ConfigSectionProps {
   icon: React.ElementType;
   children: React.ReactNode;
   defaultOpen?: boolean;
+  openSignal?: number;
 }
 
-const ConfigSection: React.FC<ConfigSectionProps> = ({ title, icon: Icon, children, defaultOpen = false }) => {
+const ConfigSection: React.FC<ConfigSectionProps> = ({ title, icon: Icon, children, defaultOpen = false, openSignal }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  useEffect(() => {
+    if (openSignal !== undefined) {
+      setIsOpen(true);
+    }
+  }, [openSignal]);
   return (
     <div className="border-b border-zinc-800 bg-black/50 last:border-b-0 flex-shrink-0">
       <button 
@@ -164,9 +171,13 @@ const App: React.FC = () => {
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
   
   const [selectedModel, setSelectedModel] = useState<'flash-2.5' | 'pro-3'>('flash-2.5');
+  const [wardrobeOpenSignal, setWardrobeOpenSignal] = useState(0);
+  const [isWardrobeHighlighted, setIsWardrobeHighlighted] = useState(false);
 
   const projectMenuRef = useRef<HTMLDivElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+  const wardrobePanelRef = useRef<HTMLDivElement>(null);
+  const wardrobeHighlightTimeout = useRef<number | null>(null);
 
   const [options, setOptions] = useState<PhotoshootOptions>({
     sex: ModelSex.Female, ethnicity: ModelEthnicity.Mixed, age: ModelAge.YoungAdult,
@@ -243,6 +254,25 @@ const App: React.FC = () => {
 
   const showToast = (message: string, type: 'success' | 'error' | 'info') => setToast({ message, type });
 
+  const triggerWardrobeHighlight = () => {
+    if (wardrobeHighlightTimeout.current) {
+      window.clearTimeout(wardrobeHighlightTimeout.current);
+    }
+    setIsWardrobeHighlighted(true);
+    wardrobeHighlightTimeout.current = window.setTimeout(() => {
+      setIsWardrobeHighlighted(false);
+    }, 1800);
+  };
+
+  const handleEmptyStateStart = () => {
+    setActiveTab('editor');
+    setWardrobeOpenSignal((prev) => prev + 1);
+    window.setTimeout(() => {
+      wardrobePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      triggerWardrobeHighlight();
+    }, 120);
+  };
+
   const handleLockedClick = () => {
     if (!session) {
       setLoginModalView('signup');
@@ -251,6 +281,14 @@ const App: React.FC = () => {
       setShowUpgradeModal(true);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (wardrobeHighlightTimeout.current) {
+        window.clearTimeout(wardrobeHighlightTimeout.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -857,8 +895,11 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              <div className="bg-black border border-zinc-800 rounded-lg overflow-hidden shadow-sm flex flex-col">
-                  <ConfigSection title="Wardrobe & Garments" icon={Shirt} defaultOpen={true}>
+              <div
+                ref={wardrobePanelRef}
+                className={`bg-black border border-zinc-800 rounded-lg overflow-hidden shadow-sm flex flex-col transition-all ${isWardrobeHighlighted ? 'ring-1 ring-white/40 shadow-[0_0_25px_rgba(255,255,255,0.1)]' : ''}`}
+              >
+                  <ConfigSection title="Wardrobe & Garments" icon={Shirt} defaultOpen={true} openSignal={wardrobeOpenSignal}>
                       <OutfitControl outfit={options.outfit} onChange={(newOutfit) => setOptions({ ...options, outfit: newOutfit })} />
                   </ConfigSection>
 
@@ -1084,6 +1125,7 @@ const App: React.FC = () => {
                     executeGeneration({ ...options, seed, isModelLocked: keepModel }); 
                 }} 
                 isPremium={isPremium} error={error} 
+                onStart={handleEmptyStateStart}
                 SpotlightGate={SpotlightGate}
              />
              {generatedResult && session && (
