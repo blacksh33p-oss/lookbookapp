@@ -115,6 +115,10 @@ export const PoseControl: React.FC<PoseControlProps> = ({
           tooltipMessage="Upgrade to CREATOR to unlock Manual mode"
         >
           <button
+            onClick={() => {
+              if (!isPremium) return;
+              handleModeToggle(false);
+            }}
             className={`w-full py-2 px-3 text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all relative ${
               !isAutoMode ? 'bg-zinc-100 text-black' : 'bg-black text-zinc-500 hover:text-zinc-300'
             }`}

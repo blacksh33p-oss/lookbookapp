@@ -53,7 +53,7 @@ export const SpotlightGate: React.FC<{
     <div 
       className={`relative ${containerClassName} ${isLocked ? 'cursor-pointer' : ''}`}
       onClick={(e) => {
-        if (onClick) {
+        if (isLocked && onClick) {
           onClick();
         }
       }}
@@ -758,6 +758,11 @@ const App: React.FC = () => {
                           }}
                       >
                         <button
+                            onClick={() => {
+                              if (!session) return;
+                              if ((userProfile?.credits || 0) < 10) return;
+                              setSelectedModel('pro-3');
+                            }}
                             className={`w-full h-full py-2 px-2 rounded-md transition-all duration-200 flex flex-col items-center justify-center gap-0.5
                               ${selectedModel === 'pro-3' ? 'bg-zinc-100 text-black shadow-md' : 'text-zinc-400 hover:text-zinc-300 hover:bg-zinc-900/50'}`}
                         >
@@ -782,7 +787,13 @@ const App: React.FC = () => {
                   setOptions({...options, enable4K: !options.enable4K});
                 }}
               >
-                <div className={`flex items-center justify-between p-3 bg-zinc-900/30 border border-zinc-800 rounded-md transition-opacity pr-4 ${selectedModel === 'flash-2.5' ? 'opacity-40' : ''}`}>
+                <div
+                  onClick={() => {
+                    if (!isStudio || selectedModel === 'flash-2.5') return;
+                    setOptions({ ...options, enable4K: !options.enable4K });
+                  }}
+                  className={`flex items-center justify-between p-3 bg-zinc-900/30 border border-zinc-800 rounded-md transition-opacity pr-4 ${selectedModel === 'flash-2.5' ? 'opacity-40' : ''}`}
+                >
                     <div className="flex items-center gap-3 overflow-hidden flex-1">
                         <div className={`p-2 rounded bg-zinc-800/50 border border-zinc-700 shrink-0`}>
                             <Monitor size={14} className="text-zinc-400" />
