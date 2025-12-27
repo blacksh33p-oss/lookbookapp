@@ -18,6 +18,13 @@ create table if not exists generations (
   created_at timestamptz not null default now()
 );
 
+-- Ensure schema includes width/height for existing tables
+alter table if exists generations
+  add column if not exists width integer;
+
+alter table if exists generations
+  add column if not exists height integer;
+
 -- Ensure existing foreign keys use ON DELETE CASCADE
 alter table if exists projects
   drop constraint if exists projects_user_id_fkey;
